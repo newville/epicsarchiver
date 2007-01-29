@@ -1,32 +1,31 @@
-DROP TABLE IF EXISTS cache;
-CREATE TABLE cache (
-  id     int(10) unsigned NOT NULL auto_increment,
-  name   varchar(64) default NULL,
-  type   varchar(64) default NULL,
-  value  varchar(64) default NULL,
-  cvalue varchar(64) default NULL,
-  ts     double NOT NULL,
-  PRIMARY KEY  (id)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+drop database  if exists pvcache;
 
+create database pvcache;
+use pvcache;
 
-DROP TABLE IF EXISTS info;
-CREATE TABLE info (
-  id int(10) unsigned NOT NULL auto_increment,
-  ts double default NULL,
-  datetime varchar(128) default NULL,
-  pid int(10) unsigned default NULL,
-  PRIMARY KEY  (id)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+drop table if exists cache;
+drop table if exists info;
+drop table if exists req;
 
-LOCK TABLES info WRITE;
-INSERT INTO info VALUES (1,0.0,'Created',0);
-UNLOCK TABLES;
+create table cache (
+  id     int(10) unsigned not null auto_increment,
+  name   varchar(64) default null,
+  type   varchar(64) default null,
+  value  varchar(64) default null,
+  cvalue varchar(64) default null,
+  ts     double not null,
+  primary key  (id));
 
-DROP TABLE IF EXISTS req;
-CREATE TABLE req (
-  id int(10) unsigned NOT NULL auto_increment,
-  name varchar(64) default NULL,
-  PRIMARY KEY  (id)
-) ENGINE=InnoDB ;
+create table req (
+  id int(10) unsigned not null auto_increment,
+  name varchar(64) default null,
+  primary key  (id));
 
+create table info (
+  id int(10) unsigned not null auto_increment,
+  ts double default null,
+  datetime varchar(128) default null,
+  pid int(10) unsigned default null,
+  primary key  (id));
+
+insert into info values (1,0.0,'created',0);
