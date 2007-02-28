@@ -1,21 +1,24 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
-from EpicsCA import PV
-from SimpleDB import SimpleDB, SimpleTable
-from pvcache import PVCache, normalize_pvname
-from db_connection import dbuser,dbpass,dbhost,dblogdir
-import time,sys,os,getopt
+from   EpicsCA import PV
+from   SimpleDB import SimpleDB, SimpleTable
+from   pvcache import PVCache, normalize_pvname, es
+import time
+import sys
+import os
+import getopt
 import random
 
-es = SimpleDB.escape_string
+from db_connection import dbuser,dbpass,dbhost,dblogdir
 
 MAX_EPOCH = 2**31
 
 def get_force_update_time():
-    """ inserts will be forced for stale values between 15 and 20 hours after last insert
+    """ inserts will be forced for stale values between 18 and 21 hours after last insert
     this will spread out inserts, but mean that a value is written in every 24 hour period.
     """
-    return 18000.0*(3.0 + random.random())
+    return 10800.0*(6 + random.random())
+    
 
 class ArchiveMaster:
     pvarch_init = ("DROP TABLE IF EXISTS PV",
@@ -31,12 +34,12 @@ class ArchiveMaster:
     def get_currentDB(self):
         self.db.execute("select DB from CURRENT")
         return self.db.fetchone()['db']
-
+ 
     def save_db(self,dbname=None):
         if dbname is None: dbname = self.get_currentDB()
+        print 'saving ', dbname
         self.db.use(dbname)
         self.db.safe_dump(compress=True)
-
         self.db.use('pvarchives')
         
     def set_runinfo(self,dbname=None):
@@ -67,56 +70,10 @@ class ArchiveMaster:
         r = self.db.fetchone()
         self.db.execute("update CURRENT set DB=%s" % es(r['db']))
 
-    def get_related_pvs(self,pv,minscore=1):
-        npv = normalize_pvname(pv)        
-        q = "select * from PAIRS where %s=%s and SCORE>=%i order by SCORE"
-        tmp = []
-        for i in ('PV1','PV2'):
-            self.db.execute(q % (i,es(npv),minscore))
-            for j in  self.db.fetchall(): tmp.append((j['score'],j['pv1'].strip(),j['pv2'].strip()))
-        tmp.sort()
-        out = []
-        
-        for i in tmp:
-            n = normalize_pvname(i[1])
-            if n == npv: n =i[2]
-            if n != npv and n not in out: out.append(n)
-        out.reverse()
-        return out
-
-
-    def get_pair_score(self,pv1,pv2):
-        p = [pv1.strip(),pv2.strip()] ;  p.sort()
-        i = self.db.exec_fetch("select SCORE from PAIRS where PV1=%s and PV2=%s" % (es(p[0]),es(p[1])))
-        try:
-            return int(i[0]['score'])
-        except:
-            return 0
-
-    def increment_pair_score(self,pv1,pv2):
-        p = [pv1.strip(),pv2.strip()] ;  p.sort()
-        score = 1 + self.get_pair_score(p[0],p[1])
-        if score == 1:
-            self.db.execute("insert into PAIRS VALUES (%s,%s,%i)" % (es(p[0]),es(p[1]),score))
-        else:
-            self.db.execute("update PAIRS set SCORE=%i where PV1=%s and PV2=%s" % (score,es(p[0]),es(p[1])))
-
-    def set_pair_score(self,pv1,pv2,score):
-        p = [pv1.strip(),pv2.strip()] ;  p.sort()
-        s = self.get_pair_score(p[0],p[1])
-        if s == 0:
-            self.db.execute("insert into PAIRS VALUES (%s,%s,%i)" % (es(p[0]),es(p[1]),score))
-        else:
-            self.db.execute("update PAIRS set SCORE=%i where PV1=%s and PV2=%s" % (score,es(p[0]),es(p[1])))
-
-    def get_all_scores(self,pv1,pv2,score):
-        self.db.exec_fetch("select * from PAIRS")
-
     def show_status(self):
         self.db.execute("select * from CURRENT")
         r = self.db.fetchone()
-        out = []
-        out.append("Current Database=%s,  status=%s,  PID=%i\n" % (r['db'], r['status'],r['pid']))
+        print "Current Database=%s,  status=%s,  PID=%i " % (r['db'], r['status'],r['pid'])
         self.db.use(r['db'])
         n = []
         minutes = 10
@@ -126,9 +83,8 @@ class ArchiveMaster:
             n.append(len(self.db.fetchall()))
         tot = 0
         for i in n: tot = tot + i
-        out.append("%i values archived in past %i minutes\n"  % (tot , minutes))
+        print "%i values archived in past %i minutes"  % (tot , minutes)
         self.db.use('pvarchives')
-        return out
         
     def show_tables(self):
         self.db.execute("select * from CURRENT")
@@ -199,19 +155,15 @@ class ArchiveMaster:
                                                                                      MAX_EPOCH,MAX_EPOCH))
         return dbname
     
-    def dbs_for_time(self, t0=86400.0,t1=2**32):
-        """ return list of databases with data in the given time range"""
-        x1 = min(t0,t1)
-        x2 = max(t0,t1)
-        q = 'select DB from RUNS where STOP_TIME>=%i and START_TIME<=%i order by START_TIME'
-        self.db.execute(q % (x1-86400.0,x2+86400.0))
-        r = []
-        x = self.db.fetchall()
-        # print 'xx: ', x
-        for i in x:
-            if i['db'] not in r: r.append(i['db'])
-        return r
+    def db_for_time(self, t=0):
+        """ return name of database with START_TIME data at or before a given time.  """
 
+        for offset in (0, 3*86400.): 
+            self.db.execute('select * from RUNS where START_TIME<=%i order by START_TIME desc limit 1' % (t-offset))
+            r  = self.db.fetchone()
+            if r.has_key('db'): return r['db']
+        return None
+            
 class Archiver:
     MIN_TIME = 1000000
     def __init__(self,dbname=None,**args):
@@ -233,14 +185,7 @@ class Archiver:
 
         if self.master is None: self.master = ArchiveMaster()
         if self.dbname is None: self.dbname = self.master.get_currentDB()
-        self.pvs    = {}
-        self.pvinfo = {}
-        self.last_insert = {}
-
         self.cache  = PVCache()
-        self.is_init = False
-        self.cache_names = self.cache.get_pvlist()
-        
         self.db = SimpleDB(db=self.dbname,
                            user=self.dbuser,
                            passwd=self.dbpass,
@@ -248,8 +193,13 @@ class Archiver:
                            messenger=self.messenger,
                            debug=self.debug)
         
-    def initialize(self):
-        self.initialize_data()
+    def sync_with_cache(self):
+        self.pvinfo = {}
+        self.last_insert = {}
+        db_pvs = self.db.tables['PV'].select()
+        # print 'Sync with cache ', len(db_pvs)
+        self.cache_names = self.cache.get_pvlist()
+        for pv in db_pvs:  self.initialize_data(pv)
         self.check_for_new_pvs()
 
     def check_for_new_pvs(self):
@@ -263,61 +213,21 @@ class Archiver:
     def db_for_time(self,t):
         return self.master.db_for_time(t)
 
-    def get_pv(self,pvname):
-        " "
-        if pvname in self.pvs.keys(): return self.pvs[pvname]
-        try:
-            p = self.pvs[pvname] = PV(pvname)
-            return p
-        except:
-            return None
-
     def get_data(self,pvname,t0,t1):
         "get data from database"
-        if pvname is None: return []
-        pvname = normalize_pvname(pvname)        
-        if not pvname in self.pvinfo.keys():
-            self.lookup_pvinfo(pvname)
-
-        table,pvid,dtime,dband,ftime = self.pvinfo[pvname]
-
-        tquery = "select DATA_TABLE,ID from PV where PV_NAME =%s"
-        fquery = 'select TIME,VALUE from %s where PV_ID=%i and TIME<=%f order by TIME desc limit 1'
-        squery = 'select TIME,VALUE from %s where PV_ID=%i and TIME>=%f and TIME<=%f order by TIME'
+        if not self.pvinfo.has_key(pvname): return []
+        
+        db0 = self.master.db_for_time(t0)
+        db1 = self.master.db_for_time(t1)
         dat = []
-        has_firstpoint = False
-        tnow = time.time()
-        with_current=False
-        if abs(t1-tnow) < 86400.0: with_current=True
-        try:
-            for db in self.master.dbs_for_time(t0,t1):
-                self.db.use(db)
-                r = self.db.exec_fetch(tquery % es(pvname))[0]
-                table = r['data_table']
-                pvid  = r['id']
-                if not has_firstpoint:
-                    r = self.db.exec_fetch(fquery % (table,pvid,t0))[0]
-                    dat = [(r['time'],r['value'])]
-                    has_firstpoint = True
-                self.db.execute(squery % (table,pvid,t0,t1))
-            r = self.db.fetchall()
-            for i in r:  dat.append((i['time'],i['value']))
-            if with_current:
-                i = self.cache.get_full(pvname)
-                dat.append((i['ts'], i['value']))
-                dat.append((time.time(), i['value']))          
-        except:
-            pass
-        dat.sort()
+        table = self.pvinfo[pvname]['data_table']
+        pvid  = self.pvinfo[pvname]['id']
+        for db in (db0,db1):
+            self.db.use(db)
+            self.db.execute('select TIME,VALUE from %s where PV_ID=%i and TIME>=%f and TIME<=%f order by TIME' %                       (table,pvid,t0,t1))
+            for i in self.db.fetchall():
+                dat.append((i['time'],i['value']))
         return dat
-
-    def get_related_pvs(self,pvname):
-        return self.master.get_related_pvs(pvname,minscore=1)
-
-    def increment_pair_score(self,pv1,pv2):
-        npv1 = normalize_pvname(pv1)
-        npv2 = normalize_pvname(pv2)
-        self.master.increment_pair_score(npv1,npv2)
 
     def write(self,s):
         self.messenger.write(s)
@@ -327,7 +237,6 @@ class Archiver:
         
     def add_pv(self,name,description=None,graph={},deadtime=None,deadband=None):
         """add PV to the database"""
-        if name is None: return
         pvname = normalize_pvname(name)
         if pvname in self.pvinfo.keys():
             self.write("PV %s is already in database.\n" % pvname)
@@ -335,7 +244,7 @@ class Archiver:
 
         # create an Epics PV, check that it's valid
         try:
-            pv = self.pvs[pvname] = PV(pvname)
+            pv = PV(pvname)
             typ = pv.type
             count = pv.count
         except:
@@ -350,14 +259,16 @@ class Archiver:
         
         # determine data table
         table = "PVDAT%3.3i" % ((hash(pvname) % 128) + 1)
+        
 
         # determine descrption (don't try too hard!)
         if (description == None):
             if pvname.endswith('.VAL'):
                 descpv  = pvname + '.DESC'
             try:
-                dp = self.pvs[descpv] = PV(descpv)
+                dp = PV(descpv)
                 description = dp.char_value
+                dp.disconnect()
             except:
                 pass
         if description == None: description = ''
@@ -396,14 +307,11 @@ class Archiver:
                                     graph_hi   = gr['high'],
                                     graph_type = gr['type'])
 
-        # print 'ARCHIVE  added PV ', pvname, dtype, table
-
-        if pvname not in self.get_pvlist(): self.cache.add_pv(pvname)
-        
         r = self.db.tables['PV'].select_where(pv_name=pvname)[0]
         ftime = get_force_update_time()
         self.pvinfo[pvname] = (r['data_table'],r['id'],r['deadtime'],r['deadband'], ftime)
         self.last_insert[name] = [0,None]
+        pv.disconnect()
         
     def get_pvlist(self):
         return self.cache.get_pvlist()        
@@ -420,58 +328,37 @@ class Archiver:
         else:
             self.add_pv(pvname)
     
-    def lookup_pvinfo(self,pvname,pvid=None,table=None,dtime=None,dband=None):
-        name = normalize_pvname(pvname)
+    def initialize_data(self,pv):
+        nam_x = pv['pv_name']
+        pvid  = pv['id']
+        table = pv['data_table']
+        dtime = pv['deadtime']
+        dband = pv['deadband']
 
-        if pvid is None or table is None or dtime is None or dband is None:
-            self.db.execute('select * from PV where PV_NAME=%s' % es(name))
-            pv = self.db.fetchone()
-            try:
-                pvid  = pv['id']
-                table = pv['data_table']
-                dtime = pv['deadtime']
-                dband = pv['deadband']
-            except:
-                return 
-            
-        retval = None
-        if name not in self.cache_names:  retval = name
-        
+        name = normalize_pvname(nam_x)
+        if name not in self.cache_names:  self.cache.add_pv(name)
+
         ftime = get_force_update_time()
         self.pvinfo[name]      = (table,pvid,dtime,dband, ftime)
         self.last_insert[name] = (0,None)
+
         t0 = int(time.time() - 86400)
-            
-        self.db.execute("""select PV_ID,TIME,VALUE from %s where PV_ID=%i and TIME>%i ORDER BY TIME DESC LIMIT 1""" % (table, pvid,t0))
-        
-        d = self.db.fetchone()
+
+        self.db.execute("""select TIME,VALUE from %s where PV_ID=%i and TIME>%i ORDER BY TIME DESC LIMIT 1""" % (table, pvid,t0))
+        db_dat = self.db.fetchone()
         try:
-            self.last_insert[name] = (d['time'],d['value'])
+            self.last_insert[name] = (db_dat['time'],db_dat['value'])
         except:
+            print 'no old data found for ', name, db_dat
             r= self.cache.get_full(name)
-            if r['value'] is not None:    self.update_value(name,table,pvid,r['value'])
+            if r['value'] is not None and r['ts'] is not None:
+                self.update_value(name,table,pvid,r['ts'],r['value'])
 
-        return retval
-        # 
-        
-    def initialize_data(self,sync_with_cache=True):
-        _for_cache = []
-        self.is_init = True        
-        for pv in self.db.tables['PV'].select():
-            x  = self.lookup_pvinfo(pv['pv_name'],pv['id'],pv['data_table'],pv['deadtime'],pv['deadband'])
-            if x is not None: _for_cache.append(x)
-
-        if sync_with_cache:
-            for i in _for_cache:
-                self.cache.add_pv(i)
-                
-
-
-    def update_value(self,name,table,pvid,val):
-        ts = time.time()
+    def update_value(self,name,table,pvid,ts,val):
+        if ts is None or ts < self.MIN_TIME: ts = time.time()
+        sql  = "INSERT delayed into %s (PV_ID,TIME,VALUE) values (%i,%i,%s)" % (table, pvid, int(ts), es(val))
         try:
-            self.db.execute("INSERT delayed into %s (PV_ID,TIME,VALUE) values (%i,%i,%s)"  %
-                            (table, pvid, int(ts), es(val)))
+            self.db.execute(sql)
         except TypeError:
             self.write("cannot update %s\n")
         self.last_insert[name] =  (ts,val)
@@ -480,6 +367,7 @@ class Archiver:
         """ get list of name,type,value,cvalue,ts from cache """
         return self.cache.get_recent(dt=dt)
 
+    
     def collect(self):
         newvals, forced = [],[]
         for dat in self.get_cache_changes():
@@ -501,13 +389,17 @@ class Archiver:
                     except:
                         pass
                 if do_save:
-                    self.update_value(name,table,pvid,val)
-                    newvals.append((str(name),str(val)))
+                    self.update_value(name,table,pvid,ts,val)
+                    newvals.append((str(name),str(val),ts))
 
-        if (time.time() - self.force_checktime) >= 900.0:
+        if (time.time() - self.force_checktime) >= 600.0:
+            # Note: this is Very Important, or too many
+            # PV connections will be created on the IOCs
+
             # now check for stale values
             self.force_checktime = time.time()
             self.write('looking for stale values, checking for new settings...\n')
+            print 'looking for stale values, checking for new settings...'
             self.check_for_new_pvs()
             for name,data in self.last_insert.items():
                 last_ts,last_val = data
@@ -516,28 +408,33 @@ class Archiver:
                 tnow = time.time()
                 if last_ts is None:  last_ts = 0
                 if tnow-last_ts > ftime:
-                    test_pv = self.get_pv(name)
-                    if test_pv is None:
-                        self.last_insert[name] = (tnow-ftime+7200.0,None)
-                        self.write(" PV not connected: %s\n" % name)
+                    r = self.cache.get_full(name)
+                    if r['type'] is None and r['value'] is None: # an empty / non-cached PV?
+                        try:
+                            test_pv = PV(name)
+                            if (test_pv is None or not test_pv.connected):
+                                self.last_insert[name] = (tnow-ftime+7200.0,None)
+                                self.write(" PV not connected: %s\n" % name)
+                            else:
+                                r['value'] = test_pv.value
+                            test_pv.disconnect()
+                        except:
+                            pass
                     else:
-                        r = self.cache.get_full(name)
-                        self.update_value(name,table,pvid,r['value'])
-                        forced.append((str(name),str(r['value'])))
+                        self.update_value(name,table,pvid,tnow,r['value'])
+                        forced.append((str(name),str(r['value']),tnow))
+                    
         return newvals,forced
 
     def show_changed(self,l,prefix=''):
         for v in l:
-            self.write("%s  %.30s = %.30s  / %s\n" % (prefix,
-                                                      v[0]+' '*30,
-                                                      v[1]+' '*30,
-                                                      time.ctime(v[2])))
+            self.write("%s  %.30s = %.30s  / %s\n" % (prefix, v[0]+' '*30,
+                                                      v[1]+' '*30, time.ctime(v[2])))
         
     def mainloop(self,verbose=False):
         t0 = time.time()
-
         self.write( 'connecting to database %s ... \n' % self.dbname)
-        self.initialize()
+        self.sync_with_cache()
         
         self.write("done. DB connection took %6.3f sec\n" % (time.time()-t0))
         self.write("connecting to %i Epics PVs ... \n" % ( len(self.pvinfo) ))
@@ -568,6 +465,7 @@ class Archiver:
                     t_lastlog = time.time()
 
             except KeyboardInterrupt:
+                print 'Interrupted by user.'
                 return None
             
             status = self.master.get_status()
@@ -580,7 +478,6 @@ class Archiver:
         return None
     
 ###
-
 def do_collect(master=None,test=False):
     if master is None: master  = ArchiveMaster()
     
@@ -595,6 +492,7 @@ def do_next(master):
     dbname  = master.get_currentDB()
    
     next_db = master.make_nextdb()
+    print 'next database = %s ' % next_db
     master.request_stop()
     master.set_pid(0)
     master.set_currentDB(next_db)
@@ -626,28 +524,29 @@ def main():
     for (k,v) in opts:
         if k in ("-h", "--help"): cmd = None
 
+    if cmd not in ('status','start', 'debug', 'stop', 'next', 'list',
+                   'save','add_pv','drop_pv'):
+        show_usage()
+
     m = ArchiveMaster()
-    if cmd == 'status':
-        for i in m.show_status(): print i
+    if   cmd == 'status':    m.show_status()
     elif cmd == 'start':     do_collect(m)
     elif cmd == 'debug':     do_collect(m,test=True)    
     elif cmd == 'next':      do_next(m)
     elif cmd == 'stop':      m.request_stop()
     elif cmd == 'list':      m.show_tables()
     elif cmd == 'save':
-        if len(args)==0:     m.save_db()
+        if len(args)==0:
+            m.save_db()
         else:
             for i in args:   m.save_db(dbname=i)
     elif cmd == 'add_pv':
         for pvname in args:  m.add_pv(pvname)
     elif cmd == 'drop_pv':
         for pvname in args:  m.drop_pv(pvname)
-    elif cmd == 'setrun':
-        for db in args:      m.set_runinfo(db)
+
     else:
-        show_usage()
+        print 'wha?'
     
 if __name__ == '__main__':
     main()
-    
-
