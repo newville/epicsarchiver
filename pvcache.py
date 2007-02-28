@@ -1,5 +1,5 @@
 #!/usr/bin/env python
- 
+
 import SimpleDB
 import EpicsCA
 import os
@@ -34,35 +34,28 @@ class PVCache:
         self.data = {}
         self.pvs  = {}
         self.pid  = os.getpid()
-        if pvfile is not None: self.read_pvfile(pvfile)
+        if pvfile is not None: self.read_pvlist(pvfile)
         self.get_pvlist()        
 
-    def read_pvfile(self,fname):
+    def read_pvlist(self,fname):
+        print 'read pvlist ', fname
         f = open(fname,'r')
-        for pvname in f.readlines():
-            self.add_pv(pvname[:-1])
+        for i in f.readlines():  self.add_pv(i[:-1])
         f.close()
         self.process_requests()
-
-    def write_pvfile(self,fname):
-        f = open(fname,'w')
-        self.get_pvlist()
-        for p in self.pvlist: f.write("%s\n"%p)
-        f.close()
+        print 'end of read pvlist'
 
     def epics_connect(self,pvname):
-        try:
-            p = EpicsCA.PV(pvname) # , callback=self.onChanges)
-            self.pvs[pvname] = p
-            self.set_value(pv=p)
-            return True
-        except:
-            return False
+        p = EpicsCA.PV(pvname) # , callback=self.onChanges)
+        EpicsCA.pend_io(1.0)
+        if not p.connected:  return False
+        self.pvs[pvname] = p
+        self.set_value(pv=p)
+        return True
 
     def onChanges(self,pv=None):
         if not isinstance(pv,EpicsCA.PV): return 
-        if pv.status == 1 and pv.severity == 0:
-            self.data[pv.pvname] = (pv.value , pv.char_value, time.time())
+        self.data[pv.pvname] = (pv.value , pv.char_value, time.time())
         
     def start_group(self):
         self.data   = {}
@@ -85,7 +78,7 @@ class PVCache:
         
         for i,pvname in enumerate(self.pvlist):  
             try:
-                pv = EpicsCA.PV(pvname,connect=True,connect_time=0.1, use_numpy=False)
+                pv = EpicsCA.PV(pvname,connect=True,connect_time=0.25, use_numpy=False)
                 self.pvs[pvname] = pv
             except KeyboardInterrupt:
                 return
@@ -95,7 +88,9 @@ class PVCache:
             
     def connect_pvs(self):
         self.get_pvlist()
-        print 'PVCache connecting to %i PVs ' %  len(self.pvlist)
+        npvs = len(self.pvlist)
+        n_notify = npvs / 10
+        # print 'PVCache connecting to %i PVs ' %  npvs
         for i,pvname in enumerate(self.pvlist):  
             try:
                 pv = EpicsCA.PV(pvname,connect=False)
@@ -109,18 +104,17 @@ class PVCache:
         for i,pvname in enumerate(self.pvlist):
             try:
                 pv = self.pvs[pvname]
-                pv.connect(connect_time=0.1)
+                pv.connect(connect_time=0.25)
                 pv.set_callback(self.onChanges)
                 self.data[pvname] = (pv.value , pv.char_value, time.time())
             except KeyboardInterrupt:
                 self.exit()
             except:
                 print 'connection failed for ', pvname
-            if i % 50 == 0:
+            if i % n_notify == 0:
                 EpicsCA.pend_io(0.25)
-                sys.stdout.write('. ')
+                sys.stdout.write('%.2f ' % (float(i)/npvs))
                 sys.stdout.flush()
-                
         self.end_group()
         
     def mainloop(self):
@@ -130,10 +124,11 @@ class PVCache:
         self.connect_pvs()
         self.set_pid(self.pid)
         print 'connected in %.1f seconds.  Caching process = %i ...' % (time.time()-t0,self.pid)
+
         while True:
             try:
                 self.start_group()
-                EpicsCA.pend_event(0.25)
+                EpicsCA.pend_event(0.1)
                 self.end_group()
                 self.set_date()
                 self.process_requests()
@@ -145,7 +140,7 @@ class PVCache:
 
     def exit(self):
         EpicsCA.cleanup()
-        for i in self.pvs.values(): i = None
+        for i in self.pvs.values(): i.disconnect()
         EpicsCA.pend_io(1.0)
         sys.exit()
                    
@@ -167,6 +162,7 @@ class PVCache:
         self.cursor.execute('commit')
         return r
 
+    
     def get_pid(self):
         t = self.sql_exec_fetch("select pid from info")
         return t[0]['pid']
@@ -187,6 +183,7 @@ class PVCache:
         ret = null_pv_value
         if add and (npv not in self.pvlist):
             self.add_pv(npv)
+            print 'adding PV.....'
             time.sleep(1.0)
             return self.get_full(pv,add=False)
         try:
@@ -203,6 +200,7 @@ class PVCache:
 
 
     def set_value(self,pv=None,**kws):
+        print 'Set Value ', pv, pv.value, pv.char_value, pv.pvname
         v    = [es(i) for i in [pv.value,pv.char_value,time.time(),pv.pvname]]
         qval = "update cache set value=%s,cvalue=%s,ts=%s where name=%s" % tuple(v)
         self.cursor.execute(qval)
@@ -211,20 +209,8 @@ class PVCache:
         """request a PV to be included in caching.
         will take effect once a 'process_requests' is executed."""
         npv = normalize_pvname(pv)
-        if self.epics_connect(npv):
-            self.cursor.execute('begin')
-            self.sql_exec("insert into req(name) values (%s)" % es(npv))
-            idot = npv.find('.')
-            if idot == -1: idot = len(npv)
-            prefix = npv[:idot]
-            if EpicsCA.caget("%s.RTYP"% prefix) == 'motor':
-                for suf in ('DIR','FOFF','HLS','LLS','OFF','SET','SPMG'):
-                    xpv = '%s.%s' % (prefix,suf)
-                    self.sql_exec("insert into req(name) values (%s)" % es(xpv))
-                    # self.sql_exec("insert into pairs(pv1,pv2,score) values (%s,%s,10)" % (es(npv),es(xpv)))
-            self.cursor.execute('commit')                            
-        
-
+        if npv not in self.pvlist:
+            self.sql_exec("insert into req(name) values (%s)" % es(npv),commit=True)
         
     def drop_pv(self,pv):
         """delete a PV from the cache
@@ -232,7 +218,6 @@ class PVCache:
         will take effect once a 'process_requests' is executed."""
         npv = normalize_pvname(pv)
         self.get_pvlist()
-        print 'Dropping ', npv
         if npv in self.pvlist:
             self.sql_exec("delete from cache where name=%s" % es(npv),commit=True)
         self.get_pvlist()        
@@ -248,6 +233,7 @@ class PVCache:
         if len(req) == 0: return
         self.get_pvlist()
         print 'adding %i new PVs' %  len(req)
+
         self.begin_transaction()
         cmd = 'insert into cache(ts,name,value,cvalue,type) values'
         for n, r in enumerate(req):
@@ -261,11 +247,12 @@ class PVCache:
                     self.pvlist.append(nam)
                     self.pvs[nam].set_callback(self.onChanges)                    
                 else:
-                    print 'cache request: invalid pv ', nam
+                    print 'cache/process_req: invalid pv ', nam
+                
             self.sql_exec("delete from req where name=%s" % (es(nam)))
         self.commit_transaction()
         self.get_pvlist()
-    
+
     def get_recent(self,dt=60):
         tx = time.time() - dt
         self.begin_transaction()
@@ -282,7 +269,7 @@ class PVCache:
             for  r in ret:
                 print "  %s %.25s = %s" % (time.strftime("%H:%M:%S",time.localtime(r['ts'])),r['name']+' '*20,r['value'])
             print '%i PVs had values updated in the past %i seconds. pid=%i' % (len(ret),dt,pid)
-        return (ret,dt,pid)
+        return len(ret)
 
 #####################
 def show_usage():
@@ -307,19 +294,15 @@ def main():
     for (k,v) in opts:
         if k in ("-h", "--help"): cmd = None
 
-    # 
     p   = PVCache()
-    if   cmd == 'test_connect':   p.test_connect()
-    if   cmd in ('status','check'):
-        dt    = 60.
-        brief = False
-        if cmd == 'check': brief = True
-        if len(args)>0: dt = int(args.pop())
-        p.cache_status(brief=brief,dt=dt)
-        if brief:
-            print "%i  pid=%i" % (len(stat[0]), stat[2])
-    elif cmd == 'restart':   p.mainloop()
+    if   cmd == 'status':    p.cache_status(brief=False)
+    elif cmd == 'connect':   p.test_connect()
+    elif cmd == 'check':     print p.cache_status(brief=True)
+    elif cmd == 'start':     p.mainloop()
     elif cmd == 'stop':      p.shutdown()
+    elif cmd == 'restart':
+        p.shutdown()
+        p.mainloop()
     elif cmd == 'get':
         for pvname in args:
             v =  p.get_full(pvname,add=True)
@@ -328,12 +311,11 @@ def main():
         for pvname in args: p.add_pv(pvname)
     elif cmd == 'drop_pv':
         for pvname in args: p.drop_pv(pvname)
-    elif cmd == 'read_pvfile':
-        p.read_pvfile(args[0])
-    elif cmd == 'write_pvfile':
-        p.write_pvfile(args[0])        
     else:
         show_usage()
+
+
+
 if __name__ == "__main__":
     main()
    
