@@ -1,0 +1,27 @@
+#
+This is PV_Archive.py, a system for recording Epics PV data 
+to a MySQL database and for viewing data from the database
+using a web interface.  The system has been designed for the
+Linux/Apache/MySQL/Python set of tools and requires:
+
+  - apache webserver:  Apache 2.X at least
+
+  - python: version 2.3 or higher
+
+  - mysql:  MySQL 5.x (with INNOdb support)
+  
+These are generally standard components on modern linux machines.
+You will also need these (slightly less standard) tools:
+
+  - Gnuplot  4.0 or higher
+
+  - These python modules (included in the source install):
+      python-MySQLdb
+      python-gnuplot
+ 
+  - mod_python.  The source for this is included, but you will 
+    need to install this AND configure apache to use it.
+
+
+  
+
