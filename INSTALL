@@ -1,0 +1,9 @@
+General installation instructions:
+
+ 0.  Install Apache, Python, MySQL, and Gnuplot.   Hopefully from
+     binary "packages".
+ 
+ 1. Install python extensions.
+
+
+  
