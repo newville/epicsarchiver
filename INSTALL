@@ -5,5 +5,19 @@ General installation instructions:
  
  1. Install python extensions.
 
+ 2. Configure MySQL and scripts
 
-  
+ 3. Install Web scripts.
+
+ 4. Add some PVs 
+
+ 5. Start data collection.
+
+ 6. View / Modify web pages
+
+ 7. Set up cron scripts to manage databases
+
+ 8. Continue to add PVs and/or modify web pages
+
+ 
+ 
