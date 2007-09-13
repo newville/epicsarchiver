@@ -21,7 +21,7 @@ You will also need these (slightly less standard) tools:
  
   - mod_python.  The source for this is included, but you will 
     need to install this AND configure apache to use it.
-
-
+    See doc/ApacheConfig.txt for more details
+   
   
 
