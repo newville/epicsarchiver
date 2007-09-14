@@ -1,31 +1,19 @@
 #!/usr/bin/env python
 #
 import MySQLdb
-import time
 import sys
 import os
-import types
 import array
 
-from db_connection import dbuser, dbpass, dbhost, mysqldump
+from time import sleep
 
-string_literal = MySQLdb.string_literal
+from util import string_literal, clean_string
+from config import dbuser, dbpass, dbhost, mysqldump
 
-def clean_input(x,maxlen=256):
-    """clean input, forcing it to be a string, with comments stripped,
-    and guarding against nasty sql input"""
-    if type(x) != types.StringType: x = str(x)
-    if len(x)>maxlen:   x = x[:maxlen-1]
-    for i in (';','#'): x = x.split(i)[0]
-    return x
-                       
-def escape_string(x):
-    x = clean_input(x)
-    if "'" in x:  return  '"%s"' %  MySQLdb.escape_string(x)
-    return  MySQLdb.string_literal(x)
-
-def db_connect(dbname='test',user=dbuser,passwd=dbpass,host=dbhost,autocommit=1):
-    return SimpleDB(db=dbname,user=user, passwd=passwd, host=host, autocommit=autocommit)
+def db_connect(dbname='test',user=dbuser,passwd=dbpass,
+               host=dbhost,autocommit=1):
+    return SimpleDB(db=dbname,user=user, passwd=passwd,
+                    host=host, autocommit=autocommit)
 
 def save_db(dbname=None,compress=True):
     if dbname is not None:
@@ -82,7 +70,7 @@ class SimpleTable:
         if (self.check_args(**args)):
             q = "select * from %s where 1=1" % (self._name)
             for k,v in args.items():
-                k = escape_string(k)
+                k = clean_string(k)
                 v = string_literal(v)
                 q = "%s and %s=%s" % (q,k,v)
             self.db.execute(q)
@@ -111,13 +99,13 @@ class SimpleTable:
             if self.check_columns(set.keys()+where.keys()):
                 q = "update %s set" % (self._name)
                 for k,v in set.items():
-                    k = escape_string(k)
+                    k = clean_string(k)
                     v = string_literal(v)
                     q = "%s %s=%s," % (q,k,v)
                 q = "%s where " % (q[:-1])  # strip off last ','
 
                 for k,v in where.items():
-                    k = escape_string(k)
+                    k = clean_string(k)
                     v = string_literal(v)
                     q = "%s %s=%s and" % (q,k,v)
                 q = q[:-3]  # strip off last 'and'
@@ -134,7 +122,7 @@ class SimpleTable:
             return 0
         q  = "INSERT INTO %s SET " % (self._name)
         for k,v in args.items():
-            field = escape_string(k.upper())
+            field = clean_string(k.upper())
             if (v == None): v = ''
             q = "%s %s=%s," % (q,field,self.db.string_literal(v))
         cmd = q[:-1]  # strip of trailing ','
@@ -221,7 +209,7 @@ class SimpleDB:
         except:
             self.write(" could not source file %s" % file)
 
-    def escape_string(self, s):   return escape_string(s)
+    def clean_string(self, s):   return clean_string(s)
     def string_literal(self, s):  return string_literal(s)
 
     def use(self,db):
@@ -243,7 +231,7 @@ class SimpleDB:
             if (self.debug == 1): print "SQL> %s" % (q)
             return self.cursor.execute(q)
         except:
-            time.sleep(0.1)
+            sleep(0.02)
             try:
                 if (self.debug == 1): print "SQL> %s" % (q)
                 return self.cursor.execute(q)
@@ -269,12 +257,12 @@ class SimpleDB:
         for k,v in dict.items():
             key = k.lower()
             val = v
-            if type(v) == array.ArrayType:
+            if isinstance(v,array.array):
                 if v.typecode == 'c':
                     val = v.tostring()
                 else:
                     val = v.tolist()
-            elif type(v) == types.UnicodeType:
+            elif isinstance(v,unicode):
                 val = str(v)
             t[key] = val
         return t

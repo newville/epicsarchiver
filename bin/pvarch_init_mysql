@@ -1,0 +1,168 @@
+#!/usr/bin/env python
+#
+# creates initial MySQL databases for EpicsArchiver
+
+import sys, os
+import warnings
+import MySQLdb
+import time
+
+try:
+    import config
+except:
+    try:
+        import EpicsArchiver
+        config = EpicsArchiver.config
+    except:
+        print 'cannont find EpicsArchiver configuration file (config.py)'
+        sys.exit(1)
+
+print ' **************************************************************'
+print ' Initializing the MySQL database tables for the EpicsArchiver  '
+print ''
+print ' The EpicsArchiver will use mysql host, username, and password:'
+print '    host = %s' % config.dbhost
+print '    user = %s' % config.dbuser
+print '    pass = %s' % config.dbpass
+print ''
+print ' You are about to be prompted for a username / password        '
+print ' of a mysql account that can grant permissions to %s ' % config.dbuser
+print ''
+print ''
+print ' *** Warning *** Warning *** Warning *** Warning *** Warning *** '
+print ' This will destroy the databases %s and %s' % (config.masterdb,config.cachedb)
+print ''
+print ' Use Ctrl-C now if you do not want these databases destroyed!'
+print ' **************************************************************'
+
+
+def sql_exec(cursor,sql):
+    cursor.execute(sql)
+    
+def create_and_use(cursor, s):
+    sql_exec(cursor,"drop database if exists %s" % s)
+    sql_exec(cursor,"create database %s" % s)
+    sql_exec(cursor,"use %s" % s)
+
+
+def grant_all(cursor,db='',user='',passwd='',host=''):
+    sql_exec(cursor,
+        """grant all privileges on %s.* to %s@%s identified by '%s'""" % (db,user,host,passwd) )
+    
+
+
+master= ("drop table if exists current",
+         "drop table if exists pairs",
+         "drop table if exists runs",
+         """create table pairs (
+          pv1 varchar(32) not null,
+          pv2 varchar(32) not null,  score int(10) unsigned default null)""", 
+         """create table runs (
+         id smallint(5) unsigned not null auto_increment,
+         db varchar(16) not null default '',
+         notes varchar(255) default null,
+         start_time int(11) not null default '0',
+         stop_time int(11) not null default '0',
+         primary key  (id),
+         unique key db (db))""",
+         
+         """create table current (
+         status enum('offline','running','stopping','unknown') default 'unknown',
+         db varchar(32) default null,
+         pid int(10) unsigned default null)""",
+       )
+
+
+cache = ("drop table if exists cache",
+         "drop table if exists info",
+         "drop table if exists req",
+
+         """create table cache (
+  id     int(10) unsigned not null auto_increment,
+  name   varchar(64) default null,
+  type   varchar(64) default null,
+  value  varchar(64) default null,
+  cvalue varchar(64) default null,
+  ts     double not null,
+  primary key  (id))""",
+
+         """create table req (
+  id int(10) unsigned not null auto_increment,
+  name varchar(64) default null,
+  primary key  (id))""",
+
+         """create table info (
+  id int(10) unsigned not null auto_increment,
+  ts double default null,
+  datetime varchar(128) default null,
+  pid int(10) unsigned default null,
+  primary key  (id))""",
+
+         "insert into info values (1,0.0,'created',0)"
+)
+
+######
+
+sys.argv.pop(0)
+
+
+super_user = os.environ.get('USER',None)
+super_pass = None
+if len(sys.argv)>0:
+    super_user = sys.argv.pop(0)
+else:
+    try:
+        answer = raw_input('mysql username [%s]:' % super_user)
+    except KeyboardInterrupt:
+        print 'exiting...'
+        sys.exit(2)
+    if answer is not '':  super_user = answer
+    
+if len(sys.argv)>0:
+    super_pass = sys.argv.pop(0)
+else:
+    try:
+        super_pass = raw_input('mysql password for %s:' % super_user)
+    except KeyboardInterrupt:
+        print 'exiting...'
+        sys.exit(2)
+
+try:
+    xdb   = MySQLdb.connect(user=super_user, db='mysql',
+                            passwd=super_pass, host = config.dbhost)
+    
+    
+except:
+    print 'error starting mysql.  Invalid Username / Password?  Is mysql running?'
+    sys.exit(1)
+    
+cursor = xdb.cursor()
+   
+warnings.filterwarnings("ignore", "Unknown table.*")
+
+
+print 'database %s :' % config.masterdb,
+print 'creating... ', 
+
+create_and_use(cursor, config.masterdb) 
+
+for m in master: sql_exec(cursor, m)
+
+    
+print 'granting permissions...',
+
+grant_all(cursor, config.masterdb,config.dbuser,config.dbpass, config.dbhost)
+
+print 'done.'
+print 'database %s :' % config.cachedb,
+print 'creating... ', 
+create_and_use(cursor, config.cachedb)
+ 
+for l in cache: sql_exec(cursor,l)
+
+print 'granting permissions...',
+grant_all(cursor,config.cachedb,config.dbuser,config.dbpass, config.dbhost)
+
+print 'done.'
+print ''
+print ' Ready to start EpicsArchiver!'

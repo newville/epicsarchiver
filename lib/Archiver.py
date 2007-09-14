@@ -1,24 +1,17 @@
 #!/usr/bin/python
 
-from   EpicsCA import PV
-from   SimpleDB import SimpleDB, SimpleTable
-from   pvcache import PVCache, normalize_pvname, es
+from EpicsCA import PV
+from SimpleDB import SimpleDB, SimpleTable
+from Cache import Cache
+from config import dbuser,dbpass,dbhost,dblogdir
+from util import normalize_pvname, get_force_update_time, escape_string
+
 import time
 import sys
 import os
 import getopt
-import random
-
-from db_connection import dbuser,dbpass,dbhost,dblogdir
 
 MAX_EPOCH = 2**31
-
-def get_force_update_time():
-    """ inserts will be forced for stale values between 18 and 21 hours after last insert
-    this will spread out inserts, but mean that a value is written in every 24 hour period.
-    """
-    return 10800.0*(6 + random.random())
-    
 
 class ArchiveMaster:
     pvarch_init = ("DROP TABLE IF EXISTS PV",
@@ -66,9 +59,9 @@ class ArchiveMaster:
         self.db.execute("UPDATE RUNS set NOTES='%s' where DB='%s'"    % (note,dbname))
 
     def set_currentDB(self,dbname):
-        self.db.execute("select DB from RUNS where DB=%s" % es(dbname))
+        self.db.execute("select DB from RUNS where DB=%s" % escape_string(dbname))
         r = self.db.fetchone()
-        self.db.execute("update CURRENT set DB=%s" % es(r['db']))
+        self.db.execute("update CURRENT set DB=%s" % escape_string(r['db']))
 
     def show_status(self):
         self.db.execute("select * from CURRENT")
@@ -356,7 +349,9 @@ class Archiver:
 
     def update_value(self,name,table,pvid,ts,val):
         if ts is None or ts < self.MIN_TIME: ts = time.time()
-        sql  = "INSERT delayed into %s (PV_ID,TIME,VALUE) values (%i,%i,%s)" % (table, pvid, int(ts), es(val))
+        sql  = "INSERT delayed into %s (PV_ID,TIME,VALUE) values (%i,%i,%s)" % (table,
+                                                                                pvid, int(ts),
+                                                                                escape_string(val))
         try:
             self.db.execute(sql)
         except TypeError:

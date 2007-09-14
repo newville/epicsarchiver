@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import SimpleDB
+
 import EpicsCA
 import os
 import time
@@ -8,20 +9,12 @@ import types
 import sys
 import getopt
 
-from db_connection import dbuser,dbpass,dbhost
-
-clean_input = SimpleDB.clean_input
-db_connect = SimpleDB.db_connect
-es = SimpleDB.escape_string
-
-def normalize_pvname(p):
-    x = clean_input(p)
-    if x.find('.') < 1: return '%s.VAL' % x
-    return x
+from config import dbuser,dbpass,dbhost
+from util import clean_input, escape_string, normalize_pvname
 
 null_pv_value = {'value':None,'ts':0,'cvalue':None,'type':None}
 
-class PVCache:
+class Cache:
     """ store and update a cache of PVs to a sqlite db file"""
 
     _table_names = ("info", "req", "cache")
@@ -29,7 +22,7 @@ class PVCache:
         if dbcursor is not None:
             self.cursor = dbcursor
         else:
-            self.cursor = db_connect(dbname='pvcache',autocommit=0)
+            self.cursor = SimpleDB.db_connect(dbname='pvcache',autocommit=0)
             
         self.data = {}
         self.pvs  = {}
@@ -63,8 +56,8 @@ class PVCache:
 
     def end_group(self):
         for nam,val in self.data.items():
-	    v = [es(str(i)) for i in val]
-	    v.append(es(nam))
+	    v = [escape_string(str(i)) for i in val]
+	    v.append(escape_string(nam))
             q = "update cache set value=%s,cvalue=%s,ts=%s where name=%s" % tuple(v)
             self.cursor.execute(q)
         self.commit_transaction()
@@ -73,7 +66,7 @@ class PVCache:
 
     def test_connect(self):
         self.get_pvlist()
-        print 'PVCache connecting to %i PVs ' %  len(self.pvlist)
+        print 'EpicsArchiver.Cache connecting to %i PVs ' %  len(self.pvlist)
         t0 = time.time()
         
         for i,pvname in enumerate(self.pvlist):  
@@ -90,7 +83,7 @@ class PVCache:
         self.get_pvlist()
         npvs = len(self.pvlist)
         n_notify = npvs / 10
-        # print 'PVCache connecting to %i PVs ' %  npvs
+        # print 'EpicsArchiver.Cache connecting to %i PVs ' %  npvs
         for i,pvname in enumerate(self.pvlist):  
             try:
                 pv = EpicsCA.PV(pvname,connect=False)
@@ -175,7 +168,7 @@ class PVCache:
         time.sleep(1.0)
         
     def set_date(self):
-        self.sql_exec("update info set datetime=%s,ts=%i" % (es(time.ctime()),time.time()),commit=True)
+        self.sql_exec("update info set datetime=%s,ts=%i" % (escape_string(time.ctime()),time.time()),commit=True)
       
     def get_full(self,pv,add=False):
         " return full information for a cached pv"
@@ -187,7 +180,7 @@ class PVCache:
             time.sleep(1.0)
             return self.get_full(pv,add=False)
         try:
-            r = self.sql_exec_fetch("select value,cvalue,type,ts from cache where name=%s" % es(npv))
+            r = self.sql_exec_fetch("select value,cvalue,type,ts from cache where name=%s" % escape_string(npv))
             return r[0]
         except:
             return ret
@@ -201,7 +194,7 @@ class PVCache:
 
     def set_value(self,pv=None,**kws):
         print 'Set Value ', pv, pv.value, pv.char_value, pv.pvname
-        v    = [es(i) for i in [pv.value,pv.char_value,time.time(),pv.pvname]]
+        v    = [escape_string(i) for i in [pv.value,pv.char_value,time.time(),pv.pvname]]
         qval = "update cache set value=%s,cvalue=%s,ts=%s where name=%s" % tuple(v)
         self.cursor.execute(qval)
 
@@ -210,7 +203,7 @@ class PVCache:
         will take effect once a 'process_requests' is executed."""
         npv = normalize_pvname(pv)
         if npv not in self.pvlist:
-            self.sql_exec("insert into req(name) values (%s)" % es(npv),commit=True)
+            self.sql_exec("insert into req(name) values (%s)" % escape_string(npv),commit=True)
         
     def drop_pv(self,pv):
         """delete a PV from the cache
@@ -219,7 +212,7 @@ class PVCache:
         npv = normalize_pvname(pv)
         self.get_pvlist()
         if npv in self.pvlist:
-            self.sql_exec("delete from cache where name=%s" % es(npv),commit=True)
+            self.sql_exec("delete from cache where name=%s" % escape_string(npv),commit=True)
         self.get_pvlist()        
         
     def get_pvlist(self):
@@ -236,6 +229,7 @@ class PVCache:
 
         self.begin_transaction()
         cmd = 'insert into cache(ts,name,value,cvalue,type) values'
+        es = escape_string
         for n, r in enumerate(req):
             nam= r['name']
             if nam not in self.pvlist:
@@ -284,7 +278,7 @@ def show_usage():
 """
     sys.exit()
 
-def main():
+def cachemain():
     opts, args = getopt.getopt(sys.argv[1:], "h", ["help"])
 
     try:
@@ -294,7 +288,7 @@ def main():
     for (k,v) in opts:
         if k in ("-h", "--help"): cmd = None
 
-    p   = PVCache()
+    p   = Cache()
     if   cmd == 'status':    p.cache_status(brief=False)
     elif cmd == 'connect':   p.test_connect()
     elif cmd == 'check':     print p.cache_status(brief=True)
@@ -313,8 +307,6 @@ def main():
         for pvname in args: p.drop_pv(pvname)
     else:
         show_usage()
-
-
 
 if __name__ == "__main__":
     main()

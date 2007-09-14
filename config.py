@@ -1,25 +1,28 @@
 #
 # configuration file for PV_Archive.py
 
-#
 # here, give the mysql user name, password, and host
 dbuser   = 'epics'
-dbpass   = 'epics'
+dbpass   = 'epics31234112'
 dbhost   = 'localhost'
 
 # command for how mysql databases should be 'dumped'.
 mysqldump = '/usr/bin/mysqldump --opt -p%s -u%s' % (dbpass,dbuser)
 
 # location of log directories
-dblogdir = '/home/epics/logs'
+dblogdir = '/var/log/pvarch'
 
 # name of master database
-masterdb = 'pvmain'
+masterdb = 'zz_master'
 
 # name of caching db
-cachedb  = 'pvtmp'
+cachedb  = 'zz_cache'
 
 # prefix used for sequentially named databases
 dbprefix = 'pvdata'
+
+# location of python web scripts
+cgi_bin = '/usr/local/apache/cgi-bin/pvarch'
+
 
 

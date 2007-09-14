@@ -1,15 +1,17 @@
 General installation instructions:
 
- 0.  Install Apache, Python, MySQL, and Gnuplot.   Hopefully from
-     binary "packages".
+ 0.  Install Apache, Python, MySQL, and Gnuplot.   These should 
+     all be 'standard components' for modern linux systems.
  
- 1. Install python extensions.
+ 1. Install epics base
 
- 2. Configure MySQL and scripts
+ 2. Install python extensions.
 
- 3. Install Web scripts.
+ 2. Set up MySQL permissions.
 
- 4. Add some PVs 
+ 3. Install Web scripts, configure Apache mod_python.
+
+ 4. Add some PVs to be collected.
 
  5. Start data collection.
 
