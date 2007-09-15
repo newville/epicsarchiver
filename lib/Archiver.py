@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from EpicsCA import PV
+import EpicsCA
 from SimpleDB import SimpleDB, SimpleTable
 from Cache import Cache
 from config import dbuser,dbpass,dbhost,dblogdir
@@ -14,18 +14,30 @@ import getopt
 MAX_EPOCH = 2**31
 
 class ArchiveMaster:
-    pvarch_init = ("DROP TABLE IF EXISTS PV",
-                   "CREATE TABLE PV (ID  SMALLINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,  IOC_ID  SMALLINT UNSIGNED NOT NULL,   PV_NAME VARCHAR(64) NOT NULL,   DESCRIPTION VARCHAR(128),  DATA_TABLE  VARCHAR(16),   DEADTIME  DOUBLE DEFAULT 10.0,   DEADBAND  DOUBLE DEFAULT 1.e-8,   GRAPH_HI  TINYBLOB,   GRAPH_LO  TINYBLOB,   GRAPH_TYPE  ENUM('NORMAL','LOG','DISCRETE'),   PV_TYPE ENUM('INT','DOUBLE','STRING','ENUM') NOT NULL,   UNIQUE (PV_NAME) ) TYPE=MyISAM;")
+    pvarch_init = ("drop table if exists pv",
+                   """create table pv (id  smallint unsigned not null primary key auto_increment,
+                   ioc_id  smallint unsigned not null,
+                   pv_name varchar(64) not null,
+                   description varchar(128),
+                   data_table  varchar(16),
+                   deadtime  double default 10.0,
+                   deadband  double default 1.e-8,
+                   graph_hi  tinyblob,   graph_lo  tinyblob,
+                   graph_type  enum('normal','log','discrete'),
+                   pv_type enum('int','double','string','enum') not null,
+                   unique (pv_name) ) type=myisam;""")
 
 
-    pvdat_init = ("DROP TABLE IF EXISTS PVDAT%3.3i",
-                  "CREATE TABLE PVDAT%3.3i(TIME INT UNSIGNED NOT NULL, PV_ID  SMALLINT UNSIGNED NOT NULL, VALUE TINYBLOB) TYPE=MyISAM;")
+    pvdat_init = ("drop table if exists pvdat%3.3i",
+                  """create table pvdat%3.3i(
+                  time int unsigned not null,
+                  pv_id  smallint unsigned not null, value tinyblob) type=myisam;""")
 
     def __init__(self):
         self.db = SimpleDB(user=dbuser,passwd=dbpass,host=dbhost,db='pvarchives')
         
     def get_currentDB(self):
-        self.db.execute("select DB from CURRENT")
+        self.db.execute("select db from current")
         return self.db.fetchone()['db']
  
     def save_db(self,dbname=None):
@@ -42,7 +54,7 @@ class ArchiveMaster:
         min_time=MAX_EPOCH
         max_time=0
         for i in range(1,129):
-            self.db.execute("select MIN(TIME),MAX(TIME) from PVDAT%3.3i" % (i))
+            self.db.execute("select min(time),max(time) from pvdat%3.3i" % (i))
             r = self.db.fetchone()
             max_time = max(max_time,r['max(time)'])
             min_time = min(min_time,r['min(time)'])
@@ -53,18 +65,19 @@ class ArchiveMaster:
 
         # print 'set run info ', dbname, note, min_time, max_time
 
+
         self.db.use('pvarchives')
-        self.db.execute("UPDATE RUNS set START_TIME=%i where DB='%s'" % (min_time,dbname))
-        self.db.execute("UPDATE RUNS set STOP_TIME=%i where DB='%s'"  % (max_time,dbname))
-        self.db.execute("UPDATE RUNS set NOTES='%s' where DB='%s'"    % (note,dbname))
+        self.db.execute("update runs set start_time=%i where db='%s'" % (min_time,dbname))
+        self.db.execute("update runs set stop_time=%i where db='%s'"  % (max_time,dbname))
+        self.db.execute("update runs set notes='%s' where db='%s'"    % (note,dbname))
 
     def set_currentDB(self,dbname):
-        self.db.execute("select DB from RUNS where DB=%s" % escape_string(dbname))
+        self.db.execute("select db from run where db=%s" % escape_string(dbname))
         r = self.db.fetchone()
-        self.db.execute("update CURRENT set DB=%s" % escape_string(r['db']))
+        self.db.execute("update current set db=%s" % escape_string(r['db']))
 
     def show_status(self):
-        self.db.execute("select * from CURRENT")
+        self.db.execute("select * from current")
         r = self.db.fetchone()
         print "Current Database=%s,  status=%s,  PID=%i " % (r['db'], r['status'],r['pid'])
         self.db.use(r['db'])
@@ -72,7 +85,7 @@ class ArchiveMaster:
         minutes = 10
         dt = time.time()-minutes * 60.
         for i in range(1,129):
-            self.db.execute("select * from PVDAT%3.3i where TIME > %i " % (i,dt))
+            self.db.execute("select * from pvdat%3.3i where time > %i " % (i,dt))
             n.append(len(self.db.fetchall()))
         tot = 0
         for i in n: tot = tot + i
@@ -80,9 +93,9 @@ class ArchiveMaster:
         self.db.use('pvarchives')
         
     def show_tables(self):
-        self.db.execute("select * from CURRENT")
+        self.db.execute("select * from current")
         current = self.db.fetchone()
-        self.db.execute("select * from RUNS order by START_TIME desc limit 10")
+        self.db.execute("select * from runs order by start_time desc limit 10")
         r = []
         now = time.time()
         for i in  self.db.fetchall():
@@ -95,31 +108,31 @@ class ArchiveMaster:
         for i in r: print i
 
     def request_stop(self):
-        self.set_status('STOPPING')
+        self.set_status('stopping')
 
-    def set_status(self,status='RUNNING'):
-        if status not in ('RUNNING','OFFLINE','STOPPING','UNKNOWN'):
-            status = 'UNKNOWN'
-        self.db.execute("update CURRENT set STATUS = '%s'" % status)
+    def set_status(self,status='running'):
+        if status not in ('running','offline','stopping','unknown'):
+            status = 'unknown'
+        self.db.execute("update current set status = '%s'" % status)
 
     def get_status(self):
-        self.db.execute("select STATUS from CURRENT")
+        self.db.execute("select status from current")
         return self.db.fetchone()['status']
 
     def set_pid(self,pid=0):
-        self.db.execute("update CURRENT set PID = %i" % int(pid))
+        self.db.execute("update current set pid = %i" % int(pid))
 
     def get_pid(self):
-        self.db.execute("select PID from CURRENT")
+        self.db.execute("select pid from current")
         return self.db.fetchone()['pid']
 
     def make_nextdb(self):
-        " create a new pvarch database, copying pvs to save from an old database"
+        "create a new pvarch database, copying pvs to save from an old database"
 
         dbname = self.get_currentDB()
         olddb = SimpleDB(user=dbuser, passwd=dbpass,db=dbname, host=dbhost,debug=0)
         olddb.use(dbname)
-        olddb.execute("select * from PV")
+        olddb.execute("select * from pv")
         old_data = olddb.fetchall()
 
         dbname = "%s%.5i" % (dbname[:6],int(dbname[6:])+1)
@@ -133,7 +146,7 @@ class ArchiveMaster:
         olddb.execute("grant all privileges on %s.* to %s identified by '%s'" % (dbname,dbuser,dbpass))
 
         newdb = SimpleDB(user=dbuser, passwd=dbpass,db=dbname, host=dbhost,debug=0)
-        pvtable = SimpleTable(newdb, table='PV',)
+        pvtable = SimpleTable(newdb, table='pv')
         print ' adding %i pvs to DB %s' % (len(old_data),dbname)
 
         for p in old_data:
@@ -142,20 +155,20 @@ class ArchiveMaster:
                            deadtime   =p['deadtime'],    graph_type =p['graph_type'],
                            graph_lo   =p['graph_lo'],    graph_hi   =p['graph_hi'])
 
-
-        self.db.execute("delete from RUNS where DB='%s'" % dbname)
-        self.db.execute("insert into RUNS (DB,START_TIME,STOP_TIME) values ('%s',%i,%i)" % (dbname,
-                                                                                     MAX_EPOCH,MAX_EPOCH))
+            
+        self.db.execute("delete from runs where db='%s'" % dbname)
+        self.db.execute("insert into runs (db,start_time,stop_time) values ('%s',%i,%i)" % (dbname,
+                                                                                            MAX_EPOCH,MAX_EPOCH))
         return dbname
-    
+   
     def db_for_time(self, t=0):
-        """ return name of database with START_TIME data at or before a given time.  """
-
-        for offset in (0, 3*86400.): 
-            self.db.execute('select * from RUNS where START_TIME<=%i order by START_TIME desc limit 1' % (t-offset))
-            r  = self.db.fetchone()
-            if r.has_key('db'): return r['db']
-        return None
+        x = 1
+#         # returns name of database with start_time data at or before a given time.
+#         for offset in (0, 3*86400.): 
+#             self.db.execute('select * from runs where start_time<=%i order by start_time desc limit 1' % (t-offset))
+#             r  = self.db.fetchone()
+#             if r.has_key('db'): return r['db']
+#         return None
             
 class Archiver:
     MIN_TIME = 1000000
@@ -189,8 +202,8 @@ class Archiver:
     def sync_with_cache(self):
         self.pvinfo = {}
         self.last_insert = {}
-        db_pvs = self.db.tables['PV'].select()
-        # print 'Sync with cache ', len(db_pvs)
+        db_pvs = self.db.tables['pv'].select()
+
         self.cache_names = self.cache.get_pvlist()
         for pv in db_pvs:  self.initialize_data(pv)
         self.check_for_new_pvs()
@@ -217,7 +230,7 @@ class Archiver:
         pvid  = self.pvinfo[pvname]['id']
         for db in (db0,db1):
             self.db.use(db)
-            self.db.execute('select TIME,VALUE from %s where PV_ID=%i and TIME>=%f and TIME<=%f order by TIME' %                       (table,pvid,t0,t1))
+            self.db.execute('select time,value from %s where pv_id=%i and time>=%f and time<=%f order by time' %                       (table,pvid,t0,t1))
             for i in self.db.fetchall():
                 dat.append((i['time'],i['value']))
         return dat
@@ -226,18 +239,18 @@ class Archiver:
         self.messenger.write(s)
         
     def drop_pv(self,name):
-        self.db.execute("delete from PV where PV_NAME=%s" % name)
+        self.db.execute("delete from pv where pv_name=%s" % name)
         
     def add_pv(self,name,description=None,graph={},deadtime=None,deadband=None):
         """add PV to the database"""
         pvname = normalize_pvname(name)
-        if pvname in self.pvinfo.keys():
+        if self.pvinfo.has_key(pvname):
             self.write("PV %s is already in database.\n" % pvname)
             return None
 
         # create an Epics PV, check that it's valid
         try:
-            pv = PV(pvname)
+            pv = EpicsCA.PV(pvname,connect=True)
             typ = pv.type
             count = pv.count
         except:
@@ -245,52 +258,63 @@ class Archiver:
             count = 1
 
         # determine type
-        dtype = 'STRING'
-        if (typ in ('int','long','short')): dtype = 'INT'
-        if (typ in ('enum',)):              dtype = 'ENUM'
-        if (typ in ('double','float')):     dtype = 'DOUBLE'
+        dtype = 'string'
+        if (typ in ('int','long','short')): dtype = 'int'
+        if (typ in ('enum',)):              dtype = 'enum'
+        if (typ in ('double','float')):     dtype = 'double'
         
         # determine data table
-        table = "PVDAT%3.3i" % ((hash(pvname) % 128) + 1)
+        table = "pvdat%3.3i" % ((hash(pvname) % 128) + 1)
         
-
         # determine descrption (don't try too hard!)
         if (description == None):
             if pvname.endswith('.VAL'):
                 descpv  = pvname + '.DESC'
             try:
-                dp = PV(descpv)
+                dp = EpicsCA.PV(descpv,connect=True)
                 description = dp.char_value
                 dp.disconnect()
             except:
                 pass
-        if description == None: description = ''
+        if description is None: description = ''
+
+        # device type
+        devtype = None
+        idot = pvname.find('.')
+        if idot >0:
+            try:
+                dpv = EpicsCA.PV(pvname[:idot] + '.DTYP',connect=True)
+                devtype = dpv.char_value
+                dpv.disconnect()
+            except:
+                pass            
+        if devtype     is None: devtype = ''
 
         # set graph default settings
-        gr = {'high':'','low':'','type':'NORMAL'}
+        gr = {'high':'','low':'','type':'normal'}
         gr.update(graph)
-        if (dtype == 'ENUM'):
-            gr['type'] = 'DISCRETE'
+        if (dtype == 'enum'):
+            gr['type'] = 'discrete'
             gr['low'] = 0
             gr['high'] =  len(pv.enum_strings)
-        elif dtype == 'DOUBLE':
-            gr['type'] = 'NORMAL'
+        elif dtype == 'double':
+            gr['type'] = 'normal'
             dx = description.lower()
             for i in ('cathode','pirani','pressure'):
                 if dx.find(i) >= 0: 
-                    gr['type'] = 'LOG'
+                    gr['type'] = 'log'
         
         if (deadtime == None):
             deadtime = 10.0
-            if (dtype == 'ENUM'):     deadtime =  5.0  # (ENUMS take little space, rarely change)
-            if (gr['type'] == 'LOG'): deadtime = 30.0  # (pressures change very frequently)
+            if (dtype == 'enum'):     deadtime =  5.0  # (ENUMS take little space, rarely change)
+            if (gr['type'] == 'log'): deadtime = 30.0  # (pressures change very frequently)
 
         if (deadband == None):
             deadband = 1.e-5
-            if dtype in ('ENUM','STRING'):     deadband =  0.5
-            if (gr['type'] == 'LOG'): deadband = 1.e-4
+            if dtype in ('enum','string'):     deadband =  0.5
+            if (gr['type'] == 'log'): deadband = 1.e-4
             
-        self.db.tables['PV'].insert(pv_name    = pvname,
+        self.db.tables['pv'].insert(pv_name    = pvname,
                                     pv_type    = dtype,
                                     description= description,
                                     data_table = table,
@@ -300,7 +324,7 @@ class Archiver:
                                     graph_hi   = gr['high'],
                                     graph_type = gr['type'])
 
-        r = self.db.tables['PV'].select_where(pv_name=pvname)[0]
+        r = self.db.tables['pv'].select_where(pv_name=pvname)[0]
         ftime = get_force_update_time()
         self.pvinfo[pvname] = (r['data_table'],r['id'],r['deadtime'],r['deadband'], ftime)
         self.last_insert[name] = [0,None]
@@ -314,7 +338,7 @@ class Archiver:
         if self.pvinfo.has_key(pvname):
             old = self.pvinfo[pvname]
             try:
-                r   = self.db.tables['PV'].select_where(pv_name=pvname)[0]
+                r   = self.db.tables['pv'].select_where(pv_name=pvname)[0]
                 self.pvinfo[pvname] = (r['data_table'],r['id'],r['deadtime'],r['deadband'], old[4])
             except:
                 pass
@@ -337,7 +361,7 @@ class Archiver:
 
         t0 = int(time.time() - 86400)
 
-        self.db.execute("""select TIME,VALUE from %s where PV_ID=%i and TIME>%i ORDER BY TIME DESC LIMIT 1""" % (table, pvid,t0))
+        self.db.execute("""select time,value from %s where pv_id=%i and time>%i order by time desc limit 1""" % (table, pvid,t0))
         db_dat = self.db.fetchone()
         try:
             self.last_insert[name] = (db_dat['time'],db_dat['value'])
@@ -349,7 +373,7 @@ class Archiver:
 
     def update_value(self,name,table,pvid,ts,val):
         if ts is None or ts < self.MIN_TIME: ts = time.time()
-        sql  = "INSERT delayed into %s (PV_ID,TIME,VALUE) values (%i,%i,%s)" % (table,
+        sql  = "insert delayed into %s (pv_id,time,value) values (%i,%i,%s)" % (table,
                                                                                 pvid, int(ts),
                                                                                 escape_string(val))
         try:
@@ -361,7 +385,6 @@ class Archiver:
     def get_cache_changes(self,dt=30):
         """ get list of name,type,value,cvalue,ts from cache """
         return self.cache.get_recent(dt=dt)
-
     
     def collect(self):
         newvals, forced = [],[]
@@ -370,7 +393,7 @@ class Archiver:
             val   = dat['value']
             ts    = dat['ts'] or time.time()
 
-            if name not in self.pvinfo.keys():  self.add_pv(name)
+            if not self.pvinfo.has_key(name): self.add_pv(name)
             table,pvid,dtime,dband,ftime = self.pvinfo[name]
 
             last_ts,last_val   = self.last_insert[name]
@@ -406,7 +429,7 @@ class Archiver:
                     r = self.cache.get_full(name)
                     if r['type'] is None and r['value'] is None: # an empty / non-cached PV?
                         try:
-                            test_pv = PV(name)
+                            test_pv = EpicsCA.PV(name,connect=True)
                             if (test_pv is None or not test_pv.connected):
                                 self.last_insert[name] = (tnow-ftime+7200.0,None)
                                 self.write(" PV not connected: %s\n" % name)
@@ -435,7 +458,7 @@ class Archiver:
         self.write("connecting to %i Epics PVs ... \n" % ( len(self.pvinfo) ))
         self.write('======   Start monitoring / saving to DB=%s\n' % self.dbname)
 
-        self.master.set_status(status='RUNNING')
+        self.master.set_status(status='running')
         mypid = os.getpid()
         self.master.set_pid(pid=mypid)
         self.master.set_runinfo()
@@ -449,7 +472,8 @@ class Archiver:
                 newvals,forced   = self.collect()
                 n_changed = n_changed + len(newvals)
                 n_forced  = n_forced  + len(forced)
-                time.sleep(0.95)
+                EpicsCA.pend_event(0.1)
+                time.sleep(0.1)
                 if verbose:
                     self.show_changed(newvals,prefix=' ')
                     self.show_changed(forced, prefix='(f) ')
@@ -464,8 +488,8 @@ class Archiver:
                 return None
             
             status = self.master.get_status()
-            if status in ('STOPPING','OFFLINE'):
-                self.master.set_status('OFFLINE')
+            if status in ('stopping','offline'):
+                self.master.set_status('offline')
                 is_collecting = False
             pid = self.master.get_pid()
             if pid != mypid: is_collecting = False

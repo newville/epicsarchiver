@@ -49,8 +49,6 @@ def grant_all(cursor,db='',user='',passwd='',host=''):
     sql_exec(cursor,
         """grant all privileges on %s.* to %s@%s identified by '%s'""" % (db,user,host,passwd) )
     
-
-
 master= ("drop table if exists current",
          "drop table if exists pairs",
          "drop table if exists runs",

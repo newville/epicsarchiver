@@ -39,7 +39,7 @@ class Cache:
         print 'end of read pvlist'
 
     def epics_connect(self,pvname):
-        p = EpicsCA.PV(pvname) # , callback=self.onChanges)
+        p = EpicsCA.PV(pvname,connect=True,connect_time=1.0)
         EpicsCA.pend_io(1.0)
         if not p.connected:  return False
         self.pvs[pvname] = p
@@ -248,11 +248,8 @@ class Cache:
         self.get_pvlist()
 
     def get_recent(self,dt=60):
-        tx = time.time() - dt
-        self.begin_transaction()
-        r  = self.sql_exec_fetch("select name,type,value,cvalue,ts from cache where ts> %i order by ts" % tx)
-        self.commit_transaction()
-        return r
+        s = "select name,type,value,cvalue,ts from cache where ts> %i order by ts"
+        return self.sql_exec_fetch(s % (time.time() - dt) )
         
     def cache_status(self,brief=False,dt=60):
         "shows number of updated PVs in past 60 seconds"
