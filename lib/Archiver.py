@@ -3,7 +3,7 @@
 import EpicsCA
 from SimpleDB import SimpleDB, SimpleTable
 from Cache import Cache
-from config import dbuser,dbpass,dbhost,dblogdir
+from config import dbuser,dbpass,dbhost,dblogdir,masterdb
 from util import normalize_pvname, get_force_update_time, escape_string
 
 import time
@@ -34,7 +34,8 @@ class ArchiveMaster:
                   pv_id  smallint unsigned not null, value tinyblob) type=myisam;""")
 
     def __init__(self):
-        self.db = SimpleDB(user=dbuser,passwd=dbpass,host=dbhost,db='pvarchives')
+        self.db = SimpleDB(user=dbuser,passwd=dbpass,host=dbhost,
+                           db=masterdb)
         
     def get_currentDB(self):
         self.db.execute("select db from current")
@@ -45,7 +46,7 @@ class ArchiveMaster:
         print 'saving ', dbname
         self.db.use(dbname)
         self.db.safe_dump(compress=True)
-        self.db.use('pvarchives')
+        self.db.use(masterdb)
         
     def set_runinfo(self,dbname=None):
         currdb = self.get_currentDB()
@@ -66,7 +67,7 @@ class ArchiveMaster:
         # print 'set run info ', dbname, note, min_time, max_time
 
 
-        self.db.use('pvarchives')
+        self.db.use(masterdb)
         self.db.execute("update runs set start_time=%i where db='%s'" % (min_time,dbname))
         self.db.execute("update runs set stop_time=%i where db='%s'"  % (max_time,dbname))
         self.db.execute("update runs set notes='%s' where db='%s'"    % (note,dbname))
@@ -90,7 +91,7 @@ class ArchiveMaster:
         tot = 0
         for i in n: tot = tot + i
         print "%i values archived in past %i minutes"  % (tot , minutes)
-        self.db.use('pvarchives')
+        self.db.use(masterdb)
         
     def show_tables(self):
         self.db.execute("select * from current")
@@ -563,9 +564,6 @@ def main():
         for pvname in args:  m.add_pv(pvname)
     elif cmd == 'drop_pv':
         for pvname in args:  m.drop_pv(pvname)
-
     else:
         print 'wha?'
     
-if __name__ == '__main__':
-    main()

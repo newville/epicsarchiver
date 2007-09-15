@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import SimpleDB
-
 import EpicsCA
 import os
 import time
@@ -9,7 +8,7 @@ import types
 import sys
 import getopt
 
-from config import dbuser,dbpass,dbhost
+from config import dbuser,dbpass,dbhost, cachedb
 from util import clean_input, escape_string, normalize_pvname
 
 null_pv_value = {'value':None,'ts':0,'cvalue':None,'type':None}
@@ -22,7 +21,7 @@ class Cache:
         if dbcursor is not None:
             self.cursor = dbcursor
         else:
-            self.cursor = SimpleDB.db_connect(dbname='pvcache',autocommit=0)
+            self.cursor = SimpleDB.db_connect(dbname=cachedb,autocommit=0)
             
         self.data = {}
         self.pvs  = {}
@@ -31,12 +30,11 @@ class Cache:
         self.get_pvlist()        
 
     def read_pvlist(self,fname):
-        print 'read pvlist ', fname
+        print 'reading pvlist ', fname
         f = open(fname,'r')
         for i in f.readlines():  self.add_pv(i[:-1])
         f.close()
         self.process_requests()
-        print 'end of read pvlist'
 
     def epics_connect(self,pvname):
         p = EpicsCA.PV(pvname,connect=True,connect_time=1.0)
@@ -304,7 +302,4 @@ def cachemain():
         for pvname in args: p.drop_pv(pvname)
     else:
         show_usage()
-
-if __name__ == "__main__":
-    main()
    
