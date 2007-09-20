@@ -29,13 +29,6 @@ class Cache:
         if pvfile is not None: self.read_pvlist(pvfile)
         self.get_pvlist()        
 
-    def read_pvlist(self,fname):
-        print 'reading pvlist ', fname
-        f = open(fname,'r')
-        for i in f.readlines():  self.add_pv(i[:-1])
-        f.close()
-        self.process_requests()
-
     def epics_connect(self,pvname):
         p = EpicsCA.PV(pvname,connect=True,connect_time=1.0)
         EpicsCA.pend_io(1.0)
@@ -196,12 +189,28 @@ class Cache:
         qval = "update cache set value=%s,cvalue=%s,ts=%s where name=%s" % tuple(v)
         self.cursor.execute(qval)
 
+
+    def add_pvfile(self,fname):
+        print 'reading pvs from pvlist in file ', fname
+        f = open(fname,'r')
+        for line in f.readlines():
+            words = line[:-1].split()
+            for w in words:
+                self.add_pv(w.strip() )
+            while words:
+                x = words.pop()
+
+        f.close()
+        self.process_requests()
+
+
     def add_pv(self,pv):
         """request a PV to be included in caching.
         will take effect once a 'process_requests' is executed."""
         npv = normalize_pvname(pv)
+        sql = "insert into req(name) values (%s)"
         if npv not in self.pvlist:
-            self.sql_exec("insert into req(name) values (%s)" % escape_string(npv),commit=True)
+            self.sql_exec(sql % escape_string(npv),commit=True)
         
     def drop_pv(self,pv):
         """delete a PV from the cache
@@ -260,46 +269,3 @@ class Cache:
             print '%i PVs had values updated in the past %i seconds. pid=%i' % (len(ret),dt,pid)
         return len(ret)
 
-#####################
-def show_usage():
-    print """pvcache:   run and interact with pvcaching / mysql process
-
-  pvcache -h        shows this message.
-  pvcache status    shows cache status, some recent statistics.
-  pvcache check     returns # of variables updated in past minute. Should be >1!
-  pvcache restart   restarts the caching process
-  pvcache add_pv    add a PV to the currently running cache
-  pvcache drop_pv   add a PV to the currently running cache
-"""
-    sys.exit()
-
-def cachemain():
-    opts, args = getopt.getopt(sys.argv[1:], "h", ["help"])
-
-    try:
-        cmd = args.pop(0)
-    except IndexError:
-        cmd = None
-    for (k,v) in opts:
-        if k in ("-h", "--help"): cmd = None
-
-    p   = Cache()
-    if   cmd == 'status':    p.cache_status(brief=False)
-    elif cmd == 'connect':   p.test_connect()
-    elif cmd == 'check':     print p.cache_status(brief=True)
-    elif cmd == 'start':     p.mainloop()
-    elif cmd == 'stop':      p.shutdown()
-    elif cmd == 'restart':
-        p.shutdown()
-        p.mainloop()
-    elif cmd == 'get':
-        for pvname in args:
-            v =  p.get_full(pvname,add=True)
-            print "%s: %s  (%s)"% (pvname, v['cvalue'], time.ctime(v['ts']))
-    elif cmd == 'add_pv':
-        for pvname in args: p.add_pv(pvname)
-    elif cmd == 'drop_pv':
-        for pvname in args: p.drop_pv(pvname)
-    else:
-        show_usage()
-   

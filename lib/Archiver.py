@@ -2,6 +2,7 @@
 
 import EpicsCA
 from SimpleDB import SimpleDB, SimpleTable
+from Master import ArchiveMaster
 from Cache import Cache
 from config import dbuser,dbpass,dbhost,dblogdir,masterdb
 from util import normalize_pvname, get_force_update_time, escape_string
@@ -13,164 +14,7 @@ import getopt
 
 MAX_EPOCH = 2**31
 
-class ArchiveMaster:
-    pvarch_init = ("drop table if exists pv",
-                   """create table pv (id  smallint unsigned not null primary key auto_increment,
-                   ioc_id  smallint unsigned not null,
-                   pv_name varchar(64) not null,
-                   description varchar(128),
-                   data_table  varchar(16),
-                   deadtime  double default 10.0,
-                   deadband  double default 1.e-8,
-                   graph_hi  tinyblob,   graph_lo  tinyblob,
-                   graph_type  enum('normal','log','discrete'),
-                   pv_type enum('int','double','string','enum') not null,
-                   unique (pv_name) ) type=myisam;""")
 
-
-    pvdat_init = ("drop table if exists pvdat%3.3i",
-                  """create table pvdat%3.3i(
-                  time int unsigned not null,
-                  pv_id  smallint unsigned not null, value tinyblob) type=myisam;""")
-
-    def __init__(self):
-        self.db = SimpleDB(user=dbuser,passwd=dbpass,host=dbhost,
-                           db=masterdb)
-        
-    def get_currentDB(self):
-        self.db.execute("select db from current")
-        return self.db.fetchone()['db']
- 
-    def save_db(self,dbname=None):
-        if dbname is None: dbname = self.get_currentDB()
-        print 'saving ', dbname
-        self.db.use(dbname)
-        self.db.safe_dump(compress=True)
-        self.db.use(masterdb)
-        
-    def set_runinfo(self,dbname=None):
-        currdb = self.get_currentDB()
-        if dbname is None: dbname = currdb
-        self.db.use(dbname)
-        min_time=MAX_EPOCH
-        max_time=0
-        for i in range(1,129):
-            self.db.execute("select min(time),max(time) from pvdat%3.3i" % (i))
-            r = self.db.fetchone()
-            max_time = max(max_time,r['max(time)'])
-            min_time = min(min_time,r['min(time)'])
-        
-        if currdb == dbname:  max_time = MAX_EPOCH
-        note = "%s to %s" % (time.strftime("%d-%b-%Y", time.localtime(min_time)),
-                             time.strftime("%d-%b-%Y", time.localtime(max_time)))
-
-        # print 'set run info ', dbname, note, min_time, max_time
-
-
-        self.db.use(masterdb)
-        self.db.execute("update runs set start_time=%i where db='%s'" % (min_time,dbname))
-        self.db.execute("update runs set stop_time=%i where db='%s'"  % (max_time,dbname))
-        self.db.execute("update runs set notes='%s' where db='%s'"    % (note,dbname))
-
-    def set_currentDB(self,dbname):
-        self.db.execute("select db from run where db=%s" % escape_string(dbname))
-        r = self.db.fetchone()
-        self.db.execute("update current set db=%s" % escape_string(r['db']))
-
-    def show_status(self):
-        self.db.execute("select * from current")
-        r = self.db.fetchone()
-        print "Current Database=%s,  status=%s,  PID=%i " % (r['db'], r['status'],r['pid'])
-        self.db.use(r['db'])
-        n = []
-        minutes = 10
-        dt = time.time()-minutes * 60.
-        for i in range(1,129):
-            self.db.execute("select * from pvdat%3.3i where time > %i " % (i,dt))
-            n.append(len(self.db.fetchall()))
-        tot = 0
-        for i in n: tot = tot + i
-        print "%i values archived in past %i minutes"  % (tot , minutes)
-        self.db.use(masterdb)
-        
-    def show_tables(self):
-        self.db.execute("select * from current")
-        current = self.db.fetchone()
-        self.db.execute("select * from runs order by start_time desc limit 10")
-        r = []
-        now = time.time()
-        for i in  self.db.fetchall():
-            i['days'] = "%6.2f " % ((i['stop_time'] - i['start_time'])/(24*3600.0))
-            if  i['db']== current['db']:
-                i['days'] = "%6.2f*" % ((now - i['start_time'])/(24*3600.0))
-            r.append(" %(db)s :   %(days)s      %(notes)s" % i)
-        r.reverse()
-        print ' =  DB       Duration(days)     Time Range '
-        for i in r: print i
-
-    def request_stop(self):
-        self.set_status('stopping')
-
-    def set_status(self,status='running'):
-        if status not in ('running','offline','stopping','unknown'):
-            status = 'unknown'
-        self.db.execute("update current set status = '%s'" % status)
-
-    def get_status(self):
-        self.db.execute("select status from current")
-        return self.db.fetchone()['status']
-
-    def set_pid(self,pid=0):
-        self.db.execute("update current set pid = %i" % int(pid))
-
-    def get_pid(self):
-        self.db.execute("select pid from current")
-        return self.db.fetchone()['pid']
-
-    def make_nextdb(self):
-        "create a new pvarch database, copying pvs to save from an old database"
-
-        dbname = self.get_currentDB()
-        olddb = SimpleDB(user=dbuser, passwd=dbpass,db=dbname, host=dbhost,debug=0)
-        olddb.use(dbname)
-        olddb.execute("select * from pv")
-        old_data = olddb.fetchall()
-
-        dbname = "%s%.5i" % (dbname[:6],int(dbname[6:])+1)
-
-        olddb.execute("drop database if exists %s" % dbname)
-        olddb.execute("create database %s" % dbname)
-        olddb.use(dbname)
-        for i in self.pvarch_init: olddb.execute(i)
-        for i in range(1,129):
-            for j in self.pvdat_init: olddb.execute(j % i)
-        olddb.execute("grant all privileges on %s.* to %s identified by '%s'" % (dbname,dbuser,dbpass))
-
-        newdb = SimpleDB(user=dbuser, passwd=dbpass,db=dbname, host=dbhost,debug=0)
-        pvtable = SimpleTable(newdb, table='pv')
-        print ' adding %i pvs to DB %s' % (len(old_data),dbname)
-
-        for p in old_data:
-            pvtable.insert(pv_name    =p['pv_name'],     pv_type    =p['pv_type'],
-                           description=p['description'], data_table =p['data_table'],
-                           deadtime   =p['deadtime'],    graph_type =p['graph_type'],
-                           graph_lo   =p['graph_lo'],    graph_hi   =p['graph_hi'])
-
-            
-        self.db.execute("delete from runs where db='%s'" % dbname)
-        self.db.execute("insert into runs (db,start_time,stop_time) values ('%s',%i,%i)" % (dbname,
-                                                                                            MAX_EPOCH,MAX_EPOCH))
-        return dbname
-   
-    def db_for_time(self, t=0):
-        x = 1
-#         # returns name of database with start_time data at or before a given time.
-#         for offset in (0, 3*86400.): 
-#             self.db.execute('select * from runs where start_time<=%i order by start_time desc limit 1' % (t-offset))
-#             r  = self.db.fetchone()
-#             if r.has_key('db'): return r['db']
-#         return None
-            
 class Archiver:
     MIN_TIME = 1000000
     def __init__(self,dbname=None,**args):
@@ -192,7 +36,7 @@ class Archiver:
 
         if self.master is None: self.master = ArchiveMaster()
         if self.dbname is None: self.dbname = self.master.get_currentDB()
-        self.cache  = PVCache()
+        self.cache  = Cache()
         self.db = SimpleDB(db=self.dbname,
                            user=self.dbuser,
                            passwd=self.dbpass,
@@ -265,7 +109,7 @@ class Archiver:
         if (typ in ('double','float')):     dtype = 'double'
         
         # determine data table
-        table = "pvdat%3.3i" % ((hash(pvname) % 128) + 1)
+        table = "dat%3.3i" % ((hash(pvname) % 128) + 1)
         
         # determine descrption (don't try too hard!)
         if (description == None):

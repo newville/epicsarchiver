@@ -7,7 +7,7 @@ import array
 
 from time import sleep
 
-from util import string_literal, clean_string
+from util import string_literal, clean_string, clean_input
 from config import dbuser, dbpass, dbhost, mysqldump
 
 def db_connect(dbname='test',user=dbuser,passwd=dbpass,
@@ -43,9 +43,8 @@ class SimpleTable:
                 self.db.write("Table %s not available in %s " % (table,db))
                 return None
 
-        self.db.execute("describe %s" % self._name)
         # print "done: describe %s" % self._name
-        for j in self.db.fetchall():
+        for j in self.db.exec_fetch("describe %s" % self._name):
             if (j['key'] == 'PRI'):  self.primary = j['field']
             self.fields.append(j['field'].upper())
             
@@ -73,16 +72,12 @@ class SimpleTable:
                 k = clean_string(k)
                 v = string_literal(v)
                 q = "%s and %s=%s" % (q,k,v)
-            self.db.execute(q)
-            return self.db.fetchall()
+            return self.db.exec_fetch(q)
         return 0
 
     def select(self,vals='*', where='1=1'):
         """check for a table row, and return matches"""
-        
-        q = "select %s from %s where %s" % (vals, self._name, where)
-        self.db.execute(q)
-        return self.db.fetchall()
+        return self.db.exec_fetchall("select %s from %s where %s" % (vals, self._name, where))
 
     def update(self,where=None,set=None):
         """update a table row with set and where dictionaries:
@@ -165,7 +160,7 @@ class SimpleDB:
 
         self.cursor = self.db.cursor(cursorclass=MySQLdb.cursors.DictCursor)
         self.use(self.dbname)
-        self.execute("set AUTOCOMMIT=%i" % autocommit)
+        self.__execute("set AUTOCOMMIT=%i" % autocommit)
 
     def close(self):
         " close db connection"
@@ -201,7 +196,7 @@ class SimpleDB:
 	    count = 0
             for x in lines:
                 if not x.startswith('#'):
-                    self.execute(x[:-1])
+                    self.__execute(x[:-1])
                 count = count +1
                 if (report>0 and (count % report == 0)):
                     self.write("%i / %i " % (count,len(lines)))
@@ -217,21 +212,31 @@ class SimpleDB:
         self.table_list = []
         self.tables     = {}
 
-        if self.execute("use %s" % db) != None:
+        if self.__execute("use %s" % db) != None:
             self.dbname  = db
-            n = self.execute("show TABLES")
+            n = self.__execute("show TABLES")
             x = self.fetchall()
             if (n>0): self.table_list = [i.values()[0] for i in self.fetchall()]
             for i in self.table_list:
                 self.tables[i] = SimpleTable(self,table=i)
 
-    def execute(self,q):
-        "execute query"
+    def execute(self,qlist):
+        "execute a single sql command string or a tuple or list command strings"
+        if isinstance(qlist,str): return self.__execute(qlist)
+        if isinstance(qlist,tuple) or isinstance(qlist,list):
+            r = []
+            for q in qlist: r.append( self.__execute(q))
+            return r
+        self.write("Error: could not execute %s" % str(qlist) )
+        return None                                      
+        
+    def __execute(self,q):
+        "execute single query"
         try:
             if (self.debug == 1): print "SQL> %s" % (q)
             return self.cursor.execute(q)
         except:
-            sleep(0.02)
+            sleep(0.01)
             try:
                 if (self.debug == 1): print "SQL> %s" % (q)
                 return self.cursor.execute(q)
@@ -275,5 +280,32 @@ class SimpleDB:
         return tuple(r)
 
     def exec_fetch(self,q):
-        self.execute(q)
+        self.__execute(q)
         return self.fetchall()
+
+    def exec_fetchall(self,q):
+        self.__execute(q)
+        return self.fetchall()
+
+    def exec_fetchone(self,q):
+        self.__execute(q)
+        return self.fetchall()
+
+    def create_and_use(self, dbname):
+        'create and use a database.  Use with caution!'
+        self.__execute("drop database if exists %s" % dbname)
+        self.__execute("create database %s" % dbname)
+        self.use(dbname)
+
+    def grant(self,db=None,user=None,passwd=None,host=None,priv=None):
+        
+        if db     is None: db  = self.dbname
+        if user   is None: user = self.user 
+        if passwd is None: passwd = self.passwd 
+        if host   is None: host = self.host
+        if priv   is None: priv = 'all privileges'
+        priv = clean_input(priv)
+
+        cmd = "grant %s on %s.* to %s@%s identified by '%s'" % (priv,db,user,host,passwd)
+        self.__execute(cmd)
+

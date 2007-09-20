@@ -40,6 +40,7 @@ setup(
     description = 'A library for Archiving Epics PVs.',
     package_dir = {'EpicsArchiver': 'lib'},
     packages    = ['EpicsArchiver'],
-    data_files  = [(bin_dir, ['pvarch_init_mysql'])] 
+    data_files  = [(bin_dir, ['bin/pvarch'])]
+    # _init_mysql','pvarch'])]
 
 )
