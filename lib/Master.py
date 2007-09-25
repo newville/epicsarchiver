@@ -48,7 +48,7 @@ class ArchiveMaster:
     sql_pairs_insert = "update pairs set score=%i where pv1=%s and pv2=%s"
     sql_current_sel  = "select * from current"
     sql_set_pid      = "update current set pid=%i"
-    sql_get_times    = "select min(time),max(time) from dat%3.3i"
+    sql_get_times    = "select min(time),max(time) from pvdat%3.3i"
     
     def __init__(self):
         self.db = SimpleDB(user=dbuser,passwd=dbpass,host=dbhost, db=masterdb)
@@ -59,10 +59,12 @@ class ArchiveMaster:
         self.__exec(self.sql_current_sel)
         return self.db.fetchone()[val]
 
-    def get_currentDB(self):  self.__current('db')
-    def get_status(self):     self.__current('status')
-    def get_pid(self):        self.__current('pid')
-    def set_pid(self,pid=0):  self.__exec(self.sql_set_pid % int(pid))
+    def texec(self,s):        return self.db.exec_fetch(s)
+
+    def get_currentDB(self):  return self.__current('db')
+    def get_status(self):     return self.__current('status')
+    def get_pid(self):        return self.__current('pid')
+    def set_pid(self,pid=0):  return self.__exec(self.sql_set_pid % int(pid))
 
     def save_db(self,dbname=None):
         if dbname is None: dbname = self.__current('db')
@@ -79,20 +81,28 @@ class ArchiveMaster:
         max_time=0
         for i in range(1,129):
             r = self.db.exec_fetchone(self.sql_get_times % (i))
-            max_time = max(max_time,r['max(time)'])
-            min_time = min(min_time,r['min(time)'])
+            try:
+                mx = r['max(time)'] or max_time
+                mn = r['min(time)'] or min_time
+                max_time = max(max_time,mx)
+                min_time = min(min_time,mn)
+            except TypeError:
+                pass
         
         if currdb == dbname:  max_time = MAX_EPOCH
+
         note = "%s to %s" % (time.strftime("%d-%b-%Y", time.localtime(min_time)),
                              time.strftime("%d-%b-%Y", time.localtime(max_time)))
 
         self.db.use(masterdb)
-        self.db.execute("update runs set start_time=%i where db='%s'" % (min_time,dbname))
-        self.db.execute("update runs set stop_time=%i where db='%s'"  % (max_time,dbname))
-        self.db.execute("update runs set notes='%s' where db='%s'"    % (note,dbname))
+        dbstr = clean_string(dbname)
+        note  = clean_string(note)
+        self.db.execute("update runs set start_time=%i where db=%s" % (int(min_time),dbstr))
+        self.db.execute("update runs set stop_time=%i where db=%s"  % (int(max_time),dbstr))
+        self.db.execute("update runs set notes=%s where db=%s"      % (note,dbstr))
 
     def set_currentDB(self,dbname):
-        r = self.db.exec_fetchone("select db from run where db=%s" % clean_string(dbname))
+        r = self.db.exec_fetchone("select db from run where db=%s" % dbstr)
         self.db.execute("update current set db=%s" % clean_string(r['db']))
 
     def get_related_pvs(self,pv,minscore=1):

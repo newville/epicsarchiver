@@ -36,7 +36,7 @@ class SimpleTable:
         if table in self.db.table_list:
             self._name = table
         else:
-            table = table.upper()
+            table = table.lower()
             if (table in self.db.table_list):
                 self._name = table
             else:
@@ -46,7 +46,7 @@ class SimpleTable:
         # print "done: describe %s" % self._name
         for j in self.db.exec_fetch("describe %s" % self._name):
             if (j['key'] == 'PRI'):  self.primary = j['field']
-            self.fields.append(j['field'].upper())
+            self.fields.append(j['field'].lower())
             
     def check_args(self,**args):
         """ check that the keys of the passed args are all available as table columns
@@ -58,7 +58,7 @@ class SimpleTable:
         returns 0 on failure, 1 on success
         """
         for i in l:
-            if i.upper() not in self.fields: return False
+            if i.lower() not in self.fields: return False
         return True
     
     def select_all(self):
@@ -69,7 +69,7 @@ class SimpleTable:
         if (self.check_args(**args)):
             q = "select * from %s where 1=1" % (self._name)
             for k,v in args.items():
-                k = clean_string(k)
+                k = clean_input(k)
                 v = string_literal(v)
                 q = "%s and %s=%s" % (q,k,v)
             return self.db.exec_fetch(q)
@@ -94,13 +94,13 @@ class SimpleTable:
             if self.check_columns(set.keys()+where.keys()):
                 q = "update %s set" % (self._name)
                 for k,v in set.items():
-                    k = clean_string(k)
+                    k = clean_input(k)
                     v = string_literal(v)
                     q = "%s %s=%s," % (q,k,v)
                 q = "%s where " % (q[:-1])  # strip off last ','
 
                 for k,v in where.items():
-                    k = clean_string(k)
+                    k = clean_input(k)
                     v = string_literal(v)
                     q = "%s %s=%s and" % (q,k,v)
                 q = q[:-3]  # strip off last 'and'
@@ -115,9 +115,9 @@ class SimpleTable:
         if (ok == 0):
             self.db.write("Bad argument for insert ")
             return 0
-        q  = "INSERT INTO %s SET " % (self._name)
+        q  = "insert into %s set " % (self._name)
         for k,v in args.items():
-            field = clean_string(k.upper())
+            field = clean_input(k.lower())
             if (v == None): v = ''
             q = "%s %s=%s," % (q,field,self.db.string_literal(v))
         cmd = q[:-1]  # strip of trailing ','
@@ -159,6 +159,7 @@ class SimpleDB:
                        (self.host, self.dbname),   status='fatal')
 
         self.cursor = self.db.cursor(cursorclass=MySQLdb.cursors.DictCursor)
+        
         self.use(self.dbname)
         self.__execute("set AUTOCOMMIT=%i" % autocommit)
 
@@ -212,13 +213,12 @@ class SimpleDB:
         self.table_list = []
         self.tables     = {}
 
-        if self.__execute("use %s" % db) != None:
-            self.dbname  = db
-            n = self.__execute("show TABLES")
-            x = self.fetchall()
-            if (n>0): self.table_list = [i.values()[0] for i in self.fetchall()]
-            for i in self.table_list:
-                self.tables[i] = SimpleTable(self,table=i)
+        self.dbname  = db
+        self.__execute("use %s" % db)
+        x = self.exec_fetch("show TABLES")
+        self.table_list = [i.values()[0] for i in x]
+        for i in self.table_list:
+            self.tables[i] = SimpleTable(self,table=i)
 
     def execute(self,qlist):
         "execute a single sql command string or a tuple or list command strings"
@@ -289,7 +289,7 @@ class SimpleDB:
 
     def exec_fetchone(self,q):
         self.__execute(q)
-        return self.fetchall()
+        return self.fetchone()
 
     def create_and_use(self, dbname):
         'create and use a database.  Use with caution!'

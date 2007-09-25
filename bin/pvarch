@@ -31,42 +31,82 @@ def show_usage():
     """
     sys.exit()
 
-def run_cache(cache=None, action=None,config=None):
-    if config is None: config = EpicsArchiver.config
 
-    if not os.path.exists(config.dblogdir):
-        os.mkdir(config.dblogdir)
+def next_archive(master):
+    master  = EpicsArchiver.ArchiveMaster()
+    dbname  = master.get_currentDB()
+
+    next_db = master.make_nextdb()
+    print 'next database = %s ' % next_db
+    master.request_stop()
+    master.set_pid(0)
+    master.set_currentDB(next_db)
+    time.sleep(2.0)
+    run_archive(action='start')
+
+def run_archive(action='start'):
+    config = EpicsArchiver.config
+
+    def archive_loop():
+        master  = EpicsArchiver.ArchiveMaster()
+        dbname  = master.get_currentDB()
+        a       = EpicsArchiver.Archiver(dbname=dbname,master=master)
+        a.mainloop()
+
+    master  = EpicsArchiver.ArchiveMaster()
+    dbname  = master.get_currentDB()
+    dir     = config.dblogdir
+    sout    = os.path.join(dir, "%s.log" % dbname)
+    serr    = os.path.join(dir, "%s.err" % dbname)
+    pidfile = os.path.join(dir, "pvarch.pid")
+
+
+    EpicsArchiver.startstop(stdout =sout,stderr=serr, pidfile=pidfile,
+                            process_name='pvarch', action=action,
+                            func = archive_loop)
+
+    #archive_loop()
+    
+
+def run_cache(action=None):
+    config = EpicsArchiver.config
+
 
     def cache_loop():
         cache   = EpicsArchiver.Cache()
         cache.mainloop()
-       
 
-    sout    = "%s/cache.log" % config.dblogdir
-    serr    = "%s/cache.err" % config.dblogdir
-    pidfile = "%s/cache.pid" % config.dblogdir
+    dir     = config.dblogdir
+    if not os.path.exists(dir):   os.mkdir(dir)
+    sout    = os.path.join(dir, "cache.out")
+    serr    = os.path.join(dir, "cache.err")
+    pidfile = os.path.join(dir, "cache.pid")
+    
 
     EpicsArchiver.startstop(stdout =sout,stderr=serr, pidfile=pidfile,
-                            process_name='pvarch', action=action,
+                            process_name='pvcache', action=action,
                             func = cache_loop)
    
 
-def cache_status(action='activity',config=None,dt=60):
-    if config is None: config = EpicsArchiver.config
+def read_cache_pid():
+    config = EpicsArchiver.config
     pidfile = "%s/cache.pid" % config.dblogdir
-
-    status = 'running'
     try:
         pf  = file(pidfile,'r')
         pid = int(pf.read().strip())
         pf.close()
     except IOError:
         pid = None
+    return pid
+    
+def cache_status(action='activity', dt=60):
+    pid   = read_cache_pid()
 
-    cache   = EpicsArchiver.Cache()
+    cache = EpicsArchiver.Cache()
+    ret   = cache.get_recent(dt=dt)
+    status= 'running'
     if pid != cache.get_pid(): status = 'not running!'
         
-    ret = cache.get_recent(dt=dt)
     if 'activity' == action:
         for r in ret:
             print "  %s   %.29s = %s" % (time.strftime("%H:%M:%S",time.localtime(r['ts'])),r['name']+' '*20,r['value'])
@@ -84,12 +124,20 @@ def main():
     config  = EpicsArchiver.config
 
     if   'help' == cmd:      show_usage()
-    elif 'status' == cmd:    print 'status ? '
+    elif 'status' == cmd:
+        print 'status '
+        if read_cache_pid() is None:
+            print "Cache is not running: start Cache with 'pvarch cache start' first!"
+        else:
+            print 'cache is running'
+    elif cmd in ('start','stop','restart'):
+        run_archive(action=cmd)
+            
     elif 'check' == cmd:     print 'check ?'
     elif 'add_pv' == cmd:    print 'add_pv ? '
     elif 'add_pvfile' == cmd:
         for pvfile in args:  EpicsArchiver.add_pvfile(pvfile)
-    elif 'check' == cmd:     print 'check?'
+
     elif 'cache' == cmd:
         action = args.pop(0)
 
@@ -100,9 +148,9 @@ def main():
         if action in ('status','activity'):
             dt = 60
             if len(args)>0: dt = args.pop(0)
-            cache_status(config=config,action=action,dt=float(dt))
+            cache_status(action=action,dt=float(dt))
         else:
-            run_cache(config=config,action=action)
+            run_cache(action=action)
            
 
     else: print "pvarch  unknown command '%s'.    Try 'pvarch -h'" % cmd

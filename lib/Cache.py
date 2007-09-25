@@ -46,13 +46,14 @@ class Cache:
         self.begin_transaction()
 
     def end_group(self):
+        nout = len(self.data)
         for nam,val in self.data.items():
             v = [clean_string(str(i)) for i in val]
             v.append(clean_string(nam))
             q = "update cache set value=%s,cvalue=%s,ts=%s where name=%s" % tuple(v)
             self.cursor.execute(q)
         self.commit_transaction()
-        return len(self.data)        
+        return nout
 
     def test_connect(self):
         self.get_pvlist()
@@ -126,13 +127,14 @@ class Cache:
             try:
                 self.start_group()
                 EpicsCA.pend_event(0.05)
-                ncachded = ncached + self.end_group()
+                self.end_group()
+                ncachded = ncached + len(self.data)
                 self.set_date()
                 self.process_requests()
                 if self.get_pid() != self.pid:
                     sys.stdout.write('no longer master.  Exiting !!\n')
                     self.exit()
-                if (time.time() - t0) >= 30:
+                if (time.time() - t0) >= 59.5:
                     sys.stdout.write( '%s: %i values cached since last notice\n' % (time.ctime(),ncached))
                     sys.stdout.flush()
                     t0 = time.time()

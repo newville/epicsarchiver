@@ -93,6 +93,17 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
         pf.close()
     except IOError:
         pid = None
+    #
+    # see if pid is live (from /proc/PID/io)
+    pid_status='unknown'
+    if pid:
+        try:
+            procio_file = file('/proc/%i/io' % pid,'r')
+            l  = procio_file.readlines()
+            if len(l) > 1: pid_status = 'alive'
+        except IOError:
+            pid_status = 'not running'            
+            
     if action in ('stop','restart'):
         if not pid:
             mess = "Could not stop, pid file '%s' missing.\n"
@@ -121,8 +132,8 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
         if not pid: msg = 'stopped'
         sys.stderr.write("status for %s (%s): %s\n" % (process_name,func.__name__,msg))
     if 'start' == action:
-        if pid:
-            mess = "Start aborted since pid file '%s' exists.\n"
+        if pid and pid_status == 'alive':
+            mess = "Start aborted since pid file '%s' exists and process running. Try 'restart?'\n"
             sys.stderr.write(mess % pidfile)
         else:
             daemonize(stdout,stderr,stdin,pidfile,startmsg,func=func,**kws)

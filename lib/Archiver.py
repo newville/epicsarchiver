@@ -5,7 +5,7 @@ from SimpleDB import SimpleDB, SimpleTable
 from Master import ArchiveMaster
 from Cache import Cache
 from config import dbuser,dbpass,dbhost,dblogdir,masterdb
-from util import normalize_pvname, get_force_update_time, escape_string
+from util import normalize_pvname, get_force_update_time, escape_string, clean_string
 
 import time
 import sys
@@ -75,6 +75,7 @@ def add_pvfile(fname):
 
 class Archiver:
     MIN_TIME = 1000000
+
     def __init__(self,dbname=None,**args):
         self.dbname = dbname
         self.dbuser = dbuser
@@ -84,6 +85,7 @@ class Archiver:
         self.force_checktime = 0
         self.messenger = sys.stdout
         self.master  = None
+        self.dtime_limbo = {}
         for k,v in args.items():
             if   (k == 'debug'):      self.debug     = v
             elif (k == 'user'):       self.dbuser    = v
@@ -101,10 +103,12 @@ class Archiver:
                            host=self.dbhost,
                            messenger=self.messenger,
                            debug=self.debug)
-        
+
     def sync_with_cache(self):
         self.pvinfo = {}
         self.last_insert = {}
+        print 'Sync With Cache: %i tables' %( len(self.db.tables))
+        
         db_pvs = self.db.tables['pv'].select()
 
         self.cache_names = self.cache.get_pvlist()
@@ -131,10 +135,10 @@ class Archiver:
         dat = []
         table = self.pvinfo[pvname]['data_table']
         pvid  = self.pvinfo[pvname]['id']
+        q = 'select time,value from %s where pv_id=%i and time>=%f and time<=%f order by time'
         for db in (db0,db1):
             self.db.use(db)
-            self.db.execute('select time,value from %s where pv_id=%i and time>=%f and time<=%f order by time' %                       (table,pvid,t0,t1))
-            for i in self.db.fetchall():
+            for i in self.db.exec_fetchall(q % (table,pvid,t0,t1)):
                 dat.append((i['time'],i['value']))
         return dat
 
@@ -217,6 +221,8 @@ class Archiver:
             if dtype in ('enum','string'):     deadband =  0.5
             if (gr['type'] == 'log'): deadband = 1.e-4
             
+        print 'Ready to Add PV ', pvname
+        
         self.db.tables['pv'].insert(name    = pvname,
                                     type    = dtype,
                                     description= description,
@@ -227,7 +233,9 @@ class Archiver:
                                     graph_hi   = gr['high'],
                                     graph_type = gr['type'])
 
-        r = self.db.tables['pv'].select_where(name=pvname)[0]
+        r = self.db.tables['pv'].select_where(name=pvname)
+        print 'select where sez: ', r
+        r = r[0]
         ftime = get_force_update_time()
         self.pvinfo[pvname] = (r['data_table'],r['id'],r['deadtime'],r['deadband'], ftime)
         self.last_insert[name] = [0,None]
@@ -264,21 +272,23 @@ class Archiver:
 
         t0 = int(time.time() - 86400)
 
-        self.db.execute("""select time,value from %s where pv_id=%i and time>%i order by time desc limit 1""" % (table, pvid,t0))
-        db_dat = self.db.fetchone()
-        try:
+        q ="select time,value from %s where pv_id=%i and time>%i order by time desc limit 1"
+
+        db_dat = self.db.exec_fetchone(q  % (table, pvid,t0))
+        if db_dat.has_key('time') and db_dat.has_key('value'):
             self.last_insert[name] = (db_dat['time'],db_dat['value'])
-        except:
-            sys.stderr.write( 'no old data found for %s, %s' %( name, db_dat))
+        else:
+            # sys.stderr.write( 'no old data found for %s, %s' %( name, db_dat))
             r= self.cache.get_full(name)
             if r['value'] is not None and r['ts'] is not None:
                 self.update_value(name,table,pvid,r['ts'],r['value'])
+                
 
     def update_value(self,name,table,pvid,ts,val):
         if ts is None or ts < self.MIN_TIME: ts = time.time()
         sql  = "insert delayed into %s (pv_id,time,value) values (%i,%i,%s)" % (table,
                                                                                 pvid, int(ts),
-                                                                                escape_string(val))
+                                                                                clean_string(val))
         try:
             self.db.execute(sql)
         except TypeError:
@@ -312,14 +322,28 @@ class Archiver:
                 if do_save:
                     self.update_value(name,table,pvid,ts,val)
                     newvals.append((str(name),str(val),ts))
+                    if self.dtime_limbo.has_key(name): self.dtime_limbo.pop(name)
+            else: # pv changed, but inside 'deadtime': put it in limbo!
+                self.dtime_limbo[name] = (ts,val)
+                
+                
+        # now look through the "limbo list" and insert the most recent change
+        # iff the last insert was longer ago than the deadtime:
+        tnow = time.time()
+        for name in self.dtime_limbo.keys():
+            table,pvid,dtime,dband,ftime = self.pvinfo[name]
+            last_ts,last_val            = self.last_insert[name]
 
+            if last_ts is None: last_ts = 0
+            if (tnow - last_ts) > dtime:
+                ts,val = self.dtime_limbo.pop(name)
+                self.update_value(name,table,pvid,ts,val)
+                newvals.append((str(name),str(val),ts))
+
+                               
+        # check for stale values 
         if (time.time() - self.force_checktime) >= 600.0:
-            # Note: this is Very Important, or too many
-            # PV connections will be created on the IOCs
-
-            # now check for stale values
             self.force_checktime = time.time()
-            self.write('looking for stale values, checking for new settings...\n')
             sys.stdout.write('looking for stale values, checking for new settings...\n')
             self.check_for_new_pvs()
             for name,data in self.last_insert.items():
@@ -375,16 +399,17 @@ class Archiver:
                 newvals,forced   = self.collect()
                 n_changed = n_changed + len(newvals)
                 n_forced  = n_forced  + len(forced)
-                EpicsCA.pend_event(0.1)
-                time.sleep(0.1)
+                EpicsCA.pend_event(0.05)
+                now = time.time()
                 if verbose:
                     self.show_changed(newvals,prefix=' ')
                     self.show_changed(forced, prefix='(f) ')
-                elif time.time()-t_lastlog>=59.5:
+                elif now-t_lastlog>=299.5:
                     self.write("%s: %i new, %i forced entries.\n" % (time.ctime(), n_changed, n_forced))
+                    sys.stdout.flush()
                     n_changed = 0
                     n_forced  = 0
-                    t_lastlog = time.time()
+                    t_lastlog = now
 
             except KeyboardInterrupt:
                 sys.stderr.write('Interrupted by user.\n')

@@ -134,7 +134,6 @@ def initialize(config):
               passwd=config.dbpass, host=config.dbhost)
 
 
-
     print 'done.\ncreating database %s :' % config.masterdb,
     xdb.create_and_use(config.masterdb) 
 
