@@ -5,6 +5,8 @@ from MySQLdb import string_literal, escape_string
 MAX_EPOCH = 2.**31
 SEC_DAY   = 86400.0
 
+motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS','.DIR','_able.VAL','.SPMG')
+
 def clean_input(x,maxlen=256):
     """clean input, forcing it to be a string, with comments stripped,
     and guarding against extra sql statements"""

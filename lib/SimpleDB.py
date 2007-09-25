@@ -27,7 +27,7 @@ class SimpleTable:
     def __init__(self,db, table=None):
         self.db = db
         if db == None:
-            print "Warning SimpleTable needs a database"
+            sys.stdout.write("Warning SimpleTable needs a database\n")
             return None
 
         self.fields  = []
@@ -233,12 +233,12 @@ class SimpleDB:
     def __execute(self,q):
         "execute single query"
         try:
-            if (self.debug == 1): print "SQL> %s" % (q)
+            if (self.debug == 1): sys.stdout.write( "SQL> %s\n" % (q))
             return self.cursor.execute(q)
         except:
-            sleep(0.01)
+            sleep(0.005)
             try:
-                if (self.debug == 1): print "SQL> %s" % (q)
+                if (self.debug == 1): sys.stdout.write( "SQL> %s\n" % (q))
                 return self.cursor.execute(q)
             except:
                 self.write("SQL Query Failed: %s " % (q))
@@ -257,7 +257,7 @@ class SimpleDB:
 
     def _normalize_dict(self, dict):
         t =  {}
-        if self.debug==1: print '_normalize dict: ', dict
+        if self.debug==1: sys.stdout.write( '_normalize dict: ')
         if (dict == None): return t
         for k,v in dict.items():
             key = k.lower()

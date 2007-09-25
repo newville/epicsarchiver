@@ -9,7 +9,7 @@ import getpass
 import warnings
 
 try:
-    from EpicsArchiver import util, SimpleDB
+    from EpicsArchiver import util, SimpleDB, Master
 except ImportError:
     xx, yy, zz = sys.exc_info()
     sys.excepthook(xx,yy,zz)
@@ -125,35 +125,37 @@ def initialize(config):
         sys.exit(1)
 
 
-    print '\ncreating database %s :' % config.masterdb,
-    xdb.create_and_use(config.masterdb) 
-
-    xdb.execute(master) 
-
-    firstrun = config.dbformat % (config.dbprefix,1)
-    firstnote = "%s to the indefinite future" % time.ctime()
-
-    print 'granting permissions...',
-
-    xdb.grant(db=config.masterdb, user=config.dbuser,
-              passwd=config.dbpass, host=config.dbhost)
-
-    print 'done.\nsetting up first run = %s' % firstrun,
-    xdb.execute(master_current % firstrun)
-    xdb.execute(master_run0 % (firstrun,firstnote,
-                               int(time.time()),int(util.MAX_EPOCH-1)))
-    
-
-
-    print 'done.\ncreating database %s :' % config.cachedb,
+    print 'creating database %s :' % config.cachedb,
     xdb.create_and_use(config.cachedb)
- 
     xdb.execute(cache)
 
     print 'granting permissions...',
     xdb.grant(db=config.cachedb, user=config.dbuser,
               passwd=config.dbpass, host=config.dbhost)
 
-    print 'done.\n\nReady to start EpicsArchiver!'
 
+
+    print 'done.\ncreating database %s :' % config.masterdb,
+    xdb.create_and_use(config.masterdb) 
+
+    xdb.execute(master) 
+
+    firstnote = "%s to the indefinite future" % time.ctime()
+    firstdb  =  config.dbformat % (config.dbprefix,1)
+
+    print 'granting permissions...',
+
+    xdb.grant(db=config.masterdb, user=config.dbuser,
+              passwd=config.dbpass, host=config.dbhost)
+
+    print 'done.\nsetting first run to %s...' % firstdb,
+    xdb.execute(master_current % firstdb)
+    xdb.execute(master_run0 % (firstdb,firstnote,
+                               int(time.time()),int(util.MAX_EPOCH-1)))
+    
+    print 'done.\ncreating database %s...' % firstdb,
+    m = Master.ArchiveMaster()
+    m.create_emptydb(dbname=firstdb)
+
+    print 'done.\n\nReady to start EpicsArchiver!'
 initialize(config)

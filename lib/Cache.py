@@ -9,7 +9,7 @@ import sys
 import getopt
 
 from config import dbuser,dbpass,dbhost, cachedb
-from util import clean_input, escape_string, normalize_pvname
+from util import clean_input, clean_string, normalize_pvname
 
 null_pv_value = {'value':None,'ts':0,'cvalue':None,'type':None}
 
@@ -47,17 +47,16 @@ class Cache:
 
     def end_group(self):
         for nam,val in self.data.items():
-	    v = [escape_string(str(i)) for i in val]
-	    v.append(escape_string(nam))
+            v = [clean_string(str(i)) for i in val]
+            v.append(clean_string(nam))
             q = "update cache set value=%s,cvalue=%s,ts=%s where name=%s" % tuple(v)
             self.cursor.execute(q)
         self.commit_transaction()
-
         return len(self.data)        
 
     def test_connect(self):
         self.get_pvlist()
-        print 'EpicsArchiver.Cache connecting to %i PVs ' %  len(self.pvlist)
+        sys.stdout.write('EpicsArchiver.Cache connecting to %i PVs\n' %  len(self.pvlist))
         t0 = time.time()
         
         for i,pvname in enumerate(self.pvlist):  
@@ -67,20 +66,22 @@ class Cache:
             except KeyboardInterrupt:
                 return
             except:
-                print 'connect failed for ', pvname
-            print i,  pvname, pv is not None, time.time()-t0
+                sys.stderr.write('connect failed for %s\n' % pvname)
+            # print i,  pvname, pv is not None, time.time()-t0
             
     def connect_pvs(self):
         self.get_pvlist()
         npvs = len(self.pvlist)
         n_notify = npvs / 10
+        sys.stdout.write("connecting to %i PVs\n" %  npvs)
         # print 'EpicsArchiver.Cache connecting to %i PVs ' %  npvs
         for i,pvname in enumerate(self.pvlist):  
             try:
                 pv = EpicsCA.PV(pvname,connect=False)
                 self.pvs[pvname] = pv
             except:
-                print 'Connect failed for ', pvname
+                sys.stderr.write('connect failed for %s\n' % pvname)
+                
                
         EpicsCA.pend_io(0.25)
         t0 = time.time()
@@ -94,31 +95,49 @@ class Cache:
             except KeyboardInterrupt:
                 self.exit()
             except:
-                print 'connection failed for ', pvname
+                sys.stderr.write('connect failed for %s\n' % pvname)
             if i % n_notify == 0:
                 EpicsCA.pend_io(0.25)
                 sys.stdout.write('%.2f ' % (float(i)/npvs))
                 sys.stdout.flush()
         self.end_group()
         
+    def testloop(self):
+        " "
+        sys.stdout.write('Cache test loop \n')
+        
+        t0 = time.time()
+        self.set_date()
+        self.connect_pvs()
+
     def mainloop(self):
         " "
+        sys.stdout.write('Starting Epics PV Archive Caching: \n')
+        
         t0 = time.time()
         self.set_date()
         self.connect_pvs()
         self.set_pid(self.pid)
-        print 'connected in %.1f seconds.  Caching process = %i ...' % (time.time()-t0,self.pid)
 
+        sys.stdout.write('\npvs connected in %.1f seconds\nCache Process ID= %i\n' % (time.time()-t0,self.pid))
+        sys.stdout.flush()
+        ncached = 0
         while True:
             try:
                 self.start_group()
-                EpicsCA.pend_event(0.1)
-                self.end_group()
+                EpicsCA.pend_event(0.05)
+                ncachded = ncached + self.end_group()
                 self.set_date()
                 self.process_requests()
                 if self.get_pid() != self.pid:
-                    print 'no longer master.  Exiting !! '
+                    sys.stdout.write('no longer master.  Exiting !!\n')
                     self.exit()
+                if (time.time() - t0) >= 30:
+                    sys.stdout.write( '%s: %i values cached since last notice\n' % (time.ctime(),ncached))
+                    sys.stdout.flush()
+                    t0 = time.time()
+                    ncached = 0
+                    
             except KeyboardInterrupt:
                 return
 
@@ -159,19 +178,18 @@ class Cache:
         time.sleep(1.0)
         
     def set_date(self):
-        self.sql_exec("update info set datetime=%s,ts=%i" % (escape_string(time.ctime()),time.time()),commit=True)
-      
+        self.sql_exec("update info set datetime=%s,ts=%i" % (clean_string(time.ctime()),time.time()),commit=True)
+        
     def get_full(self,pv,add=False):
         " return full information for a cached pv"
         npv = normalize_pvname(pv)
         ret = null_pv_value
         if add and (npv not in self.pvlist):
             self.add_pv(npv)
-            print 'adding PV.....'
-            time.sleep(1.0)
+            sys.stdout.write('adding PV.....\n')
             return self.get_full(pv,add=False)
         try:
-            r = self.sql_exec_fetch("select value,cvalue,type,ts from cache where name=%s" % escape_string(npv))
+            r = self.sql_exec_fetch("select value,cvalue,type,ts from cache where name=%s" % clean_string(npv))
             return r[0]
         except:
             return ret
@@ -182,26 +200,11 @@ class Cache:
         if use_char: return ret['cvalue']
         return ret['value']
 
-
     def set_value(self,pv=None,**kws):
-        print 'Set Value ', pv, pv.value, pv.char_value, pv.pvname
-        v    = [escape_string(i) for i in [pv.value,pv.char_value,time.time(),pv.pvname]]
+        # print 'Set Value ', pv, pv.value, pv.char_value, pv.pvname
+        v    = [clean_string(i) for i in [pv.value,pv.char_value,time.time(),pv.pvname]]
         qval = "update cache set value=%s,cvalue=%s,ts=%s where name=%s" % tuple(v)
         self.cursor.execute(qval)
-
-
-    def add_pvfile(self,fname):
-        print 'reading pvs from pvlist in file ', fname
-        f = open(fname,'r')
-        for line in f.readlines():
-            words = line[:-1].split()
-            for w in words:
-                self.add_pv(w.strip() )
-            while words:
-                x = words.pop()
-
-        f.close()
-        self.process_requests()
 
 
     def add_pv(self,pv):
@@ -210,7 +213,9 @@ class Cache:
         npv = normalize_pvname(pv)
         sql = "insert into req(name) values (%s)"
         if npv not in self.pvlist:
-            self.sql_exec(sql % escape_string(npv),commit=True)
+            cmd = sql % clean_string(npv)
+            # print 'add_pv: ' , cmd
+            self.sql_exec(cmd,commit=True)
         
     def drop_pv(self,pv):
         """delete a PV from the cache
@@ -219,7 +224,7 @@ class Cache:
         npv = normalize_pvname(pv)
         self.get_pvlist()
         if npv in self.pvlist:
-            self.sql_exec("delete from cache where name=%s" % escape_string(npv),commit=True)
+            self.sql_exec("delete from cache where name=%s" % clean_string(npv),commit=True)
         self.get_pvlist()        
         
     def get_pvlist(self):
@@ -232,11 +237,11 @@ class Cache:
         req   = self.sql_exec_fetch("select name from req")
         if len(req) == 0: return
         self.get_pvlist()
-        print 'adding %i new PVs' %  len(req)
+        sys.stdout.write('adding %i new PVs\n' %  len(req))
 
         self.begin_transaction()
         cmd = 'insert into cache(ts,name,value,cvalue,type) values'
-        es = escape_string
+        es = clean_string
         for n, r in enumerate(req):
             nam= r['name']
             if nam not in self.pvlist:
@@ -248,7 +253,7 @@ class Cache:
                     self.pvlist.append(nam)
                     self.pvs[nam].set_callback(self.onChanges)                    
                 else:
-                    print 'cache/process_req: invalid pv ', nam
+                    sys.stderr.write('cache/process_req: invalid pv %s\n' % nam)
                 
             self.sql_exec("delete from req where name=%s" % (es(nam)))
         self.commit_transaction()
@@ -265,7 +270,8 @@ class Cache:
         pid = self.get_pid()
         if not brief:
             for  r in ret:
-                print "  %s %.25s = %s" % (time.strftime("%H:%M:%S",time.localtime(r['ts'])),r['name']+' '*20,r['value'])
-            print '%i PVs had values updated in the past %i seconds. pid=%i' % (len(ret),dt,pid)
+                sys.stdout.write("  %s %.25s = %s\n" % (time.strftime("%H:%M:%S",time.localtime(r['ts'])),
+                                                      r['name']+' '*20,r['value']))
+            sys.stdout.write('%i PVs had values updated in the past %i seconds. pid=%i\n' % (len(ret),dt,pid))
         return len(ret)
 

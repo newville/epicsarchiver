@@ -2,46 +2,45 @@
 
 from SimpleDB import SimpleDB, SimpleTable
 from config import dbuser, dbpass, dbhost, masterdb, dbprefix, dbformat
-from util import normalize_pvname, escape_string, MAX_EPOCH, SEC_DAY
+from util import normalize_pvname, clean_string, MAX_EPOCH, SEC_DAY
 
 import time
 
-def nextname(dbname=None,current=None):
-    if dbname is None:
-        index = 1
-        if isinstance(current,str):
-            nlen = current.find('_') + 1
-            if nlen < 1:
-                nlen = current.find('0')
-                if nlen==-1:
-                    for i,s in enumerate(current):
-                        if s in '0123456789':
-                            nlen = i
-                            break
-            index = int(current[nlen:]) + 1
-        dbname = dbformat % (dbprefix,index)
-    return dbname
+def nextname(current=None,dbname=None):
+    if dbname is not None: return dbname
+    index = 1
+    if isinstance(current,str):
+        nlen = current.rfind('_') + 1
+        if nlen < 1:
+            nlen = current.find('0')
+            if nlen==-1:
+                import string
+                for i,s in enumerate(current):
+                    if s in string.digits:
+                        nlen = i
+                        break
+        index = int(current[nlen:]) + 1
+    return dbformat % (dbprefix,index)
 
 
 class ArchiveMaster:
     pv_init = ("drop table if exists pv",
                """create table pv (id  smallint unsigned not null primary key auto_increment,
-               ioc_id  smallint unsigned not null,
-               pv_name varchar(64) not null,
+               name varchar(64) not null,
                description varchar(128),
                data_table  varchar(16),
                deadtime  double default 10.0,
                deadband  double default 1.e-8,
                graph_hi  tinyblob,   graph_lo  tinyblob,
                graph_type  enum('normal','log','discrete'),
-               pv_type enum('int','double','string','enum') not null,
-               unique (pv_name) ) type=myisam;""")
+               type enum('int','double','string','enum') not null,
+               unique (name) ) ENGINE=myisam;""")
 
 
-    dat_init = ("drop table if exists dat%3.3i",
-                  """create table dat%3.3i(
+    dat_init = ("drop table if exists pvdat%3.3i",
+                  """create table pvdat%3.3i(
                   time int unsigned not null,
-                  pv_id  smallint unsigned not null, value tinyblob) type=myisam;""")
+                  pv_id  smallint unsigned not null, value tinyblob) ENGINE=myisam;""")
 
     sql_pairs_order  = "select * from pairs where %s=%s and score>=%i order by score"
     sql_pairs_select = "select score from pairs where pv1=%s and pv2=%s"
@@ -67,7 +66,7 @@ class ArchiveMaster:
 
     def save_db(self,dbname=None):
         if dbname is None: dbname = self.__current('db')
-        print 'saving ', dbname
+        sys.stdout.write('saving %s\n' % dbname)
         self.db.use(dbname)
         self.db.safe_dump(compress=True)
         self.db.use(masterdb)
@@ -93,14 +92,14 @@ class ArchiveMaster:
         self.db.execute("update runs set notes='%s' where db='%s'"    % (note,dbname))
 
     def set_currentDB(self,dbname):
-        r = self.db.exec_fetchone("select db from run where db=%s" % escape_string(dbname))
-        self.db.execute("update current set db=%s" % escape_string(r['db']))
+        r = self.db.exec_fetchone("select db from run where db=%s" % clean_string(dbname))
+        self.db.execute("update current set db=%s" % clean_string(r['db']))
 
     def get_related_pvs(self,pv,minscore=1):
         npv = normalize_pvname(pv)        
         tmp = []
         for i in ('pv1','pv2'):
-            for j in self.db.exec_fetchall(self.sql_pairs_order % (i,es(npv),minscore)):
+            for j in self.db.exec_fetchall(self.sql_pairs_order % (i,clean_string(npv),minscore)):
                 tmp.append((j['score'],j['pv1'].strip(),j['pv2'].strip()))
         tmp.sort()
         out = []
@@ -111,24 +110,22 @@ class ArchiveMaster:
         out.reverse()
         return out
 
-
     def get_pair_score(self,pv1,pv2):
         p = [pv1.strip(),pv2.strip()] ;  p.sort()
-        i = self.db.exec_fetchall(self.sql_pairs_select % (es(p[0]),es(p[1])))
+        i = self.db.exec_fetchall(self.sql_pairs_select % (clean_string(p[0]),clean_string(p[1])))
         try:
             return int(i[0]['score'])
         except:
             return 0
-
 
     def set_pair_score(self,pv1,pv2,score=None):
         p = [pv1.strip(),pv2.strip()] ;  p.sort()
         current_score  = self.get_pair_score(p[0],p[1])
         if score is None: score = 1 + current_score
         if current_score == 0:
-            self.db.execute(self.sql_pairs_update % (es(p[0]),es(p[1]),score))
+            self.db.execute(self.sql_pairs_update % (clean_string(p[0]),clean_string(p[1]),score))
         else:
-            self.db.execute(self.sql_pairs_insert % (score,es(p[0]),es(p[1])))
+            self.db.execute(self.sql_pairs_insert % (score,clean_string(p[0]),clean_string(p[1])))
 
     def increment_pair_score(self,pv1,pv2):  self.set_pair_score(pv1,pv2,score=None)
 
@@ -144,7 +141,7 @@ class ArchiveMaster:
         minutes = 10
         dt = time.time()-minutes * 60.
         for i in range(1,129):
-            r = self.db.exec_fetchall("select * from dat%3.3i where time > %i " % (i,dt))
+            r = self.db.exec_fetchall("select * from pvdat%3.3i where time > %i " % (i,dt))
             n.append(len(r))
             tot = 0
         for i in n: tot = tot + i
@@ -175,37 +172,40 @@ class ArchiveMaster:
             status = 'unknown'
         self.db.execute("update current set status = '%s'" % status)
 
+    def create_emptydb(self,dbname):
+        self.db.execute("drop database if exists %s" % dbname)
+        self.db.execute("create database %s" % dbname)
+        self.db.use(dbname)
+        self.db.execute(self.pv_init)
+        for i in range(1,129):
+            for q in self.dat_init: self.db.execute(q % i)
+        self.db.grant(db=dbname,user=dbuser,passwd=dbpass,host=dbhost)
+
     def make_nextdb(self,dbname=None):
         "create a new pvarch database, copying pvs to save from an old database"
 
-        currdb = self.__current('db')()
+        currdb = self.__current('db')
         olddb  = SimpleDB(user=dbuser, passwd=dbpass,db=currdb, host=dbhost,debug=0)
         olddb.use(currdb)
         olddb.execute("select * from pv")
         old_data = olddb.fetchall()
 
-        dbname = nextname(dbname,current=currdb)
-
-        olddb.execute("drop database if exists %s" % dbname)
-        olddb.execute("create database %s" % dbname)
-        olddb.use(dbname)
-        olddb.execute(self.pv_init)
-        for i in range(1,129):  olddb.execute(self.dat_init)
-        olddb.grant(db=dbname,user=dbuser,passwd=dbpass,host=dbhost)
-
+        dbname = nextname(current=currdb,dbname=dbname)
+        self.create_emptydb(dbname)
+        
         newdb = SimpleDB(user=dbuser, passwd=dbpass,db=dbname, host=dbhost,debug=0)
         pvtable = SimpleTable(newdb, table='pv')
-        print ' adding %i pvs to DB %s' % (len(old_data),dbname)
+        sys.stdout.write(' adding %i pvs to DB %s\n' % (len(old_data),dbname))
 
         for p in old_data:
-            pvtable.insert(pv_name    =p['pv_name'],     pv_type    =p['pv_type'],
+            pvtable.insert(name       =p['name'],        type    =p['type'],
                            description=p['description'], data_table =p['data_table'],
                            deadtime   =p['deadtime'],    graph_type =p['graph_type'],
                            graph_lo   =p['graph_lo'],    graph_hi   =p['graph_hi'])
 
         self.db.execute("delete from runs where db='%s'" % dbname)
         imax = int(MAX_EPOCH)-1
-        self.db.execute("insert into runs (db,start_time,stop_time) values ('%s',%i,%i)" % (dbname,imax,imax)
+        self.db.execute("insert into runs (db,start_time,stop_time) values ('%s',%i,%i)" % (dbname,imax,imax))
         return dbname
    
     def dbs_for_time(self, t0=SEC_DAY, t1=MAX_EPOCH):

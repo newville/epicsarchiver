@@ -14,6 +14,64 @@ import getopt
 
 MAX_EPOCH = 2**31
 
+def add_pvfile(fname):
+    """
+    Read a file that lists PVs and add them (if needed) to the PV cache
+    -- they will be automatically added to the running archives asap.
+
+    The PV file generally lists one PV per line, but also has a few features:
+    
+       1. Putting a '.VAL' PV for a PV that is from a motor record will
+          automatically have the following motor fields added:
+              .VAL  .OFF .FOFF .SET .HLS .LLS .DIR _able.VAL .SPMG
+          Each of these pairs of PVs will also be given an inital
+          'pair score' of 10, which is used to define 'related pvs'
+
+       2. Putting multiple PVs on a single line (space or comma delimited)
+          will add all PVs on that line and also give all pairs of PVs
+          on the line a 'pair score' of 10.
+          
+    """
+    from util import motor_fields
+    print 'reading pvs from pvlist in file ', fname
+    f = open(fname,'r')
+    lines = f.readlines()
+    f.close()
+
+    cache  = Cache()
+    master = ArchiveMaster()
+
+    for line in lines:
+        line.strip()
+        if len(line)<2 or line.startswith('#'): continue
+
+        words = line[:-1].replace(',',' ').split()
+        print '  ', len(words), ' ', words
+        for pvname in words:
+            pvname = pvname.strip()
+            if pvname.endswith('.VAL'): pvname =pvname[:-4]
+            print pvname
+            if EpicsCA.caget(pvname+'.RTYP') == 'motor':
+                fields = ["%s%s" % (pvname,i) for i in motor_fields]
+                print 'add Motor: ', fields
+                for field in fields:
+                    if EpicsCA.PV(field,connect=True) is not None: cache.add_pv(field)
+                while fields:
+                    x = fields.pop(0)
+                    for field in fields: master.set_pair_score(x,field,10)
+
+            else:
+                if EpicsCA.PV(pvname,connect=True) is not None:
+                    cache.add_pv(pvname)
+
+        while words:
+            x = words.pop()
+            for w in words:  master.set_pair_score(x,w,10)
+    #
+    print 'done.'
+
+
+
 
 class Archiver:
     MIN_TIME = 1000000
@@ -84,7 +142,7 @@ class Archiver:
         self.messenger.write(s)
         
     def drop_pv(self,name):
-        self.db.execute("delete from pv where pv_name=%s" % name)
+        self.db.execute("delete from pv where name=%s" % name)
         
     def add_pv(self,name,description=None,graph={},deadtime=None,deadband=None):
         """add PV to the database"""
@@ -109,7 +167,7 @@ class Archiver:
         if (typ in ('double','float')):     dtype = 'double'
         
         # determine data table
-        table = "dat%3.3i" % ((hash(pvname) % 128) + 1)
+        table = "pvdat%3.3i" % ((hash(pvname) % 128) + 1)
         
         # determine descrption (don't try too hard!)
         if (description == None):
@@ -159,8 +217,8 @@ class Archiver:
             if dtype in ('enum','string'):     deadband =  0.5
             if (gr['type'] == 'log'): deadband = 1.e-4
             
-        self.db.tables['pv'].insert(pv_name    = pvname,
-                                    pv_type    = dtype,
+        self.db.tables['pv'].insert(name    = pvname,
+                                    type    = dtype,
                                     description= description,
                                     data_table = table,
                                     deadtime   = deadtime,
@@ -169,7 +227,7 @@ class Archiver:
                                     graph_hi   = gr['high'],
                                     graph_type = gr['type'])
 
-        r = self.db.tables['pv'].select_where(pv_name=pvname)[0]
+        r = self.db.tables['pv'].select_where(name=pvname)[0]
         ftime = get_force_update_time()
         self.pvinfo[pvname] = (r['data_table'],r['id'],r['deadtime'],r['deadband'], ftime)
         self.last_insert[name] = [0,None]
@@ -183,7 +241,7 @@ class Archiver:
         if self.pvinfo.has_key(pvname):
             old = self.pvinfo[pvname]
             try:
-                r   = self.db.tables['pv'].select_where(pv_name=pvname)[0]
+                r   = self.db.tables['pv'].select_where(name=pvname)[0]
                 self.pvinfo[pvname] = (r['data_table'],r['id'],r['deadtime'],r['deadband'], old[4])
             except:
                 pass
@@ -191,7 +249,7 @@ class Archiver:
             self.add_pv(pvname)
     
     def initialize_data(self,pv):
-        nam_x = pv['pv_name']
+        nam_x = pv['name']
         pvid  = pv['id']
         table = pv['data_table']
         dtime = pv['deadtime']
@@ -211,7 +269,7 @@ class Archiver:
         try:
             self.last_insert[name] = (db_dat['time'],db_dat['value'])
         except:
-            print 'no old data found for ', name, db_dat
+            sys.stderr.write( 'no old data found for %s, %s' %( name, db_dat))
             r= self.cache.get_full(name)
             if r['value'] is not None and r['ts'] is not None:
                 self.update_value(name,table,pvid,r['ts'],r['value'])
@@ -262,7 +320,7 @@ class Archiver:
             # now check for stale values
             self.force_checktime = time.time()
             self.write('looking for stale values, checking for new settings...\n')
-            print 'looking for stale values, checking for new settings...'
+            sys.stdout.write('looking for stale values, checking for new settings...\n')
             self.check_for_new_pvs()
             for name,data in self.last_insert.items():
                 last_ts,last_val = data
@@ -329,7 +387,7 @@ class Archiver:
                     t_lastlog = time.time()
 
             except KeyboardInterrupt:
-                print 'Interrupted by user.'
+                sys.stderr.write('Interrupted by user.\n')
                 return None
             
             status = self.master.get_status()
@@ -356,7 +414,7 @@ def do_next(master):
     dbname  = master.get_currentDB()
    
     next_db = master.make_nextdb()
-    print 'next database = %s ' % next_db
+    sys.stdout.write('next database = %s \n' % next_db)
     master.request_stop()
     master.set_pid(0)
     master.set_currentDB(next_db)

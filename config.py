@@ -11,7 +11,8 @@ dbhost   = 'localhost'
 mysqldump = '/usr/bin/mysqldump --opt -p%s -u%s' % (dbpass,dbuser)
 
 # location of log directories
-dblogdir = '/var/log/pvarch'
+# dblogdir = '/var/log/pvarch'
+dblogdir = '/home/newville/Codes/Epics/pva/logs'
 
 # location of python web scripts
 cgi_bin = '/usr/local/apache/cgi-bin/pvarch'
