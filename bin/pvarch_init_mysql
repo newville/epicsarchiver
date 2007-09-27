@@ -37,7 +37,7 @@ welcome_msg = """
  of a mysql account that can grant permissions to %(dbuser)s 
 
  *** Warning *** Warning *** Warning *** Warning *** Warning *** 
- This will destroy the databases %(masterdb)s and %(cachedb)s
+ This will destroy the databases %(master_db)s and %(cache_db)s
 
  Use Ctrl-C now if you do not want these databases destroyed!
  **************************************************************
@@ -47,26 +47,27 @@ master= ("drop table if exists current",
          "drop table if exists pairs",
          "drop table if exists runs",
          """create table pairs (
-          pv1 varchar(64) not null,
-          pv2 varchar(64) not null,  score int(10) unsigned default null)""", 
+          pv1   varchar(64) not null,
+          pv2   varchar(64) not null,
+          score int unsigned default 0)""", 
 
          """create table runs (
-         id smallint(5) unsigned not null auto_increment,
-         db varchar(32) not null default '',
-         notes varchar(255) default null,
-         start_time int(11) not null default '0',
-         stop_time int(11) not null default '0',
+         id         smallint unsigned not null auto_increment,
+         db         varchar(32) not null default '',
+         notes      varchar(511) default null,
+         start_time double not null default 0,
+         stop_time  double not null default 0,
          primary key  (id),
-         unique key db (db))""",
+         unique  key db (db))""",
          
          """create table current (
          status enum('offline','running','stopping','unknown') default 'unknown',
-         db varchar(32) default null,
-         pid int(10) unsigned default null)""",
+         db     varchar(32) default null,
+         pid    int unsigned default null)""",
        )
 
 master_current =  "insert into current values ('unknown','%s',0)"
-master_run0    =  "insert into runs values (1,'%s','%s',%i,%i)"
+master_run0    =  "insert into runs values (1,'%s','%s',%f,%f)"
 
 cache = ("drop table if exists cache",
          "drop table if exists info",
@@ -92,7 +93,6 @@ cache = ("drop table if exists cache",
   datetime varchar(128) default null,
   pid int(10) unsigned default null,
   primary key  (id))""",
-
          "insert into info values (1,0.0,'created',0)"
 )
 
@@ -121,40 +121,42 @@ def initialize(config):
         xdb   = SimpleDB(user=super_user, db='mysql',
                          passwd=super_pass, host = config.dbhost)
     except:
-        print 'error starting mysql.  Invalid Username/Password?  Is mysql running?'
+        print 'error starting mysql. Invalid Username/Password? Is mysql running?'
         sys.exit(1)
 
 
-    print 'creating database %s :' % config.cachedb,
-    xdb.create_and_use(config.cachedb)
+    grant_kws = {'user':config.dbuser,
+                 'passwd':config.dbpass,
+                 'host':config.dbhost}
+
+    print 'creating database %s :' % config.cache_db,
+    xdb.create_and_use(config.cache_db)
     xdb.execute(cache)
 
     print 'granting permissions...',
-    xdb.grant(db=config.cachedb, user=config.dbuser,
-              passwd=config.dbpass, host=config.dbhost)
+    xdb.grant(db=config.cache_db, **grant_kws)
 
 
-    print 'done.\ncreating database %s :' % config.masterdb,
-    xdb.create_and_use(config.masterdb) 
+    print 'done.\ncreating database %s :' % config.master_db,
+    xdb.create_and_use(config.master_db) 
 
     xdb.execute(master) 
 
-    firstnote = "%s to the indefinite future" % time.ctime()
-    firstdb  =  config.dbformat % (config.dbprefix,1)
-
     print 'granting permissions...',
+    xdb.grant(db=config.master_db, **grant_kws)
 
-    xdb.grant(db=config.masterdb, user=config.dbuser,
-              passwd=config.dbpass, host=config.dbhost)
+    firstnote = "%s to the indefinite future" % time.ctime()
+    firstdb   =  config.dat_format % (config.dat_prefix,1)
 
     print 'done.\nsetting first run to %s...' % firstdb,
     xdb.execute(master_current % firstdb)
-    xdb.execute(master_run0 % (firstdb,firstnote,
-                               int(time.time()),int(util.MAX_EPOCH-1)))
+    xdb.execute(master_run0 % (firstdb, firstnote,
+                               time.time(), util.MAX_EPOCH))
     
     print 'done.\ncreating database %s...' % firstdb,
     m = Master.ArchiveMaster()
     m.create_emptydb(dbname=firstdb)
 
     print 'done.\n\nReady to start EpicsArchiver!'
+
 initialize(config)

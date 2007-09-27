@@ -1,15 +1,16 @@
 #!/usr/bin/python
 import os
 import time
-import pvarch
-import pvcache
 import EpicsCA
 
-DEBUG=False
-cgiroot   = "http://cars9.uchicago.edu/cgi-bin/gse_status"
+from EpicsArchiver import ArchiveMaster, Archiver, Cache, config
+from EpicsArchiver.util import SEC_DAY
 
-if DEBUG:
-    cgiroot =  "http://cars9.uchicago.edu/~newville/py"
+
+DEBUG=True
+DEBUG=False
+cgiroot   = config.cgi_url
+
 
 thispage  = "%s/archiver.py" % cgiroot
 adminpage = "%s/admin.py" % cgiroot
@@ -18,11 +19,11 @@ statuspage= "%s/status.py" % cgiroot
 
 os.environ['GNUTERM'] = 'png'
 
+
 import Gnuplot
 Gnuplot.GnuplotOpts.default_term='png'
 
-ISEC_DAY = 86400  # sec / day
-REFRESH_TIME = "%i" % (ISEC_DAY * 7)
+REFRESH_TIME = "%i" % (SEC_DAY * 7)
 
 def random_string(n):
     """generate a string of length n of random numbers+letters """
@@ -95,15 +96,14 @@ padding: 3px 3px 4px 3px;margin: 0px ;text-decoration: none; }
              weekNumbers: false,
              });</script>"""
     
-    links= (("http://cars9.uchicago.edu/gsecars/webcam/", "GSECARS Web Cameras"),
-            ("http://www.aps.anl.gov/asd/operations/gifplots/statgif.html","APS Status"),
-            (statuspage, "Beamline Status"),
+    links= ((statuspage, "Beamline Status"),
             (adminpage,"Archiver Admin Page")   )
 
-    def __init__(self, **args):
+    def __init__(self, top_links=None, **args):
         self.tabledef  ="<table width=90% cellpadding=0 cellspacing=1>"
         self.buffer  = []
-
+        if top_links: self.links = top_links
+        
     def write(self,s):
         self.buffer.append(s)
         # = "%s%s\n" % (self.buffer,s)
@@ -140,7 +140,7 @@ padding: 3px 3px 4px 3px;margin: 0px ;text-decoration: none; }
         s = s[:-1] + ']'
         self.write("</body></html>")
 
-class PV_Viewer(HTMLWriter):
+class PlotViewer(HTMLWriter):
     ago_times = ('1 hour', '2 hours', '3 hours', '6 hours','8 hours','12 hours', 
                  '1 day','2 days','3 days', '1 week', '2 weeks', '1 month')
 
@@ -149,8 +149,8 @@ class PV_Viewer(HTMLWriter):
     months  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
     days    = (31,28,31,30,31,30,31,31,30,31,30,31)
     minutes = ('00','05','10','15','20','25', '30','35','40','45','50','55')
-    file_pref  = "/www/apache/htdocs/cgi-data/pvarch/"
-    link_pref  = "http://cars9.uchicago.edu/cgi-data/pvarch/"
+    file_pref  = config.data_dir
+    link_pref  = config.data_url
 
     gp_base = """set nokey
 set term png transparent medium xffffff x000000 xe8e8e8 x0000dd xdd0000 xdd00dd xf2f2f2
@@ -266,7 +266,7 @@ set ytics nomirror
 
         d1val = self.kw.get('date1','')
         d2val = self.kw.get('date2','')
-        if d1val in (None,'None', ''): d1val = self.time_sec2str( time.time()-ISEC_DAY)
+        if d1val in (None,'None', ''): d1val = self.time_sec2str( time.time()-SEC_DAY)
         if d2val in (None,'None', ''): d2val = self.time_sec2str( time.time() )
 
 
@@ -283,7 +283,6 @@ set ytics nomirror
 
         # main (lefthand side) of page done, 
        
-
         x = self.make_related_pvs_page(arg_pv1,pvname2)
 
         self.draw_graph(arg_pv1,arg_pv2)
@@ -318,17 +317,17 @@ set ytics nomirror
             self.write(" GRAPH %s / %s " % (arg_pv1,arg_pv2))
             self.write('<p> === Keys: === </p>')
             for key,val in self.kw.items():
-                self.write("<p>  %s :  %s </p>" % (key,val))
+                self.write(" %s :  %s <br>" % (key,val))
     
         t1 = time.time()
-        t0 = t1 - ISEC_DAY
+        t0 = t1 - SEC_DAY
         action =  self.kw.get('submit','Time From')
         if action.startswith('Time From'):
             n,units = self.kw['time_ago'].split()
             if   units.startswith('ho'):   mult = 3600.
-            elif units.startswith('da'):   mult = ISEC_DAY
-            elif units.startswith('we'):   mult = ISEC_DAY * 7
-            elif units.startswith('mo'):   mult = ISEC_DAY * 31.
+            elif units.startswith('da'):   mult = SEC_DAY
+            elif units.startswith('we'):   mult = SEC_DAY * 7
+            elif units.startswith('mo'):   mult = SEC_DAY * 31.
             t0 = t1 - int(n) * mult
         else:
             dx = time.localtime()
@@ -352,10 +351,12 @@ set ytics nomirror
         # get PV and related data
 
         pv = self.arch.get_pv(arg_pv1)
-
+        pv.connect()
+        pvinfo = self.arch.get_info(arg_pv1)
+        pv2info = pvinfo
         ## self.write(" PV %s %s " % ( arg_pv1,pv))
 
-        if pv is None: return ('','')
+        if pv is None or pvinfo=={}: return ('','')
         if (pv.pvname in (None,'')): return ('','')
         desc = self.get_pvdesc(pv)
         pvlabel = pv.pvname
@@ -364,9 +365,6 @@ set ytics nomirror
         file_link   = """<a href='%s%sa.dat'>data for %s</a>
         """ % (self.link_pref,froot,pvlabel)
 
-        # get data, write data
-        ## self.write("<p>====  SAVING %s %s %s" % (pv.pvname,f_dat,legend))
-
         self.save_data(pv,t0,t1,f_dat,legend)
         n_dat = 1
 
@@ -374,10 +372,18 @@ set ytics nomirror
         self.gp(self.gp_base)
 
         # are we plotting a second data set?
+        if DEBUG:
+            self.write("<br> arg_pv2???  %s, %s <br>" % (arg_pv2, str(arg_pv2=='')))
+            
         if arg_pv2 != '':
             pv2  = self.arch.get_pv(arg_pv2)
+            pv2.connect()
+            pv2info = self.arch.get_info(arg_pv2)
             self.arch.increment_pair_score(arg_pv1,arg_pv2)
-            if pv2 and pv2.pvname not in (None,''):
+            if DEBUG:
+                self.write(" PV#2  !!! %s, %s" % (str(pv2 is None), pv2.pvname))
+                
+            if (pv2 is not None) and (pv2.pvname != ''):
                 val = pv2.get()
                 desc2 = self.get_pvdesc(pv2)
                 pv2label = pv2.pvname
@@ -392,28 +398,30 @@ set ytics nomirror
                 n_dat = 2
                 self.gp(self.gp2_base)
 
+        if DEBUG:
+            self.write(" # of data_sets %i" % n_dat)
         # now generate png plot
         self.gp("set output '%s'" % f_png)
 
         self.gp('set xrange ["%s":"%s"]' % (self.datestring(t0),self.datestring(t1)))
 
-        if pv.type=='double':
+        if pvinfo['pv_type']=='DOUBLE':
             if (self.kw['ymin']!='' or self.kw['ymax']!=''):
                 self.gp("set yrange [%(ymin)s:%(ymax)s]" % self.kw)
             else:
                 self.gp("set yrange [:]")
             use_ylog = self.kw['use_ylog']
-            if use_ylog == 'Auto' and pv.type=='double':
-                if pv.graph_type=='LOG': use_ylog ='Yes'
+            if use_ylog == 'Auto' and pvinfo['pv_type']=='DOUBLE':
+                if pvinfo['graph_type']=='LOG': use_ylog ='Yes'
             if use_ylog=='Yes':  self.gp("set logscale y")
             
-        if n_dat==2 and pv2.type=='double':
+        if n_dat==2 and pv2info['pv_type']=='DOUBLE':
             if (self.kw['y2min']!='' or self.kw['y2max']!=''):
                 self.gp("set y2range [%(y2min)s:%(y2max)s]" % self.kw)
 
             use_y2log = self.kw['use_y2log']
-            if use_y2log == 'Auto' and pv2.type=='double':
-                if pv2.graph_type=='LOG': use_y2log ='Yes'
+            if use_y2log == 'Auto' and pv2info['pv_type']=='DOUBLE':
+                if pv2info['graph_type']=='LOG': use_y2log ='Yes'
             if use_y2log=='Yes':  self.gp("set logscale y2")
 
         if pv.type =='enum':
@@ -454,18 +462,20 @@ set ytics nomirror
             '%s' u 1:4 axis x1y2 t '' w p 2 """ %
                     (f_dat,pvlabel,f_dat,f2_dat,pv2label,f2_dat))
         self.arch.db.use(self.arch.dbname)
+        wait_for_pngfile = True
+        wait_count = 0
+        while wait_for_pngfile:
+            png_size   = os.stat(f_png)[6]
+            wait_count = wait_count + 1
+            wait_for_pngfile = (png_size < 4) and (wait_count < 2000)
+            time.sleep(0.001)
 
-        png_size = os.stat(f_png)[6]
-        if png_size < 2:
-            for i in range(5):
-                time.sleep(0.1)
-                png_size = os.stat(f_png)[6]
         if png_size > 0:
             self.write("<img src='%s'><br>" % (png_link))
         else:
-            self.write("<b>cannot make graph (String Data?)...</b><br>")            
-        self.write("<br>%s<br>" % file_link)
-        self.write("<a href='%s%sa.gp'>gnuplot script</a><br>" % (self.link_pref,froot))
+            self.write("<b>cannot make graph (String Data?)</b><br>")            
+        self.write("<br>%s<br>" % (file_link) )
+        self.write("<a href='%s%sa.gp'>gnuplot script</a> <br>" % (self.link_pref,froot))
         return
 
     def show_keys(self,**kw):
@@ -510,12 +520,16 @@ set ytics nomirror
 
     def save_data(self,pv,t0,t1,fout,legend):
         "get data from database, save into tmp gnuplot-friendly file"
-        dat = self.arch.get_data(pv.pvname,t0,t1)
+        dat,stat= self.arch.get_data(pv.pvname,t0,t1)
 
         pvname = pv.pvname
-        # self.write("DATA for PV %s %i  %i" % (pvname,t0,t1))
+        if DEBUG:
+            self.write("<p>DATA for PV %s %i  %i #points =%i<br>\n" % (pvname,t0,t1,len(dat)))
+            for i in stat:
+                self.write("%s<br>\n" % str(i))
+                
         # for db in self.arch.master.dbs_for_time(t0,t1):
-        # self.write("DATA in %s " % db)
+
 
         #  now write data to gnuplot-friendly file
         f = open(fout, 'w')
@@ -544,22 +558,26 @@ set ytics nomirror
         arg_pv1 = self.argclean(pv,  self.kw['form_pv'])
         arg_pv2 = self.argclean(pv2, self.kw['form_pv2'])        
 
+        # if DEBUG:
+        #    self.write('<br>:: show_pv  // %s // %s //<br>' % ( arg_pv1, arg_pv2))
+            
         if arg_pv1 != '':
+            arg_pv1 = pvcache.normalize_pvname(arg_pv1)
             self.html_title = "%s for %s" % (self.html_title,arg_pv1)
             if not self.in_database(arg_pv1):  self.arch.add_pv(arg_pv1)
-
+            
         if arg_pv2 != '':
-             self.html_title = "%s and %s" % (self.html_title,arg_pv2)
-             if not self.in_database(arg_pv2):  self.arch.add_pv(arg_pv2)            
+            arg_pv2 = pvcache.normalize_pvname(arg_pv2)
+            self.html_title = "%s and %s" % (self.html_title,arg_pv2)
+            if not self.in_database(arg_pv2):  self.arch.add_pv(arg_pv2)            
 # 
         self.starthtml()
         self.draw_form(arg_pv1,arg_pv2)
+        
         self.endhtml()
         return self.get_buffer()
 
-    
-
-class PV_Admin(HTMLWriter):
+class Admin(HTMLWriter):
     def __init__(self,**kw):
         HTMLWriter.__init__(self)
         self.html_title = "PV Archive Admin Page"
@@ -622,7 +640,7 @@ class PV_Admin(HTMLWriter):
         if DEBUG:
             self.write('<p> === Keys: === </p>')
             for key,val in self.kw.items():
-                self.write("<p>  %s :  %s </p>" % (key,val))
+                self.write(" %s :  %s <br>" % (key,val))
 
         if pv is None:
             fpv = self.kw['form_pv'].strip()
@@ -672,5 +690,3 @@ class PV_Admin(HTMLWriter):
 
         self.endhtml()
         return self.get_buffer()
-
-

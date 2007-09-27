@@ -8,17 +8,9 @@ import os
 import sys
 import types
 
-
-TEST = False
-
 title      = "GSECARS Beamline Status Page"
-homepage   = "http://cars9.uchicago.edu/gsecars/"
 cgiroot    = "http://cars9.uchicago.edu/cgi-bin/gse_status"
 
-if TEST:
-    title   = "GSECARS Beamline Status Page (TEST!)"
-    cgiroot = "http://millenia.cars.aps.anl.gov/~newville/py"
-    
 
 thispage = "%s/status.py" % cgiroot
 dblink   = "%s/archiver.py?pv=" % cgiroot
@@ -94,13 +86,13 @@ border-bottom: 2px solid #FCFCEA;
 #tabmenu a:hover {color: #CC0000; background: #F9F9E0;}
 """
 
-class epicsHTML:
+class StatusWriter:
     ionpump_pvs  = {'GSE': ('_Volts.VAL','_Current.VAL','_Pressure.VAL'),
                     'GSE2':(':VOLT.VAL',':CUR.VAL',':PRES.VAL'),
                     'APS': ('.VOLT','.CRNT','.VAL') }
 
     def __init__(self,**args):
-        self.tabledef  ="<table width=90% cellpadding=1 cellspacing=2>"
+        self.tabledef  ="<table width=90% cellpadding=1 border=0 cellspacing=2>"
         self.dblink    = dblink
 
         self.pvcache = pvcache.PVCache()
@@ -143,7 +135,6 @@ class epicsHTML:
                 isnum = True
             except:
                 isnum = False
-
 
             if format is not None and isnum:
                 try:
@@ -194,6 +185,7 @@ class epicsHTML:
             
 
     def add_table_row_link(self,name,pv,val):
+        if val is None: val = 'Unknown'
         v = "<a href='%s%s'>%s</a>" % (self.dblink,pv,val)
         self.add_table_row(name,v)
         
@@ -204,10 +196,15 @@ class epicsHTML:
     def table_entry(self,nam,val):
         self.write("<tr><td><b>%s</b></td><td>%s</td>" % (nam,val))
 
+    def table_rule(self):
+        self.write("<tr><td colspan=2> <hr> </td></tr>")
+
+    def table_space(self):
+        self.write("<tr><td colspan=2> &nbsp; </td></tr>")
+
     def table_label(self,label):
         x = "<font color=%s>%s</font>" % (self.labelcolor,label)
         self.table_entry(x,"");
-
 
     def end_table_vac(self):
         self.end_table()
@@ -260,7 +257,7 @@ class epicsHTML:
 
 
     #     
-    def add_pvfile(self,file):
+    def show_pvfile(self,file):
         from getopt import getopt
         try:
             f = open(file,"r")
@@ -278,12 +275,16 @@ class epicsHTML:
                 i = s.find(']')
                 if i == -1: i= len(s)
                 self.table_label(s[1:i])
+            elif s.startswith('--'):
+                self.table_rule()
+            elif s.startswith('<>'):
+                self.table_space()                
             else:
                 cline = s.split('|')
                 try:
-                    pvname = cline.pop(0).strip()
+                    pvnames = [i.strip() for i in cline.pop(0).strip().split(',')]
                 except:
-                    pvname = None
+                    pvnames = []
                 try:
                     desc   = cline.pop(0).strip()
                     if len(desc)==0: desc = None
@@ -298,13 +299,45 @@ class epicsHTML:
                     format = None
                     outtype = 'yes/no'
                     
-                if pvname is not None:
-                    (label,val) =  self.get_pv(pvname,format=format,desc=desc,outtype=outtype)
-                    if (label is None): label = pvname
-                    if label.startswith('"') and label.endswith('"') : label = label[1:len(label)-1]
-                    if label.startswith("'") and label.endswith("'") : label = label[1:len(label)-1]
-                    if (val == None): val = 'Unknown'
-                    self.add_table_row_link(label,pvname,val)
+                if pvnames != []:
+                    vals = []
+                    labs = []
+                    for pvname in pvnames:
+                        # pvname = pvname.strip()
+                        (label,val) =  self.get_pv(pvname,format=format,desc=desc,outtype=outtype)
+                        # self.write("<tr>  <td>:: %s</td><td>%s</td></tr>" % (pvname,str(val)))
+
+                        if (label is None): label = pvname
+                        if (label.startswith('"') and label.endswith('"') or
+                            label.startswith("'") and label.endswith("'")):
+                            label = label[1:len(label)-1]
+                        labs.append(label)
+                        vals.append(val)
+                    if len(pvnames) == 1:
+                        if desc is None: desc = labs[0]
+                        self.add_table_row_link(desc,pvnames[0],vals[0])
+                    else:
+                        if desc is None: desc = labs
+                        self.add_pvlink_row(desc,pvnames,vals)
+
+    def add_pvlink_row(self,label,pvnames,vals):
+        # self.add_table_row_link(label,pvnames,vals)
+        # self.add_table_row_link(label,pvnames,vals)
+
+        if isinstance(pvnames,(tuple,list)) and isinstance(vals,(tuple,list)):
+            outlinks = []
+            for name,val in zip(pvnames,vals):
+                name = name.strip()
+                if val is None: val = 'Unknown'
+                outlinks.append( self.archlink(name,val))
+            outval =  ', '.join(outlinks)
+            if isinstance(label,(tuple,list)):
+                label = ','.join(label)
+
+            self.add_table_row(label,outval)
+
+            
+                        
 
     def remove_quotes(self, str):
         s = str.strip()
@@ -351,16 +384,16 @@ class epicsHTML:
         self.add_pv("13IDA:eps_bo1.VAL",    desc= 'Shutter Permit')
 
         self.table_label("ID EPS")
-        self.add_pv("13IDA:eps_mbbi57",  desc= 'Front End Valve')
-        self.add_pv("13IDA:eps_mbbi4",   desc= 'Front End Shutter')
-        self.add_pv("13IDA:eps_mbbi81",  desc= 'Vacuum Status')
-        self.add_pv("13IDA:eps_mbbi5",   desc= 'EPS Status')
-        self.add_pv("13IDA:BS_status",   desc= 'White Beam Stop')
+        self.add_pv("13IDA:eps_mbbi57.VAL",  desc= 'Front End Valve')
+        self.add_pv("13IDA:eps_mbbi4.VAL",   desc= 'Front End Shutter')
+        self.add_pv("13IDA:eps_mbbi81.VAL",  desc= 'Vacuum Status')
+        self.add_pv("13IDA:eps_mbbi5.VAL",   desc= 'EPS Status')
+        self.add_pv("13IDA:BS_status.VAL",   desc= 'White Beam Stop')
 
         self.table_label("BM EPS")
-        self.add_pv("13BMA:eps_mbbi42",  desc= 'Front End Valve')
-        self.add_pv("13BMA:eps_mbbi4",   desc= 'Front End Shutter')
-        self.add_pv("13BMA:eps_mbbi5",   desc= 'EPS Status')        
+        self.add_pv("13BMA:eps_mbbi42.VAL",  desc= 'Front End Valve')
+        self.add_pv("13BMA:eps_mbbi4.VAL",   desc= 'Front End Shutter')
+        self.add_pv("13BMA:eps_mbbi5.VAL",   desc= 'EPS Status')        
 
         self.table_label("Air Temperatures")
         self.add_pv("G:AHU:FP5088Ai.VAL", desc= '13IDD Air Temp (F)', format = "%8.3f")
@@ -392,7 +425,7 @@ class epicsHTML:
         self.table_entry_vac_title(("Component","Status", "Pressure CC (Pirani)", "Ion Pump Pressure (V,I)"))
         # BM A
         self.table_label_vac("13 BM A")
-        self.add_pv("PA:13BM:Q01:00", desc = "Station Searched")
+        self.add_pv("PA:13BM:Q01:00.VAL", desc = "Station Searched")
         self.vac_table("13BMA:ip1",label='Slit Tank',        type='GSE',  cc_pr=("13BMA",1))
         self.add_valve("13BMA:BMD_BS",'BMD White Beam Stop')
         self.add_valve("13BMA:BMC_BS",'BMC White Beam Stop')
@@ -404,7 +437,7 @@ class epicsHTML:
 
         # BM B
         self.table_label_vac("13 BM B")
-        self.add_pv("PA:13BM:Q01:01", desc = "Station Searched")
+        self.add_pv("PA:13BM:Q01:01.VAL", desc = "Station Searched")
         self.vac_table("13BMA:ip7",label='BMC Slit Tank',     type='GSE',  cc_pr=("13BMA",7))
         self.add_valve("13BMA:V4C",'BMC Valve 4')
         self.vac_table("13BMA:ip8",label='BMC Mono Tank',      type='GSE2',   cc_pr=("13BMA",8))
@@ -416,13 +449,13 @@ class epicsHTML:
 
         # BM C
         self.table_label_vac("13 BM C")
-        self.add_pv("PA:13BM:Q01:02", desc = "Station Searched")
+        self.add_pv("PA:13BM:Q01:02.VAL", desc = "Station Searched")
         # BM D
         self.table_label_vac("13 BM D")
-        self.add_pv("PA:13BM:Q01:03", desc = "Station Searched")
+        self.add_pv("PA:13BM:Q01:03.VAL", desc = "Station Searched")
         self.vac_table("13BMA:ip10",label='BMD Slit Tank',
                        type='GSE',  cc_pr=("13BMA",9))
-        self.vac_pirani("Flight Tube","13BMA:pr10")
+        self.vac_pirani("Flight Tube","13BMA:pr10.VAL")
 
 
     def show_idvac(self):
@@ -430,7 +463,7 @@ class epicsHTML:
                              "Pressure CC (Pirani)", "Ion Pump Pressure (V,I)"))
         # ID A
         self.table_label_vac("13 ID A")
-        self.add_pv("PA:13ID:Q01:00", desc = "Station Searched")
+        self.add_pv("PA:13ID:Q01:00.VAL", desc = "Station Searched")
         self.vac_table("FE:13:ID:IP7",label="Differential Pump",type='APS')
 
         self.add_valve("13IDA:V1",'Valve 1')
@@ -447,13 +480,13 @@ class epicsHTML:
 
         # ID B
         self.table_label_vac("13 ID B")
-        self.add_pv("PA:13ID:Q01:01", desc = "Station Searched")
+        self.add_pv("PA:13ID:Q01:01.VAL", desc = "Station Searched")
         self.vac_table("13IDA:ip5",label='Pumping Cross 2',    type='GSE',  cc_pr=("13IDA",5))
         self.add_valve("13IDA:V5",'Be Bypass #1')
         self.vac_table("13IDA:ip6",label='Vertical Mirror',    type='GSE2',  cc_pr=("13IDA",7))
         self.vac_table("13IDA:ip7",label='Horizontal  Mirror', type='GSE2')
         self.add_valve("13IDA:V6",'Be Bypass #2')
 
-        self.vac_pirani("Flight Tube","13IDA:pr6")
+        self.vac_pirani("Flight Tube","13IDA:pr6.VAL")
         self.vac_pirani("BPM battery Voltage" ,  "13IDA:DMM2Ch9_raw.VAL",format = "%8.3f")
 

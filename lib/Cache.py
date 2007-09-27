@@ -8,7 +8,7 @@ import types
 import sys
 import getopt
 
-from config import dbuser,dbpass,dbhost, cachedb
+from config import cache_db
 from util import clean_input, clean_string, normalize_pvname
 
 null_pv_value = {'value':None,'ts':0,'cvalue':None,'type':None}
@@ -21,7 +21,7 @@ class Cache:
         if dbcursor is not None:
             self.cursor = dbcursor
         else:
-            self.cursor = SimpleDB.db_connect(dbname=cachedb,autocommit=0)
+            self.cursor = SimpleDB.db_connect(dbname=cache_db,autocommit=0)
             
         self.data = {}
         self.pvs  = {}
@@ -180,7 +180,7 @@ class Cache:
         time.sleep(1.0)
         
     def set_date(self):
-        self.sql_exec("update info set datetime=%s,ts=%i" % (clean_string(time.ctime()),time.time()),commit=True)
+        self.sql_exec("update info set datetime=%s,ts=%f" % (clean_string(time.ctime()),time.time()),commit=True)
         
     def get_full(self,pv,add=False):
         " return full information for a cached pv"
@@ -251,7 +251,11 @@ class Cache:
                 valid = self.epics_connect(nam)
                 if valid:
                     pv = self.pvs[nam]
-                    self.sql_exec("%s (%i,%s,%s,%s,%s)" % (cmd,time.time(),es(pv.pvname),es(pv.value),es(pv.char_value),es(pv.type)))
+                    self.sql_exec("%s (%f,%s,%s,%s,%s)" % (cmd,time.time(),
+                                                           es(pv.pvname),
+                                                           es(pv.value),
+                                                           es(pv.char_value),
+                                                           es(pv.type)))
                     self.pvlist.append(nam)
                     self.pvs[nam].set_callback(self.onChanges)                    
                 else:

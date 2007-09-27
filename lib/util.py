@@ -2,7 +2,7 @@
 #
 from MySQLdb import string_literal, escape_string
 
-MAX_EPOCH = 2.**31 - 1.
+MAX_EPOCH = 2147483647.0   # =  2**31 - 1.0 (max unix timestamp)
 SEC_DAY   = 86400.0
 
 motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS','.DIR','_able.VAL','.SPMG')

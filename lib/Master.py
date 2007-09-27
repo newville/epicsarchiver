@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
-from SimpleDB import SimpleDB, SimpleTable
-from config import dbuser, dbpass, dbhost, masterdb, dbprefix, dbformat
-from util import normalize_pvname, clean_string, MAX_EPOCH, SEC_DAY
-
 import time
+
+from SimpleDB import SimpleDB, SimpleTable
+from config import dbuser, dbpass, dbhost, master_db, dat_prefix, dat_format
+from util import normalize_pvname, clean_string, MAX_EPOCH, SEC_DAY
 
 def nextname(current=None,dbname=None):
     if dbname is not None: return dbname
@@ -20,18 +20,19 @@ def nextname(current=None,dbname=None):
                         nlen = i
                         break
         index = int(current[nlen:]) + 1
-    return dbformat % (dbprefix,index)
+    return dat_format % (dat_prefix,index)
 
 
 class ArchiveMaster:
     pv_init = ("drop table if exists pv",
                """create table pv (id  smallint unsigned not null primary key auto_increment,
-               name varchar(64) not null,
+               name        varchar(64) not null,
                description varchar(128),
                data_table  varchar(16),
-               deadtime  double default 10.0,
-               deadband  double default 1.e-8,
-               graph_hi  tinyblob,   graph_lo  tinyblob,
+               deadtime    double default 10.0,
+               deadband    double default 1.e-8,
+               graph_hi    tinyblob,
+               graph_lo    tinyblob,
                graph_type  enum('normal','log','discrete'),
                type enum('int','double','string','enum') not null,
                unique (name) ) ENGINE=myisam;""")
@@ -39,8 +40,9 @@ class ArchiveMaster:
 
     dat_init = ("drop table if exists pvdat%3.3i",
                   """create table pvdat%3.3i(
-                  time int unsigned not null,
-                  pv_id  smallint unsigned not null, value tinyblob) ENGINE=myisam;""")
+                  time   double not null,
+                  pv_id  smallint unsigned not null,
+                  value  tinyblob) ENGINE=myisam;""")
 
     sql_pairs_order  = "select * from pairs where %s=%s and score>=%i order by score"
     sql_pairs_select = "select score from pairs where pv1=%s and pv2=%s"
@@ -51,7 +53,7 @@ class ArchiveMaster:
     sql_get_times    = "select min(time),max(time) from pvdat%3.3i"
     
     def __init__(self):
-        self.db = SimpleDB(user=dbuser,passwd=dbpass,host=dbhost, db=masterdb)
+        self.db = SimpleDB(user=dbuser,passwd=dbpass,host=dbhost, db=master_db)
         
     def __exec(self,s): self.db.execute(s)
 
@@ -71,7 +73,7 @@ class ArchiveMaster:
         sys.stdout.write('saving %s\n' % dbname)
         self.db.use(dbname)
         self.db.safe_dump(compress=True)
-        self.db.use(masterdb)
+        self.db.use(master_db)
         
     def set_runinfo(self,dbname=None):
         currdb = self.__current('db')
@@ -94,11 +96,11 @@ class ArchiveMaster:
         note = "%s to %s" % (time.strftime("%d-%b-%Y", time.localtime(min_time)),
                              time.strftime("%d-%b-%Y", time.localtime(max_time)))
 
-        self.db.use(masterdb)
+        self.db.use(master_db)
         dbstr = clean_string(dbname)
         note  = clean_string(note)
-        self.db.execute("update runs set start_time=%i where db=%s" % (int(min_time),dbstr))
-        self.db.execute("update runs set stop_time=%i where db=%s"  % (int(max_time),dbstr))
+        self.db.execute("update runs set start_time=%f where db=%s" % (min_time, dbstr))
+        self.db.execute("update runs set stop_time=%f where db=%s"  % (max_time, dbstr))
         self.db.execute("update runs set notes=%s where db=%s"      % (note,dbstr))
 
     def set_currentDB(self,dbname):
@@ -141,22 +143,20 @@ class ArchiveMaster:
 
     def get_all_scores(self,pv1,pv2,score):  self.db.exec_fetchall("select * from pairs")
 
-
-    def show_status(self):
+    def status_report(self,minutes=10):
         currdb = self.__current('db')
         out = []
         out.append("Current Database=%s,  status=%s,  PID=%i " % (currdb, self.get_status(), self.get_pid()))
         self.db.use(currdb)
         n = []
-        minutes = 10
-        dt = time.time()-minutes * 60.
+        dt = time.time() - minutes * 60.
         for i in range(1,129):
-            r = self.db.exec_fetchall("select * from pvdat%3.3i where time > %i " % (i,dt))
+            r = self.db.exec_fetchall("select * from pvdat%3.3i where time > %f " % (i,dt))
             n.append(len(r))
             tot = 0
         for i in n: tot = tot + i
         out.append("%i values archived in past %i minutes"  % (tot , minutes))
-        self.db.use(masterdb)
+        self.db.use(master_db)
         return out
         
     def show_tables(self):
@@ -214,8 +214,8 @@ class ArchiveMaster:
                            graph_lo   =p['graph_lo'],    graph_hi   =p['graph_hi'])
 
         self.db.execute("delete from runs where db='%s'" % dbname)
-        imax = int(MAX_EPOCH)-1
-        self.db.execute("insert into runs (db,start_time,stop_time) values ('%s',%i,%i)" % (dbname,imax,imax))
+        q = "insert into runs (db,start_time,stop_time) values ('%s',%f,%f)"
+        self.db.execute(q % (dbname,MAX_EPOCH,MAX_EPOCH))
         return dbname
    
     def dbs_for_time(self, t0=SEC_DAY, t1=MAX_EPOCH):

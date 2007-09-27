@@ -1,18 +1,60 @@
 #!/usr/bin/python
 
-import EpicsCA
-from SimpleDB import SimpleDB, SimpleTable
-from Master import ArchiveMaster
-from Cache import Cache
-from config import dbuser,dbpass,dbhost,dblogdir,masterdb
-from util import normalize_pvname, get_force_update_time, escape_string, clean_string
-
 import time
 import sys
 import os
 import getopt
 
-MAX_EPOCH = 2**31
+import EpicsCA
+from Cache import Cache
+from SimpleDB import SimpleDB
+from Master import ArchiveMaster
+from util import normalize_pvname, get_force_update_time, \
+     escape_string, clean_string, SEC_DAY
+
+def add_pv_to_cache(pvname=None,cache=None,master=None):
+    """ add a PV to the Cache and Archiver
+
+    For a PV that is the '.VAL' field for an Epics motor will
+    automatically cause the following motor fields added as well:
+        .OFF .FOFF .SET .HLS .LLS .DIR _able.VAL .SPMG
+
+    Each of these pairs of PVs will also be given an inital
+    'pair score' of 10, which is used to define 'related pvs'
+
+    """
+
+    if pvname is None: return
+
+    if cache is None: cache  = Cache()
+    if master is None: master = ArchiveMaster()
+
+    pvname = pvname.strip()
+    if pvname.endswith('.VAL'): pvname =pvname[:-4]
+
+    if 'motor' == EpicsCA.caget(pvname+'.RTYP'):
+        from util import motor_fields
+        print 'Adding all motor fields for %s ' % pvname
+
+        fields = ["%s%s" % (pvname,i) for i in motor_fields]
+        for field in fields:
+            p = EpicsCA.PV(field,connect=True)
+            if p is not None:
+                cache.add_pv(field)
+            else:
+                print 'cannot add pv ', field
+                
+        time.sleep(0.1)
+        while fields:
+            x = fields.pop(0)
+            for field in fields:
+                master.set_pair_score(x,field,10)
+    else:
+        if EpicsCA.PV(pvname,connect=True) is not None:
+            cache.add_pv(pvname)
+
+    EpicsCA.pend_event()
+    
 
 def add_pvfile(fname):
     """
@@ -32,8 +74,7 @@ def add_pvfile(fname):
           on the line a 'pair score' of 10.
           
     """
-    from util import motor_fields
-    print 'reading pvs from pvlist in file ', fname
+    print 'Adding PVs listed in file ', fname
     f = open(fname,'r')
     lines = f.readlines()
     f.close()
@@ -42,34 +83,19 @@ def add_pvfile(fname):
     master = ArchiveMaster()
 
     for line in lines:
-        line.strip()
+        line[:-1].strip()
         if len(line)<2 or line.startswith('#'): continue
+        words = line.replace(',',' ').split()
 
-        words = line[:-1].replace(',',' ').split()
-        print '  ', len(words), ' ', words
         for pvname in words:
-            pvname = pvname.strip()
-            if pvname.endswith('.VAL'): pvname =pvname[:-4]
-            print pvname
-            if EpicsCA.caget(pvname+'.RTYP') == 'motor':
-                fields = ["%s%s" % (pvname,i) for i in motor_fields]
-                print 'add Motor: ', fields
-                for field in fields:
-                    if EpicsCA.PV(field,connect=True) is not None: cache.add_pv(field)
-                while fields:
-                    x = fields.pop(0)
-                    for field in fields: master.set_pair_score(x,field,10)
-
-            else:
-                if EpicsCA.PV(pvname,connect=True) is not None:
-                    cache.add_pv(pvname)
+            add_pv_to_cache(pvname,cache=cache,master=master)
 
         while words:
             x = words.pop()
-            for w in words:  master.set_pair_score(x,w,10)
+            for w in words:
+                master.set_pair_score(x,w,10)
     #
     print 'done.'
-
 
 
 
@@ -78,36 +104,28 @@ class Archiver:
 
     def __init__(self,dbname=None,**args):
         self.dbname = dbname
-        self.dbuser = dbuser
-        self.dbpass = dbpass
-        self.dbhost = dbhost
         self.debug  = 0
         self.force_checktime = 0
         self.messenger = sys.stdout
         self.master  = None
         self.dtime_limbo = {}
+        self.last_collect = 0
         for k,v in args.items():
             if   (k == 'debug'):      self.debug     = v
-            elif (k == 'user'):       self.dbuser    = v
-            elif (k == 'passwd'):     self.dbpass    = v
             elif (k == 'messenger'):  self.messenger = v
-            elif (k == 'host'):       self.dbhost    = v
             elif (k == 'master'):     self.master    = v
 
         if self.master is None: self.master = ArchiveMaster()
         if self.dbname is None: self.dbname = self.master.get_currentDB()
         self.cache  = Cache()
         self.db = SimpleDB(db=self.dbname,
-                           user=self.dbuser,
-                           passwd=self.dbpass,
-                           host=self.dbhost,
                            messenger=self.messenger,
                            debug=self.debug)
 
     def sync_with_cache(self):
         self.pvinfo = {}
         self.last_insert = {}
-        print 'Sync With Cache: %i tables' %( len(self.db.tables))
+        # print 'Sync With Cache: %i tables' %( len(self.db.tables))
         
         db_pvs = self.db.tables['pv'].select()
 
@@ -147,14 +165,13 @@ class Archiver:
         
     def drop_pv(self,name):
         self.db.execute("delete from pv where name=%s" % name)
-        
+
     def add_pv(self,name,description=None,graph={},deadtime=None,deadband=None):
         """add PV to the database"""
         pvname = normalize_pvname(name)
         if self.pvinfo.has_key(pvname):
             self.write("PV %s is already in database.\n" % pvname)
             return None
-
         # create an Epics PV, check that it's valid
         try:
             pv = EpicsCA.PV(pvname,connect=True)
@@ -221,7 +238,7 @@ class Archiver:
             if dtype in ('enum','string'):     deadband =  0.5
             if (gr['type'] == 'log'): deadband = 1.e-4
             
-        print 'Ready to Add PV ', pvname
+        self.write('Archiver adding PV: %s, table: %s \n' % (pvname,table))
         
         self.db.tables['pv'].insert(name    = pvname,
                                     type    = dtype,
@@ -233,13 +250,15 @@ class Archiver:
                                     graph_hi   = gr['high'],
                                     graph_type = gr['type'])
 
-        r = self.db.tables['pv'].select_where(name=pvname)
-        print 'select where sez: ', r
-        r = r[0]
+        r = self.db.tables['pv'].select_where(name=pvname)[0]
         ftime = get_force_update_time()
+        
         self.pvinfo[pvname] = (r['data_table'],r['id'],r['deadtime'],r['deadband'], ftime)
-        self.last_insert[name] = [0,None]
+
+        self.update_value(pvname,r['data_table'],r['id'],time.time(),pv.char_value,delay=False)
+
         pv.disconnect()
+        # should add an insert here!!
         
     def get_pvlist(self):
         return self.cache.get_pvlist()        
@@ -270,7 +289,7 @@ class Archiver:
         self.pvinfo[name]      = (table,pvid,dtime,dband, ftime)
         self.last_insert[name] = (0,None)
 
-        t0 = int(time.time() - 86400)
+        t0 = time.time() - SEC_DAY
 
         q ="select time,value from %s where pv_id=%i and time>%i order by time desc limit 1"
 
@@ -284,16 +303,16 @@ class Archiver:
                 self.update_value(name,table,pvid,r['ts'],r['value'])
                 
 
-    def update_value(self,name,table,pvid,ts,val):
+    def update_value(self,name,table,pvid,ts,val,delay=True):
         if ts is None or ts < self.MIN_TIME: ts = time.time()
-        sql  = "insert delayed into %s (pv_id,time,value) values (%i,%i,%s)" % (table,
-                                                                                pvid, int(ts),
-                                                                                clean_string(val))
-        try:
-            self.db.execute(sql)
-        except TypeError:
-            self.write("cannot update %s\n")
         self.last_insert[name] =  (ts,val)
+        delay_str = ''
+        if delay: delay_str = 'delayed'
+        sql  = "insert %s into %s (pv_id,time,value) values (%i,%f,%s)"
+        try:
+            self.db.execute(sql % (delay_str,table,pvid, ts,clean_string(val)))
+        except TypeError:
+            self.write("cannot update %s\n" % name)
         
     def get_cache_changes(self,dt=30):
         """ get list of name,type,value,cvalue,ts from cache """
@@ -301,11 +320,16 @@ class Archiver:
     
     def collect(self):
         newvals, forced = [],[]
-        for dat in self.get_cache_changes():
+        tnow = time.time()
+        dt  =  max(1.0, 5*(tnow - self.last_collect))
+        self.last_collect = tnow
+        changes = self.get_cache_changes(dt=dt)
+        for dat in changes:
             name  = dat['name']
             val   = dat['value']
             ts    = dat['ts'] or time.time()
-
+            # self.write("collect: %s\n" %  name)
+            
             if not self.pvinfo.has_key(name): self.add_pv(name)
             table,pvid,dtime,dband,ftime = self.pvinfo[name]
 
@@ -323,34 +347,36 @@ class Archiver:
                     self.update_value(name,table,pvid,ts,val)
                     newvals.append((str(name),str(val),ts))
                     if self.dtime_limbo.has_key(name): self.dtime_limbo.pop(name)
-            else: # pv changed, but inside 'deadtime': put it in limbo!
+            elif (ts-last_ts) > 0.003:   # pv changed, but inside 'deadtime': put it in limbo!
                 self.dtime_limbo[name] = (ts,val)
-                
                 
         # now look through the "limbo list" and insert the most recent change
         # iff the last insert was longer ago than the deadtime:
         tnow = time.time()
+        # self.write("changes=%i, limbo=%i  t=%f, dt=%f\n" % (len(changes), len(self.dtime_limbo), tnow, dt))
         for name in self.dtime_limbo.keys():
             table,pvid,dtime,dband,ftime = self.pvinfo[name]
             last_ts,last_val            = self.last_insert[name]
-
             if last_ts is None: last_ts = 0
             if (tnow - last_ts) > dtime:
                 ts,val = self.dtime_limbo.pop(name)
-                self.update_value(name,table,pvid,ts,val)
+                self.update_value(name,table,pvid,ts,val,delay=False)
                 newvals.append((str(name),str(val),ts))
-
+                
+#                 self.write("update from limbo %s : %s : ts=%i last_ts=%i tnow=%i dt=%i\n" % (str(name),
+#                                                                                              str(val),
+#                                                                                              ts,last_ts,
+#                                                                                              tnow,dtime))
                                
         # check for stale values 
-        if (time.time() - self.force_checktime) >= 600.0:
-            self.force_checktime = time.time()
+        if (tnow - self.force_checktime) >= 600.0:
+            self.force_checktime = tnow
             sys.stdout.write('looking for stale values, checking for new settings...\n')
             self.check_for_new_pvs()
             for name,data in self.last_insert.items():
                 last_ts,last_val = data
                 self.reread_db(name)
                 table,pvid,dtime,dband,ftime = self.pvinfo[name]
-                tnow = time.time()
                 if last_ts is None:  last_ts = 0
                 if tnow-last_ts > ftime:
                     r = self.cache.get_full(name)
@@ -378,6 +404,7 @@ class Archiver:
         
     def mainloop(self,verbose=False):
         t0 = time.time()
+        self.last_collect = t0
         self.write( 'connecting to database %s ... \n' % self.dbname)
         self.sync_with_cache()
         
@@ -399,17 +426,17 @@ class Archiver:
                 newvals,forced   = self.collect()
                 n_changed = n_changed + len(newvals)
                 n_forced  = n_forced  + len(forced)
-                EpicsCA.pend_event(0.05)
-                now = time.time()
+                EpicsCA.pend_event(0.10)
+                tnow = time.time()
                 if verbose:
                     self.show_changed(newvals,prefix=' ')
                     self.show_changed(forced, prefix='(f) ')
-                elif now-t_lastlog>=299.5:
+                elif tnow-t_lastlog>=299.5:
                     self.write("%s: %i new, %i forced entries.\n" % (time.ctime(), n_changed, n_forced))
                     sys.stdout.flush()
                     n_changed = 0
                     n_forced  = 0
-                    t_lastlog = now
+                    t_lastlog = tnow
 
             except KeyboardInterrupt:
                 sys.stderr.write('Interrupted by user.\n')
@@ -423,74 +450,4 @@ class Archiver:
             if pid != mypid: is_collecting = False
 
         return None
-    
-###
-def do_collect(master=None,test=False):
-    if master is None: master  = ArchiveMaster()
-    
-    dbname  = master.get_currentDB()
-    logfile = open(os.path.join(dblogdir,"%s.log" % dbname),'a',1)
-
-    if test:     logfile = sys.stdout
-    a = Archiver(dbname=dbname,master=master,messenger=logfile)
-    a.mainloop()
-
-def do_next(master):
-    dbname  = master.get_currentDB()
-   
-    next_db = master.make_nextdb()
-    sys.stdout.write('next database = %s \n' % next_db)
-    master.request_stop()
-    master.set_pid(0)
-    master.set_currentDB(next_db)
-
-    time.sleep(2.0)
-    do_collect(master=master)
-    
-    
-def show_usage():
-    print """pvarch:   run and interact with pvcaching / mysql process
-
-  pvarch -h        shows this message.
-  pvarch status    show archiving status.
-  pvarch start     start collecting data.
-  pvarch stop      stop collection.
-  pvarch next      generate next db, start collecting into it.
-  pvarch list      list archive databases.
-
-"""
-    sys.exit()
-
-def main():
-    opts, args = getopt.getopt(sys.argv[1:], "h", ["help"])
-
-    try:
-        cmd = args.pop(0)
-    except IndexError:
-        cmd = None
-    for (k,v) in opts:
-        if k in ("-h", "--help"): cmd = None
-
-    if cmd not in ('status','start', 'debug', 'stop', 'next', 'list',
-                   'save','add_pv','drop_pv'):
-        show_usage()
-
-    m = ArchiveMaster()
-    if   cmd == 'status':    m.show_status()
-    elif cmd == 'start':     do_collect(m)
-    elif cmd == 'debug':     do_collect(m,test=True)    
-    elif cmd == 'next':      do_next(m)
-    elif cmd == 'stop':      m.request_stop()
-    elif cmd == 'list':      m.show_tables()
-    elif cmd == 'save':
-        if len(args)==0:
-            m.save_db()
-        else:
-            for i in args:   m.save_db(dbname=i)
-    elif cmd == 'add_pv':
-        for pvname in args:  m.add_pv(pvname)
-    elif cmd == 'drop_pv':
-        for pvname in args:  m.drop_pv(pvname)
-    else:
-        print 'wha?'
     

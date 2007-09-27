@@ -1,11 +1,9 @@
 #!/usr/bin/python
-from mod_python import apache
-import PV_Viewer
 
-# x_ = apache.import_module('PV_Viewer')
-# gse_ = reload(PV_Viewer)
+from mod_python import apache
+from EpicsArchiver.PlotViewer import PlotViewer
 
 def index(req,pv=None,pv2=None,**kw):
-    p = PV_Viewer.PV_Viewer(**kw)
+    p = PlotViewer(**kw)
     return p.show_pv(pv,pv2)
 

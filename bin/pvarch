@@ -28,6 +28,7 @@ def show_usage():
            cache restart      restart cache process
            cache status   t   show # of PVs cached in past t seconds (default=60)
            cache activity t   show list of PVs cached in past t seconds (default=60)
+
     """
     sys.exit()
 
@@ -44,6 +45,7 @@ def next_archive(master):
     time.sleep(2.0)
     run_archive(action='start')
 
+
 def run_archive(action='start'):
     config = EpicsArchiver.config
 
@@ -55,7 +57,7 @@ def run_archive(action='start'):
 
     master  = EpicsArchiver.ArchiveMaster()
     dbname  = master.get_currentDB()
-    dir     = config.dblogdir
+    dir     = config.logdir
     sout    = os.path.join(dir, "%s.log" % dbname)
     serr    = os.path.join(dir, "%s.err" % dbname)
     pidfile = os.path.join(dir, "pvarch.pid")
@@ -65,9 +67,6 @@ def run_archive(action='start'):
                             process_name='pvarch', action=action,
                             func = archive_loop)
 
-    #archive_loop()
-    
-
 def run_cache(action=None):
     config = EpicsArchiver.config
 
@@ -76,7 +75,7 @@ def run_cache(action=None):
         cache   = EpicsArchiver.Cache()
         cache.mainloop()
 
-    dir     = config.dblogdir
+    dir     = config.logdir
     if not os.path.exists(dir):   os.mkdir(dir)
     sout    = os.path.join(dir, "cache.out")
     serr    = os.path.join(dir, "cache.err")
@@ -87,10 +86,9 @@ def run_cache(action=None):
                             process_name='pvcache', action=action,
                             func = cache_loop)
    
-
-def read_cache_pid():
+def read_pid(name='cache'):
     config = EpicsArchiver.config
-    pidfile = "%s/cache.pid" % config.dblogdir
+    pidfile = "%s/%s.pid" % (config.logdir,name)
     try:
         pf  = file(pidfile,'r')
         pid = int(pf.read().strip())
@@ -100,17 +98,31 @@ def read_cache_pid():
     return pid
     
 def cache_status(action='activity', dt=60):
-    pid   = read_cache_pid()
+    pid   = read_pid(name='cache')
 
     cache = EpicsArchiver.Cache()
     ret   = cache.get_recent(dt=dt)
     status= 'running'
     if pid != cache.get_pid(): status = 'not running!'
         
+    msg = '%i changed PVs cached in past %i seconds.  PID=%i  Status=%s'
     if 'activity' == action:
         for r in ret:
-            print "  %s   %.29s = %s" % (time.strftime("%H:%M:%S",time.localtime(r['ts'])),r['name']+' '*20,r['value'])
-    print '%i changed PVs cached in past %i seconds.  PID=%i  Status=%s' % (len(ret), int(dt),cache.get_pid(),status)    
+            stime = time.strftime("%H:%M:%S", time.localtime(r['ts']))
+            print "  %s   %.29s = %s" % (stime, r['name']+' '*20,r['value'])
+    print msg % (len(ret), int(dt), cache.get_pid(), status)    
+    
+def archive_status(minutes=10):
+    master  = EpicsArchiver.ArchiveMaster()
+    return master.status_report(minutes=minutes)
+        
+def drop_pv(pvname):
+    master  = EpicsArchiver.ArchiveMaster()
+    dbname  = master.get_currentDB()
+    arch    = EpicsArchiver.Archiver(dbname=dbname,master=master)    
+    cache   = EpicsArchiver.Cache()
+    cache.drop_pv(pvname)
+    arch.drop_pv(pvname)
     
 def main():
     opts, args = getopt.getopt(sys.argv[1:], "h", ["help"])
@@ -121,22 +133,40 @@ def main():
     for (k,v) in opts:
         if k in ("-h", "--help"): cmd = 'help'
 
-    config  = EpicsArchiver.config
+    if   'help' == cmd:
+        show_usage()
 
-    if   'help' == cmd:      show_usage()
     elif 'status' == cmd:
-        print 'status '
-        if read_cache_pid() is None:
-            print "Cache is not running: start Cache with 'pvarch cache start' first!"
+        if read_pid(name='cache') is None:
+            print "Cache is not running: start Cache with 'pvarch cache start'!"
         else:
-            print 'cache is running'
+            print 'Cache is running'
+
+        if read_pid(name='pvarch') is None:
+            print "Archiver is not running: start with 'pvarch start'"
+        else:
+            for i in archive_status(): print i
+                
+    elif 'check' == cmd:
+        print archive_status()[1].split()[0]
+                
     elif cmd in ('start','stop','restart'):
         run_archive(action=cmd)
             
-    elif 'check' == cmd:     print 'check ?'
-    elif 'add_pv' == cmd:    print 'add_pv ? '
+    elif 'next' == cmd:
+        next_archive()
+        
+    elif 'add_pv' == cmd:
+        for pv in args:
+            EpicsArchiver.add_pv_to_cache(pv)
+
     elif 'add_pvfile' == cmd:
-        for pvfile in args:  EpicsArchiver.add_pvfile(pvfile)
+        for pvfile in args:
+            EpicsArchiver.add_pvfile(pvfile)
+
+    elif 'drop_pv' == cmd:
+        for pv in args:
+            drop_pv(pv)
 
     elif 'cache' == cmd:
         action = args.pop(0)
