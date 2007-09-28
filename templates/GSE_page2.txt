@@ -1,0 +1,18 @@
+[Storage Ring]
+BL13:ActualMode
+BL13:srCurrent   
+BL13:srLifetime  
+BL13:BeamPresent
+13IDA:eps_bo1    | ID-A Shutter Permit
+
+[Beam Position Monitors]
+BL13:SRBM:VAngle , BL13:SRBM:VPosition    | BM Vertical Angle, Position | %8.3f
+
+BL13:SRID:VAngle, BL13:SRID:VPosition     | ID Vertical Angle, Position | %8.3f
+
+BL13:SRID:HAngle, BL13:SRID:HPosition     | ID Horizontal Angle, Position | %8.3f
+
+--
+
+[Storage Ring Feedback]
+SRFB:GBL:HLoopStatusBI, SRFB:GBL:VLoopStatusBI | Global Loop Status (Horiz,Vert) |

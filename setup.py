@@ -38,9 +38,12 @@ def create_dir(dir,desc='?'):
 
 shutil.copyfile('config.py','lib/config.py')
 
-create_dir(config.cgi_bin, desc='cgi_bin')
-create_dir(config.logdir,  desc='log file')
-create_dir(config.status_dir, desc='web template')
+create_dir(config.cgi_bin,      desc='cgi_bin')
+create_dir(config.logdir,       desc='log file')
+create_dir(config.template_dir, desc='web template')
+
+create_dir(config.data_dir,     desc='web data')
+create_dir(config.jscal_dir,    desc='javascript calendar')
 
 httpdconf = """
 #############################################
@@ -84,7 +87,43 @@ setup(
     # _init_mysql','pvarch'])]
 )
 
-print "================================================="
-print "Writing Apache configuration to httpd_pvarch.conf"
+
+post_install = """
+=================================================
+Writing Apache configuration to httpd_pvarch.conf
+
+You will need to edit Apache's configuration to
+include this configuration.  (See httpd.conf)
+=================================================
+
+The next installation steps are:
+
+  1. Run bin/pvarch_init_mysql to Initialize the
+     MySQL tables for the archiver
+
+  2. Start the caching and archiving processes:
+        pvarch cache start
+        pvarch start
+
+  3. Add some PVs to the Archiver:
+        pvarch add_pv 'XXX.VAL'
+        
+     Or edit a file listing PVs and add that:
+        varch add_pvfile MyPVlist.txt
+
+     See doc/Usage.txt for details.
+
+  4. Edit the Web Status template files in
+        %s
+     read the README file, and run 'make'.
+    
+"""
+
+print post_install % config.template_dir
+# 
+# print ""
+# print "This requires having a "
+# answer = raw_input('mysql username [%s]:' % super_user)
+# print "Please run bin/pvarch_init_mysql"
 
 

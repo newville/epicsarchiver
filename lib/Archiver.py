@@ -52,6 +52,8 @@ def add_pv_to_cache(pvname=None,cache=None,master=None):
     else:
         if EpicsCA.PV(pvname,connect=True) is not None:
             cache.add_pv(pvname)
+        else:
+            print 'cannot add pv ', field            
 
     EpicsCA.pend_event()
     
@@ -156,7 +158,7 @@ class Archiver:
         q = 'select time,value from %s where pv_id=%i and time>=%f and time<=%f order by time'
         for db in (db0,db1):
             self.db.use(db)
-            for i in self.db.exec_fetchall(q % (table,pvid,t0,t1)):
+            for i in self.db.exec_fetch(q % (table,pvid,t0,t1)):
                 dat.append((i['time'],i['value']))
         return dat
 

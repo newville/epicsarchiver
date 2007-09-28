@@ -1,0 +1,14 @@
+# List here the pages to include in the 'status' page.
+
+# The order here will be preserved (left to right)
+# 
+# Title = 'title of page shown in tab heading'
+# File  = name of template file
+#
+# after editing this file, run 'make'
+
+#--------------------------
+# Title      | Template File
+Storage Ring | storage_ring.txt
+GSE Page 1   | GSE_page1.txt
+GSE Page 2   | GSE_page2.txt

@@ -1,0 +1,17 @@
+
+[BM Monochromator]
+
+13BMA:cc2.VAL            |  Ion Pump Pressure (CC)| %8.2e
+13BMA:DMM1Ch2_calc.VAL   |  1st XTAL Temp         | %7.2f
+13BMA:DMM1Ch3_calc.VAL   |  2nd XTAL Temp         | %7.2f
+13BMA:m17.VAL            |  Mono Angle            |  %7.3f
+13BMA:E:E_RBV.VAL         |  Mono Energy          |  %9.2f
+13BMA:mono_pid1Locked.VAL |  PID Looped Locked?   |'yes/no'
+13BMA:m13.VAL             |  Cage Y Position      | %6.3f
+
+-----
+[BM-D Vertical Mirror]
+
+13BMA:DMM2Ch2_raw.VAL,13BMA:DMM2Ch3_raw.VAL, 13BMA:DMM2Ch4_raw.VAL | Temperatures (Cu Mask, Up Leg, Down Leg)  | %7.2f
+
+

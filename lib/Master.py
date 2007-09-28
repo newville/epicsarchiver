@@ -99,19 +99,20 @@ class ArchiveMaster:
         self.db.use(master_db)
         dbstr = clean_string(dbname)
         note  = clean_string(note)
-        self.db.execute("update runs set start_time=%f where db=%s" % (min_time, dbstr))
-        self.db.execute("update runs set stop_time=%f where db=%s"  % (max_time, dbstr))
-        self.db.execute("update runs set notes=%s where db=%s"      % (note,dbstr))
+        self.__exec("update runs set start_time=%f where db=%s" % (min_time, dbstr))
+        self.__exec("update runs set stop_time=%f where db=%s"  % (max_time, dbstr))
+        self.__exec("update runs set notes=%s where db=%s"      % (note,dbstr))
 
     def set_currentDB(self,dbname):
         r = self.db.exec_fetchone("select db from run where db=%s" % dbstr)
-        self.db.execute("update current set db=%s" % clean_string(r['db']))
+        self.__exec("update current set db=%s" % clean_string(r['db']))
 
     def get_related_pvs(self,pv,minscore=1):
         npv = normalize_pvname(pv)        
         tmp = []
         for i in ('pv1','pv2'):
-            for j in self.db.exec_fetchall(self.sql_pairs_order % (i,clean_string(npv),minscore)):
+            q = self.sql_pairs_order % (i,clean_string(npv),minscore)
+            for j in self.db.exec_fetch(q):
                 tmp.append((j['score'],j['pv1'].strip(),j['pv2'].strip()))
         tmp.sort()
         out = []
@@ -124,7 +125,8 @@ class ArchiveMaster:
 
     def get_pair_score(self,pv1,pv2):
         p = [pv1.strip(),pv2.strip()] ;  p.sort()
-        i = self.db.exec_fetchall(self.sql_pairs_select % (clean_string(p[0]),clean_string(p[1])))
+        q = self.sql_pairs_select % (clean_string(p[0]),clean_string(p[1]))
+        i = self.db.exec_fetch(q)
         try:
             return int(i[0]['score'])
         except:
@@ -135,13 +137,13 @@ class ArchiveMaster:
         current_score  = self.get_pair_score(p[0],p[1])
         if score is None: score = 1 + current_score
         if current_score == 0:
-            self.db.execute(self.sql_pairs_update % (clean_string(p[0]),clean_string(p[1]),score))
+            self.__exec(self.sql_pairs_update % (clean_string(p[0]),clean_string(p[1]),score))
         else:
-            self.db.execute(self.sql_pairs_insert % (score,clean_string(p[0]),clean_string(p[1])))
+            self.__exec(self.sql_pairs_insert % (score,clean_string(p[0]),clean_string(p[1])))
 
     def increment_pair_score(self,pv1,pv2):  self.set_pair_score(pv1,pv2,score=None)
 
-    def get_all_scores(self,pv1,pv2,score):  self.db.exec_fetchall("select * from pairs")
+    def get_all_scores(self,pv1,pv2,score):  self.db.exec_fetch("select * from pairs")
 
     def status_report(self,minutes=10):
         currdb = self.__current('db')
@@ -151,7 +153,7 @@ class ArchiveMaster:
         n = []
         dt = time.time() - minutes * 60.
         for i in range(1,129):
-            r = self.db.exec_fetchall("select * from pvdat%3.3i where time > %f " % (i,dt))
+            r = self.db.exec_fetch("select * from pvdat%3.3i where time > %f " % (i,dt))
             n.append(len(r))
             tot = 0
         for i in n: tot = tot + i
@@ -163,7 +165,7 @@ class ArchiveMaster:
         currdb = self.__current('db')
         r = []
         timefmt = "%6.2f "
-        for i in self.db.exec_fetchall("select * from runs order by start_time desc limit 10"):
+        for i in self.db.exec_fetch("select * from runs order by start_time desc limit 10"):
             if  i['db']== currdb:
                 timefmt = "%6.2f* "
                 i['stop_time'] = time.time()
@@ -180,15 +182,15 @@ class ArchiveMaster:
     def set_status(self,status='running'):
         if status not in ('running','offline','stopping','unknown'):
             status = 'unknown'
-        self.db.execute("update current set status = '%s'" % status)
+        self.__exec("update current set status = '%s'" % status)
 
     def create_emptydb(self,dbname):
-        self.db.execute("drop database if exists %s" % dbname)
-        self.db.execute("create database %s" % dbname)
+        self.__exec("drop database if exists %s" % dbname)
+        self.__exec("create database %s" % dbname)
         self.db.use(dbname)
-        self.db.execute(self.pv_init)
+        self.__exec(self.pv_init)
         for i in range(1,129):
-            for q in self.dat_init: self.db.execute(q % i)
+            for q in self.dat_init: self.__exec(q % i)
         self.db.grant(db=dbname,user=dbuser,passwd=dbpass,host=dbhost)
 
     def make_nextdb(self,dbname=None):
@@ -197,8 +199,7 @@ class ArchiveMaster:
         currdb = self.__current('db')
         olddb  = SimpleDB(user=dbuser, passwd=dbpass,db=currdb, host=dbhost,debug=0)
         olddb.use(currdb)
-        olddb.execute("select * from pv")
-        old_data = olddb.fetchall()
+        old_data = olddb.exec_fetch("select * from pv")
 
         dbname = nextname(current=currdb,dbname=dbname)
         self.create_emptydb(dbname)
@@ -213,9 +214,9 @@ class ArchiveMaster:
                            deadtime   =p['deadtime'],    graph_type =p['graph_type'],
                            graph_lo   =p['graph_lo'],    graph_hi   =p['graph_hi'])
 
-        self.db.execute("delete from runs where db='%s'" % dbname)
+        self.__exec("delete from runs where db='%s'" % dbname)
         q = "insert into runs (db,start_time,stop_time) values ('%s',%f,%f)"
-        self.db.execute(q % (dbname,MAX_EPOCH,MAX_EPOCH))
+        self.__exec(q % (dbname,MAX_EPOCH,MAX_EPOCH))
         return dbname
    
     def dbs_for_time(self, t0=SEC_DAY, t1=MAX_EPOCH):

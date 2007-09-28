@@ -77,7 +77,7 @@ def run_cache(action=None):
 
     dir     = config.logdir
     if not os.path.exists(dir):   os.mkdir(dir)
-    sout    = os.path.join(dir, "cache.out")
+    sout    = os.path.join(dir, "cache.log")
     serr    = os.path.join(dir, "cache.err")
     pidfile = os.path.join(dir, "cache.pid")
     
@@ -125,14 +125,22 @@ def drop_pv(pvname):
     arch.drop_pv(pvname)
     
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], "h", ["help"])
+    opts, rawargs = getopt.getopt(sys.argv[1:], "h", ["help"])
     try:
-        cmd = args.pop(0)
+        cmd = rawargs.pop(0)
     except IndexError:
         cmd = 'help'
     for (k,v) in opts:
         if k in ("-h", "--help"): cmd = 'help'
 
+    args = []
+    for arg in rawargs:
+        if ',' in arg:
+            for i in arg.split(','):
+                args.append(i.strip())
+        else:
+            args.append(arg)
+            
     if   'help' == cmd:
         show_usage()
 

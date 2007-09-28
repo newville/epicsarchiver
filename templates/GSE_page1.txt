@@ -1,0 +1,26 @@
+[Storage Ring]
+BL13:ActualMode.VAL
+BL13:srCurrent.VAL    || %8.3f
+BL13:srLifetime.VAL   || %8.3f
+13IDA:eps_bo1.VAL     | Shutter Permit |
+
+[ID EPS]
+13IDA:eps_mbbi57.VAL   | Front End Valve
+13IDA:eps_mbbi4.VAL    | Front End Shutter
+13IDA:eps_mbbi81.VAL   | Vacuum Status
+13IDA:eps_mbbi5.VAL    | EPS Status
+13IDA:BS_status.VAL    | White Beam Stop
+
+[BM EPS]
+13BMA:eps_mbbi42.VAL   | Front End Valve
+13BMA:eps_mbbi4.VAL    | Front End Shutter
+13BMA:eps_mbbi5.VAL    | EPS Status        
+
+
+[Configuration]
+PA:13ID:Q01:00.VAL,PA:13ID:Q01:01.VAL,PA:13ID:Q01:02.VAL,PA:13ID:Q01:03.VAL | ID Stations Searched (A,B,C,D)  | yes/no
+PA:13BM:Q01:00.VAL, PA:13BM:Q01:01.VAL, PA:13BM:Q01:02.VAL,PA:13BM:Q01:03.VAL | BM Stations Searched (A,B,C,D) | yes/no
+
+13IDA:eps_mbbi67.VAL, 13IDA:eps_mbbi68.VAL | He gas farm (left, right) 
+
+G:AHU:FP5088Ai.VAL, G:AHU:FP5087Ai.VAL,G:AHU:FP5095Ai.VAL,G:AHU:FP5097Ai.VAL  | Air Temps (13IDD, 13IDC, 13BMD, Roof) (F)  | %8.3f

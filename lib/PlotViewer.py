@@ -25,19 +25,12 @@ Gnuplot.GnuplotOpts.default_term='png'
 
 REFRESH_TIME = "%i" % (SEC_DAY * 7)
 
-def random_string(n):
-    """generate a string of length n of random numbers+letters """
-    s = ['a']*n
-    from random import seed, randrange
-    from string import printable
-    seed(time.time())
-    s[0] = printable[randrange(10,36)] # first char is alpha
-    for i in range(1,n):               # rest are alphanumeric
-        s[i] = printable[randrange(0,36)]
-    return ''.join(s)
-
-class HTMLWriter:
-    style = """pre {text-indent: 30px}
+htmlhead = """<html>
+<head><title>%s</title>
+<meta http-equiv='Pragma'  content='no-cache'>
+<meta http-equiv='Refresh' content='%s'>
+<style type='text/css'>
+pre {text-indent: 30px}
 h4 {font:bold 18px verdana,arial,sans-serif;color:#044484;font-weight:bold;font-style:italic;}
 .xtitle {font-family: verdana, arial, san-serif; font-size: 13pt;
          font-weight:bold; font-style:italic;color:#900000}
@@ -52,14 +45,21 @@ border-bottom: 2px solid #880000; margin: 1px; padding: 0px 0px 4px 0px; padding
 padding: 3px 3px 4px 3px;margin: 0px ;text-decoration: none; }
 #tabmenu a.active {color: #CC0000;background: #FCFCEA;border-bottom: 2px solid #FCFCEA;}
 #tabmenu a:hover {color: #CC0000; background: #F9F9E0;}
+</style>
+%s
+</head><body>
 """
-    js_setup = '''<link rel="stylesheet" type="text/css" media="all"
-    href="http://cars9.uchicago.edu/cgi-data/jscal/calendar-system.css" />
-<script type="text/javascript" src="../../cgi-data/jscal/calendar.js"></script>
-<script type="text/javascript" src="../../cgi-data/jscal/lang/calendar-en.js"></script>
-<script type="text/javascript" src="../../cgi-data/jscal/calendar-setup.js"></script>
-'''
-    js_cal = """<script type='text/javascript'>
+
+jscal_setup = """<link rel='stylesheet' type='text/css' media='all'
+ href='%s/calendar-system.css' />
+<script type='text/javascript' src='%s/calendar.js'></script>
+<script type='text/javascript' src='%s/lang/calendar-en.js'></script>
+<script type='text/javascript' src='%s/calendar-setup.js'></script>
+"""  % (config.jscal_url, config.jscal_dir, config.jscal_dir, config.jscal_dir)
+
+
+js_cal = """
+<script type='text/javascript'>
     function setdate2(cal) {
         var date  = cal.date;
         var time  = date.getTime()
@@ -79,24 +79,20 @@ padding: 3px 3px 4px 3px;margin: 0px ;text-decoration: none; }
             f2.value  = date2.print("%Y-%m-%d %H:%M");
           }
      }
-     Calendar.setup({inputField : "date1",
-             ifFormat   : "%Y-%m-%d %H:%M",
-             showsTime  : true,
-             timeFormat : 24,
-             singleClick: false,
-             button     : "date1_trig",
-             weekNumbers: false,
-             onUpdate   : setdate2  });
-     Calendar.setup({inputField : "date2",
-             ifFormat   : "%Y-%m-%d %H:%M",
-             showsTime  : true,
-             timeFormat : 24,
-             singleClick: false,
-             button     : "date2_trig",
-             weekNumbers: false,
-             });</script>"""
-    
-    links= ((statuspage, "Beamline Status"),
+     Calendar.setup({inputField : "date1",   ifFormat   : "%Y-%m-%d %H:%M",
+             showsTime  : true,              timeFormat : 24,
+             singleClick: false,             button     : "date1_trig",
+             weekNumbers: false,             onUpdate   : setdate2  });
+     Calendar.setup({inputField : "date2",   ifFormat   : "%Y-%m-%d %H:%M",
+             showsTime  : true,              timeFormat : 24,
+             singleClick: false,             button     : "date2_trig",
+             weekNumbers: false,             });
+</script>
+"""
+
+
+class HTMLWriter:
+    links= ((statuspage, "Beamline Status Page"),
             (adminpage,"Archiver Admin Page")   )
 
     def __init__(self, top_links=None, **args):
@@ -119,13 +115,7 @@ padding: 3px 3px 4px 3px;margin: 0px ;text-decoration: none; }
     def starthtml(self,refresh=''):
         if self.html_title in (None,'',' '):  self.html_title = ' '
         if refresh == '' : refresh = REFRESH_TIME
-        self.write("<html><head><title>%s</title>" % self.html_title)
-        self.write('<meta http-equiv="Pragma"  content="no-cache">')
-        self.write('<meta http-equiv="Refresh" content="%s">' % refresh)
-        self.write('<style type="text/css">%s</style>' %  self.style)
-        ##
-        self.write(self.js_setup)
-        self.write("</head><body>")
+        self.write(htmlhead % (self._html_title,refresh,jscal_setup))
 
     def show_links(self):
         self.write("<ul id='tabmenu'>")
@@ -144,7 +134,6 @@ class PlotViewer(HTMLWriter):
     ago_times = ('1 hour', '2 hours', '3 hours', '6 hours','8 hours','12 hours', 
                  '1 day','2 days','3 days', '1 week', '2 weeks', '1 month')
 
-    # available years: 2001 to current
     years   = range(2001, time.localtime()[0]+1)
     months  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
     days    = (31,28,31,30,31,30,31,31,30,31,30,31)
@@ -205,7 +194,7 @@ set ytics nomirror
         <p>""" % (thispage))
 
 
-        tx = "GSECARS PV Database: %s" % (time.ctime())
+        tx = "Epics PV Archive: %s" % (time.ctime())
 
         self.write("<table border=0 cellpadding=1>")
         #
@@ -276,7 +265,6 @@ set ytics nomirror
         self.write("</td><td colspan=2> &nbsp;&nbsp; To:")
         self.write(dform % ({'d':'date2','v':d2val}))
 
-        # self.write("<input type='text' width=22 id='date2' name='date2' value='%s'/><button id='date2_trig'>...</button>" % d2val)
 
         self.write("</td></tr><tr><td></td></tr><tr><td colspan=5><hr></td></tr></table>")
         self.write(self.js_cal)
@@ -338,7 +326,7 @@ set ytics nomirror
                 
         # self.write('<p> draw graph %i %i </p>' % (t0,t1))
         #
-        froot  = "pv%s"      % random_string(8)
+        froot  = "pv%s"      % hex(int(1000*time.time()))[2:]
         f_png  = "%s%sa.png" % (self.file_pref,froot)
         f_dat  = "%s%sa.dat" % (self.file_pref,froot)
         f_gp   = "%s%sa.gp"  % (self.file_pref,froot)
@@ -513,9 +501,9 @@ set ytics nomirror
                 tics = ''
         return (legend,tics)
 
-    # set xrange ["2005/08/17 09:00:00":"2005/08/17 14:00:00"]
     def datestring(self,t):
         "return 'standard' date string given a unix timestamp"
+        # Gnuplot hint: set xrange ["2005/08/17 09:00:00":"2005/08/17 14:00:00"]
         return time.strftime("%Y%m%d %H%M%S",time.localtime(t))        
 
     def save_data(self,pv,t0,t1,fout,legend):
@@ -527,9 +515,6 @@ set ytics nomirror
             self.write("<p>DATA for PV %s %i  %i #points =%i<br>\n" % (pvname,t0,t1,len(dat)))
             for i in stat:
                 self.write("%s<br>\n" % str(i))
-                
-        # for db in self.arch.master.dbs_for_time(t0,t1):
-
 
         #  now write data to gnuplot-friendly file
         f = open(fout, 'w')
@@ -581,9 +566,9 @@ class Admin(HTMLWriter):
     def __init__(self,**kw):
         HTMLWriter.__init__(self)
         self.html_title = "PV Archive Admin Page"
-        self.arch   = pvarch.Archiver()
-        self.master = pvarch.ArchiveMaster()
-        self.cache  = pvcache.PVCache()
+        self.arch   = Archiver()
+        self.master = ArchiveMaster()
+        self.cache  = Cache()
         self.kw  = {'form_pv':'', 'submit': '','desc':'','deadtime':'','deadband':'','type':''}
         self.kw.update(kw)
 
@@ -615,13 +600,11 @@ class Admin(HTMLWriter):
             sx = pvcache.clean_input(pvname.replace('*','%'))
             self.write('<p>Search results for "%s": </p>' % pvname)
                     
-            self.master.db.use('pvcache')
+            self.master.db.use(config.cache_db)
             self.master.db.execute('select name from cache where name like %s '% (pvcache.es(sx)))
             results = self.master.db.fetchall()
             i = 0
             for r in results:
-                # self.write('<a href="%s?pv=%s">%s</a>&nbsp;&nbsp;'% (thispage,r['name'],r['name']))
-
                 self.write('<a href="%s?pv=%s">%s</a>&nbsp;&nbsp;'% (pvinfopage,r['name'],r['name']))
                 i  = i + 1
                 if i % 6 == 5: self.write("<br")
@@ -629,7 +612,7 @@ class Admin(HTMLWriter):
             if len(results)== 0 and sx.find('%')==-1:
                 self.write(" '%s' not found in archive or cache! &nbsp; " % pvname)
                 self.write("<input type='submit' name='submit' value='Add to Archive'><p>")
-            self.master.db.use('pvarchives')            
+            self.master.db.use(master_db)
                    
         self.endhtml()
         return self.get_buffer()
@@ -654,9 +637,9 @@ class Admin(HTMLWriter):
             desc  = pvcache.clean_input(self.kw['desc'].strip())
             dtime = float(pvcache.clean_input(self.kw['deadtime'].strip()))
             dband = float(pvcache.clean_input(self.kw['deadband'].strip()))
-            self.arch.db.execute("update PV set DESCRIPTION=%s where PV_NAME=%s" %(es(desc),es(pvn)))
-            self.arch.db.execute("update PV set DEADTIME=%s where PV_NAME=%s" %(es(dtime),es(pvn)))
-            self.arch.db.execute("update PV set DEADBAND=%s where PV_NAME=%s" %(es(dband),es(pvn)))
+            self.arch.db.execute("update pv set description=%s where pv_name=%s" %(es(desc),es(pvn)))
+            self.arch.db.execute("update pv set deadtime=%s where pv_name=%s" %(es(dtime),es(pvn)))
+            self.arch.db.execute("update pv set deadband=%s where pv_name=%s" %(es(dband),es(pvn)))
                                                                                    
             self.write('<p> <a href="%s?pv=%s">Plot %s</a>&nbsp;&nbsp;</p>'% (thispage,pvn,pvn))
             self.endhtml()
@@ -666,8 +649,7 @@ class Admin(HTMLWriter):
             self.endhtml()
             return self.get_buffer()            
 
-        self.arch.db.execute("select * from PV where PV_NAME = %s" % (pvcache.es(pv)))
-        ret  = self.arch.db.fetchall()
+        ret = self.arch.db.exec_fetch("select * from pv where pv_name = %s" % (pvcache.es(pv)))
         if len(ret)== 0:
             self.write("PV not in archive??")
             self.endhtml()

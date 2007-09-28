@@ -4,14 +4,16 @@ import MySQLdb
 import sys
 import os
 import array
-
-from time import sleep
+import time
 
 from util import string_literal, clean_string, clean_input
-from config import dbuser, dbpass, dbhost, mysqldump
+import config
 
-def db_connect(dbname='test',user=dbuser,passwd=dbpass,
-               host=dbhost,autocommit=1):
+def db_connect(dbname='test',
+               user=config.dbuser,
+               passwd=config.dbpass,
+               host=config.dbhost,
+               autocommit=1):
     return SimpleDB(db=dbname,user=user, passwd=passwd,
                     host=host, autocommit=autocommit)
 
@@ -22,8 +24,9 @@ def save_db(dbname=None,compress=True):
         db.safe_dump(compress=compress)
         
 class SimpleTable:
-    """ simple class for a MySQL table ...
-    a table must have entry ID"""
+    """ simple MySQL table wrapper class.
+    Note: a table must have entry ID"""
+
     def __init__(self,db, table=None):
         self.db = db
         if db == None:
@@ -49,8 +52,9 @@ class SimpleTable:
             self.fields.append(j['field'].lower())
             
     def check_args(self,**args):
-        """ check that the keys of the passed args are all available as table columns
-           returns 0 on failure, 1 on success   """
+        """ check that the keys of the passed args are all available
+        as table columns.
+        returns 0 on failure, 1 on success   """
         return self.check_columns(args.keys())
 
     def check_columns(self,l):
@@ -77,7 +81,8 @@ class SimpleTable:
 
     def select(self,vals='*', where='1=1'):
         """check for a table row, and return matches"""
-        return self.db.exec_fetchall("select %s from %s where %s" % (vals, self._name, where))
+        q= "select %s from %s where %s" % (vals, self._name, where)
+        return self.db.exec_fetch(q)
 
     def update(self,where=None,set=None):
         """update a table row with set and where dictionaries:
@@ -87,7 +92,7 @@ class SimpleTable:
            update TABLE set x=1 where y=a
            """
         if where==None or set==None:
-            self.db.write("update must give where and set arguments (dictionaries)")
+            self.db.write("update must give 'where' and 'set' arguments")
             return
         try:
             q = ''
@@ -132,6 +137,7 @@ class SimpleTable:
         return "<MyTable name=%s>" % ( self._name )
 
 class SimpleDB:
+    """ Wrapper for MySQL database, using SimpleTable class"""
     message_types= {'normal': '',
                     'warning': 'Warning: ',
                     'error': 'Error: ',
@@ -143,17 +149,18 @@ class SimpleDB:
 
         self.debug     = debug
         self.messenger = messenger or sys.stdout
-        self.user      = user      or 'epics'
-        self.passwd    = passwd    or 'epics'
+        self.user      = user      or config.dbuser
+        self.passwd    = passwd    or config.dbpass
+        self.host      = host      or config.dbhost
         self.dbname    = db        or 'test'
-        self.host      = host      or 'localhost'
 
         self.tables = []
         # start mysql connection
         try:
-            self.db   = MySQLdb.connect(user=self.user, db=self.dbname,
+            self.db   = MySQLdb.connect(user=self.user,
+                                        db=self.dbname,
                                         passwd=self.passwd,
-                                        host=self.host )
+                                        host=self.host)
         except:
             self.write("Could not start MySQL on %s for database %s" %
                        (self.host, self.dbname),   status='fatal')
@@ -169,12 +176,14 @@ class SimpleDB:
         self.db.close()
         
     def safe_dump(self, file=None,compress=False):
+        " dump database to file with mysqldump"
         if (file==None): file = "%s.sql" % self.dbname
-        cmd = "%s %s > %s" % (mysqldump, self.dbname, file)
+        cmd = "%s %s > %s" % (config.mysqldump, self.dbname, file)
         try:
             os.system("%s" % (cmd))
         except:
-            self.write("could not dump database %s to file %s" % (self.dbname,file))
+            msg = "could not dump database '%s' to file '%s'"
+            self.write(msg % (self.dbname,file))            
         if compress:
             try:
                 os.system("gzip %s" % (file))
@@ -231,14 +240,15 @@ class SimpleDB:
         return None                                      
         
     def __execute(self,q):
-        "execute single query"
+        """internal execution of a single query
+        If the execution fails, it is tried again, and then gives up"""
         try:
             if (self.debug == 1): sys.stdout.write( "SQL> %s\n" % (q))
             return self.cursor.execute(q)
         except:
-            sleep(0.005)
+            time.sleep(0.050)
             try:
-                if (self.debug == 1): sys.stdout.write( "SQL> %s\n" % (q))
+                if (self.debug == 1): sys.stdout.write( "SQL(repeat)> %s\n" % (q))
                 return self.cursor.execute(q)
             except:
                 self.write("SQL Query Failed: %s " % (q))
@@ -246,20 +256,22 @@ class SimpleDB:
             
     def fetchone(self):
         "return next row from most recent query"
-        #return self.cursor.fetchone()
         return self._normalize_dict(self.cursor.fetchone())
  
     def affected_rows(self):
+        "return number  of rows affected by last execute"
         try:
             return self.cursor.rowcount()
         except:
             return self.db.affected_rows()
 
-    def _normalize_dict(self, dict):
+    def _normalize_dict(self, indict):
+        """ internal 'normalization' of query outputs,
+        converting unicode to str and array data to lists"""
         t =  {}
         if self.debug==1: sys.stdout.write( '_normalize dict: ')
-        if (dict == None): return t
-        for k,v in dict.items():
+        if (indict == None): return t
+        for k,v in indict.items():
             key = k.lower()
             val = v
             if isinstance(v,array.array):
@@ -274,31 +286,27 @@ class SimpleDB:
     
     def fetchall(self):
         "return all rows from most recent query"
-        r = []
-        for i  in self.cursor.fetchall():
-            r.append(self._normalize_dict(i))
+        r = [self._normalize_dict(i) for i  in self.cursor.fetchall()]
         return tuple(r)
 
     def exec_fetch(self,q):
-        self.__execute(q)
-        return self.fetchall()
-
-    def exec_fetchall(self,q):
+        " execute + fetchall"
         self.__execute(q)
         return self.fetchall()
 
     def exec_fetchone(self,q):
+        " execute + fetchone"
         self.__execute(q)
         return self.fetchone()
 
     def create_and_use(self, dbname):
-        'create and use a database.  Use with caution!'
+        "create and use a database.  Use with caution!"
         self.__execute("drop database if exists %s" % dbname)
         self.__execute("create database %s" % dbname)
         self.use(dbname)
 
     def grant(self,db=None,user=None,passwd=None,host=None,priv=None):
-        
+        """grant permissions """
         if db     is None: db  = self.dbname
         if user   is None: user = self.user 
         if passwd is None: passwd = self.passwd 
@@ -306,6 +314,6 @@ class SimpleDB:
         if priv   is None: priv = 'all privileges'
         priv = clean_input(priv)
 
-        cmd = "grant %s on %s.* to %s@%s identified by '%s'" % (priv,db,user,host,passwd)
-        self.__execute(cmd)
+        cmd = "grant %s on %s.* to %s@%s identified by '%s'" 
+        self.__execute(cmd % (priv,db,user,host,passwd) )
 
