@@ -4,7 +4,7 @@ import time
 import EpicsCA
 
 from EpicsArchiver import ArchiveMaster, Archiver, Cache, config
-from EpicsArchiver.util import SEC_DAY
+from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, normalize_pvname
 
 
 DEBUG=True
@@ -115,7 +115,7 @@ class HTMLWriter:
     def starthtml(self,refresh=''):
         if self.html_title in (None,'',' '):  self.html_title = ' '
         if refresh == '' : refresh = REFRESH_TIME
-        self.write(htmlhead % (self._html_title,refresh,jscal_setup))
+        self.write(htmlhead % (self.html_title,refresh,jscal_setup))
 
     def show_links(self):
         self.write("<ul id='tabmenu'>")
@@ -158,10 +158,13 @@ set y2range [:]
 set y2tics
 set ytics nomirror
 """
+    html_title = "Epics Archiver Data Viewer"
+        
+
     def __init__(self,**kw):
         HTMLWriter.__init__(self)
-        self.arch  = pvarch.Archiver()
-        self.cache = pvcache.PVCache()
+        self.arch  = Archiver()
+        self.cache = Cache()
         self._gp = Gnuplot.Gnuplot() # "%s/out.gp" % self.file_pref)
         self.kw  = {'form_pv':'', 'form_pv2':'',  'use_ylog':'', 'use_y2log': '',
                     'submit': 'Time From Present', 'time_ago': '1 day', 
@@ -267,7 +270,7 @@ set ytics nomirror
 
 
         self.write("</td></tr><tr><td></td></tr><tr><td colspan=5><hr></td></tr></table>")
-        self.write(self.js_cal)
+        self.write(js_cal)
 
         # main (lefthand side) of page done, 
        
@@ -327,10 +330,10 @@ set ytics nomirror
         # self.write('<p> draw graph %i %i </p>' % (t0,t1))
         #
         froot  = "pv%s"      % hex(int(1000*time.time()))[2:]
-        f_png  = "%s%sa.png" % (self.file_pref,froot)
-        f_dat  = "%s%sa.dat" % (self.file_pref,froot)
-        f_gp   = "%s%sa.gp"  % (self.file_pref,froot)
-        f2_dat = "%s%sb.dat" % (self.file_pref,froot)
+        f_png  = "%s/%sa.png" % (self.file_pref,froot)
+        f_dat  = "%s/%sa.dat" % (self.file_pref,froot)
+        f_gp   = "%s/%sa.gp"  % (self.file_pref,froot)
+        f2_dat = "%s/%sb.dat" % (self.file_pref,froot)
 
 
         self.gpfile = open(f_gp,'w')
@@ -538,8 +541,6 @@ set ytics nomirror
         return a.strip()
         
     def show_pv(self,pv=None,pv2=None):
-        self.html_title = "GSECARS Data"
-   
         arg_pv1 = self.argclean(pv,  self.kw['form_pv'])
         arg_pv2 = self.argclean(pv2, self.kw['form_pv2'])        
 
@@ -547,12 +548,12 @@ set ytics nomirror
         #    self.write('<br>:: show_pv  // %s // %s //<br>' % ( arg_pv1, arg_pv2))
             
         if arg_pv1 != '':
-            arg_pv1 = pvcache.normalize_pvname(arg_pv1)
+            arg_pv1 = normalize_pvname(arg_pv1)
             self.html_title = "%s for %s" % (self.html_title,arg_pv1)
             if not self.in_database(arg_pv1):  self.arch.add_pv(arg_pv1)
             
         if arg_pv2 != '':
-            arg_pv2 = pvcache.normalize_pvname(arg_pv2)
+            arg_pv2 = normalize_pvname(arg_pv2)
             self.html_title = "%s and %s" % (self.html_title,arg_pv2)
             if not self.in_database(arg_pv2):  self.arch.add_pv(arg_pv2)            
 # 
@@ -584,7 +585,7 @@ class Admin(HTMLWriter):
         submit = self.kw['submit'].strip()
 
         if submit.startswith('Add') and len(pvname)>1:
-            sx = pvcache.clean_input(pvname)
+            sx = clean_input(pvname)
             self.write("<p>Adding %s to archive!!<p><hr>" % (sx))
             self.cache.add_pv(sx)
             self.kw['submit'] = ''
@@ -597,11 +598,11 @@ class Admin(HTMLWriter):
         self.write('<p>Search for PV:<input type="text" name="form_pv" value="%s" size=30> (use \'*\' for wildcard searches)</p>' % pvname)
 
         if pvname != '':
-            sx = pvcache.clean_input(pvname.replace('*','%'))
+            sx = clean_input(pvname.replace('*','%'))
             self.write('<p>Search results for "%s": </p>' % pvname)
                     
             self.master.db.use(config.cache_db)
-            self.master.db.execute('select name from cache where name like %s '% (pvcache.es(sx)))
+            self.master.db.execute('select name from cache where name like %s '% (clean_string(sx)))
             results = self.master.db.fetchall()
             i = 0
             for r in results:
@@ -630,13 +631,13 @@ class Admin(HTMLWriter):
             if fpv != '': pv = fpv
 
         submit = self.kw['submit'].strip()
-        es  = pvcache.es
+        es  = clean_string
         if submit.startswith('Update') and len(pv)>1:
-            pvn = pvcache.clean_input(pv)
+            pvn = clean_input(pv)
             self.write("<p>Updating data for %s!!<p><hr>" % (pvn))
-            desc  = pvcache.clean_input(self.kw['desc'].strip())
-            dtime = float(pvcache.clean_input(self.kw['deadtime'].strip()))
-            dband = float(pvcache.clean_input(self.kw['deadband'].strip()))
+            desc  = clean_input(self.kw['desc'].strip())
+            dtime = float(clean_input(self.kw['deadtime'].strip()))
+            dband = float(clean_input(self.kw['deadband'].strip()))
             self.arch.db.execute("update pv set description=%s where pv_name=%s" %(es(desc),es(pvn)))
             self.arch.db.execute("update pv set deadtime=%s where pv_name=%s" %(es(dtime),es(pvn)))
             self.arch.db.execute("update pv set deadband=%s where pv_name=%s" %(es(dband),es(pvn)))
@@ -649,13 +650,13 @@ class Admin(HTMLWriter):
             self.endhtml()
             return self.get_buffer()            
 
-        ret = self.arch.db.exec_fetch("select * from pv where pv_name = %s" % (pvcache.es(pv)))
+        ret = self.arch.db.exec_fetch("select * from pv where pv_name = %s" % (es(pv)))
         if len(ret)== 0:
             self.write("PV not in archive??")
             self.endhtml()
             return self.get_buffer()            
 
-        pvn = pvcache.clean_input(pv)
+        pvn = clean_input(pv)
         self.write('<p> <a href="%s?pv=%s">Plot %s</a>&nbsp;&nbsp;</p>'% (thispage,pvn,pvn))
         d = ret[0]
         self.write('<form action ="%s" enctype="multipart/form-data"  method ="POST"><p>' % (pvinfopage))

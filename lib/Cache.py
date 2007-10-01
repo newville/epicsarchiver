@@ -11,11 +11,10 @@ import getopt
 from config import cache_db
 from util import clean_input, clean_string, normalize_pvname
 
-null_pv_value = {'value':None,'ts':0,'cvalue':None,'type':None}
-
 class Cache:
     """ store and update a cache of PVs to a sqlite db file"""
 
+    null_pv_value = {'value':None,'ts':0,'cvalue':None,'type':None}
     _table_names = ("info", "req", "cache")
     def __init__(self,pvfile=None,dbcursor=None, **kw):
         if dbcursor is not None:
@@ -185,7 +184,7 @@ class Cache:
     def get_full(self,pv,add=False):
         " return full information for a cached pv"
         npv = normalize_pvname(pv)
-        ret = null_pv_value
+        ret = self.null_pv_value
         if add and (npv not in self.pvlist):
             self.add_pv(npv)
             sys.stdout.write('adding PV.....\n')

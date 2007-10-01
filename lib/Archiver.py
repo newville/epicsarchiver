@@ -112,6 +112,8 @@ class Archiver:
         self.master  = None
         self.dtime_limbo = {}
         self.last_collect = 0
+        self.pvinfo = {}
+        self.pvs    = {}
         for k,v in args.items():
             if   (k == 'debug'):      self.debug     = v
             elif (k == 'messenger'):  self.messenger = v
@@ -127,13 +129,14 @@ class Archiver:
     def sync_with_cache(self):
         self.pvinfo = {}
         self.last_insert = {}
-        # print 'Sync With Cache: %i tables' %( len(self.db.tables))
+        print 'Sync With Cache: %i tables' %( len(self.db.tables))
         
         db_pvs = self.db.tables['pv'].select()
 
         self.cache_names = self.cache.get_pvlist()
         for pv in db_pvs:  self.initialize_data(pv)
         self.check_for_new_pvs()
+
 
     def check_for_new_pvs(self):
         self.cache_names = self.cache.get_pvlist()        
@@ -144,21 +147,37 @@ class Archiver:
                 self.add_pv(p)
    
     def db_for_time(self,t):
-        return self.master.db_for_time(t)
+        return self.master.dbs_for_time(t0=t-10.0,t1=t)[0]
+
+    def get_pv(self,pvname):
+        " "
+        if self.pvs.has_key(pvname): return self.pvs[pvname]
+        try:
+            p = self.pvs[pvname] = EpicsCA.PV(pvname,connect=True)
+            return p
+        except:
+            return None
+
+    def get_info(self,pvname):
+        r = self.db.tables['pv'].select_where(name=pvname)
+        if len(r)>0: return r[0]
+        return {}
 
     def get_data(self,pvname,t0,t1):
         "get data from database"
-        if not self.pvinfo.has_key(pvname): return []
+        if not self.pvinfo.has_key(pvname):
+            self.sync_with_cache()
+            if not self.pvinfo.has_key(pvname):
+                return []
         
-        db0 = self.master.db_for_time(t0)
-        db1 = self.master.db_for_time(t1)
         dat = []
-        table = self.pvinfo[pvname]['data_table']
-        pvid  = self.pvinfo[pvname]['id']
+        table,pvid,dtime,dband,ftime =  self.pvinfo[pvname]
         q = 'select time,value from %s where pv_id=%i and time>=%f and time<=%f order by time'
-        for db in (db0,db1):
+        for db in self.master.dbs_for_time(t0,t1):
             self.db.use(db)
-            for i in self.db.exec_fetch(q % (table,pvid,t0,t1)):
+            cmd = q % (table,pvid,t0,t1)
+            thisdat = self.db.exec_fetch(cmd)
+            for i in thisdat:
                 dat.append((i['time'],i['value']))
         return dat
 
@@ -315,6 +334,15 @@ class Archiver:
             self.db.execute(sql % (delay_str,table,pvid, ts,clean_string(val)))
         except TypeError:
             self.write("cannot update %s\n" % name)
+
+    def get_related_pvs(self,pvname):
+        return self.master.get_related_pvs(pvname,minscore=1)
+
+    def increment_pair_score(self,pv1,pv2):
+        npv1 = normalize_pvname(pv1)
+        npv2 = normalize_pvname(pv2)
+        self.master.increment_pair_score(npv1,npv2)
+
         
     def get_cache_changes(self,dt=30):
         """ get list of name,type,value,cvalue,ts from cache """

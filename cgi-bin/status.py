@@ -3,7 +3,7 @@
 
 from mod_python import apache
 
-from EpicsArchiver import StatusWrite, config
+from EpicsArchiver import StatusWriter, config
 import sys
 
 file_base   = config.template_dir
@@ -30,7 +30,7 @@ def show_page(req,page='__',**kw):
 
     stat.begin_page(page, pagelist, refresh=30)
     
-    if page = '__': page = pagelist[0]
+    if page == '__': page = pagelist[0]
     if page in pagelist:
         stat.show_pvfile(filemap[page])
    

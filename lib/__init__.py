@@ -11,6 +11,11 @@
 """
 __version__ = '0.1'
 
+import os
+import config
+os.environ['PYTHON_EGG_CACHE'] = config.data_dir
+import MySQLdb
+
 from util import string_literal, clean_input, escape_string
 
 from SimpleDB import SimpleDB, SimpleTable

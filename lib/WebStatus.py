@@ -53,7 +53,7 @@ class StatusWriter:
     title_row   = "<tr><th colspan=2><font color=%s>%s</font></tr>"
     
     def __init__(self,**args):
-        self._cache    = Cache.Cache()
+        self._cache    = Cache()
         self.pvget     = self._cache.get_full
 
         self.dblink    = dblink
@@ -73,7 +73,7 @@ class StatusWriter:
         """ get cached value for a PV, formatted """
         ret = self.pvget(pv,add=True)
 
-        if ret == Cache.null_pv_value:
+        if ret == self._cache.null_pv_value:
             if desc is None: desc = pv
             return (desc,'Unknown')
 
@@ -106,7 +106,7 @@ class StatusWriter:
         self.linked_row(desc,pv,"%s" %val)
 
     def start_table(self,title=None):
-        self.write("%s %s" %(self.table_def,self.table_space))
+        self.write("%s %s" %(self.table_def,self.space_row))
         if title:
             self.write(self.title_row % (self.titlecolor,title))
 
@@ -239,7 +239,7 @@ class StatusWriter:
     ### Vacuum Tables: specialized to GSECARS-like vacuum system -- using a 4 column table...
     ### 
     def start_table_vac(self,title='Table'):
-        self.write("%s %s" %(self.table_def,self.table_space))
+        self.write("%s %s" %(self.table_def,self.space_row))
         self.write("<tr><th colspan=4><font color=%s>%s</font></tr>" % (self.titlecolor,title))
 
     def vac_table(self,pv,cc_pr=(None,None), label=None,type='GSE'):

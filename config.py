@@ -36,6 +36,7 @@ dat_format = "%s_%.5i"
 ## Web setup section
 ##
 apache_root = '/usr/local/apache/'
+apache_root = '/www/apache/'
 url_root    = 'http://ion.cars.aps.anl.gov/'
 
 # location for python web scripts
@@ -61,8 +62,7 @@ pagetitle = 'PV Archiver Status Page'
 
 # footer for status web pages
 footer = """<hr>[
-<a href=http://www.aps.anl.gov/asd/operations/gifplots/MCRstatus.html>APS Status</a> |
-<a href=http://www.aps.anl.gov/asd/blops/status/smallHistory>APS Status</a> |
+<a href=http://www.aps.anl.gov/asd/blops/status/smallHistory.html>APS Storage Ring Status</a> |
 <a href=http://www.aps.anl.gov/Facility/>APS Facility Page</a>]"""
 
 # location of editable web status template files

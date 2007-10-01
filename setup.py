@@ -7,6 +7,7 @@ import sys
 import shutil
 import distutils
 from distutils.core import setup
+from distutils.dir_util import mkpath, copy_tree
 #
 try:
     import config
@@ -16,21 +17,29 @@ except:
 
 try: 
     x = config.dbpass[1:2].lower()
-    if config.dbpass == 'Change Me!!': raise TypeError
-    if len(config.dbpass)<3:           raise TypeError
-    if len(config.dat_prefix)<2:       raise TypeError
-    if len(config.cache_db)<2:         raise TypeError
+    if config.dbpass == 'Change Me!!':
+        raise TypeError('Password must be set ("dbpass" in config.py)!')
+    if len(config.dbpass)<3:
+        raise TypeError('Password too short ("dbpass" in config.py)!')
+    if len(config.dat_prefix)<2:
+        raise TypeError('Need a Data Table Prefix ("dat_prefix" in config.py)!')
+    if len(config.cache_db)<2:
+        raise TypeError('Need a Name for the Cache DB ("cache_db" in config.py)!')
 except:
-    print "Errors in config.py...."
-    sys.exit(1)
+    xtype, errmsg, tb = sys.exc_info()
+    print 
+    print "==  There were errors in config.py:"
+    print "==  %s" % errmsg
 
+    sys.exit(1)
+    
 
 def create_dir(dir,desc='?'):
     if not os.path.exists(dir):
         print 'Warning: %s directory %s does not exist.' % (desc,dir)
         print '         trying to create %s' % (dir)
         try:
-            os.makedirs(dir)
+            mkpath(dir)
         except OSError:
             print 'Error: could not create %s' % dir
             print 'perhaps you need more permission?'
@@ -74,6 +83,7 @@ f.close()
 
 bin_dir = os.path.join(sys.prefix,'bin')
 
+
 setup(
     name        = 'EpicsArchiver',
     version     = '0.1',
@@ -82,21 +92,40 @@ setup(
     license     = 'Python',
     description = 'A library for Archiving Epics PVs.',
     package_dir = {'EpicsArchiver': 'lib'},
-    packages    = ['EpicsArchiver'],
-    data_files  = [(bin_dir, ['bin/pvarch'])]
-    # _init_mysql','pvarch'])]
+    packages    = ['EpicsArchiver'], 
+    data_files  = [(bin_dir, ['bin/pvarch'])], 
 )
 
+    
+setup_py = sys.argv.pop(0)
+cmd     = sys.argv.pop(0)
 
-post_install = """
-=================================================
+
+if 'install' == cmd:
+    copy_tree('cgi-bin', config.cgi_bin)
+    copy_tree('jscal',   config.jscal_dir)
+    copy_tree('templates',   config.template_dir)
+
+    
+    
+print  """=================================================
 Writing Apache configuration to httpd_pvarch.conf
 
 You will need to edit Apache's configuration to
 include this configuration.  (See httpd.conf)
 =================================================
 
-The next installation steps are:
+Read INSTALL for the next installation steps."""
+
+
+# 
+# print ""
+# print "This requires having a "
+# answer = raw_input('mysql username [%s]:' % super_user)
+# print "Please run bin/pvarch_init_mysql"
+
+
+x =  """The next installation steps are:
 
   1. Run bin/pvarch_init_mysql to Initialize the
      MySQL tables for the archiver
@@ -116,14 +145,5 @@ The next installation steps are:
   4. Edit the Web Status template files in
         %s
      read the README file, and run 'make'.
-    
-"""
-
-print post_install % config.template_dir
-# 
-# print ""
-# print "This requires having a "
-# answer = raw_input('mysql username [%s]:' % super_user)
-# print "Please run bin/pvarch_init_mysql"
-
+ """ % config.template_dir
 

@@ -1,6 +1,18 @@
 #!/usr/bin/env python
 #
-import MySQLdb
+
+try:
+    import MySQLdb
+except ImportError:
+    import os
+    os.environ['PYTHON_EGG_CACHE'] = '/tmp/python_eggs/'
+    import MySQLdb
+except ExtractionError:
+    import os
+    os.environ['PYTHON_EGG_CACHE'] = '/tmp/python_eggs/'
+    import MySQLdb
+    
+
 import sys
 import os
 import array
@@ -76,6 +88,7 @@ class SimpleTable:
                 k = clean_input(k)
                 v = string_literal(v)
                 q = "%s and %s=%s" % (q,k,v)
+            print 'S WHERE ', q
             return self.db.exec_fetch(q)
         return 0
 

@@ -1,3 +1,4 @@
 #PVTemplate:  Storage Ring
 
-S:SRCurrentAI.VAL
+S:SRcurrentAI.VAL
+
