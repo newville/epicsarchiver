@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import time
-
+import sys
 from SimpleDB import SimpleDB, SimpleTable
 from config import dbuser, dbpass, dbhost, master_db, dat_prefix, dat_format
 from util import normalize_pvname, clean_string, MAX_EPOCH, SEC_DAY
@@ -34,9 +34,9 @@ class ArchiveMaster:
                graph_hi    tinyblob,
                graph_lo    tinyblob,
                graph_type  enum('normal','log','discrete'),
-               type enum('int','double','string','enum') not null,
+               type        enum('int','double','string','enum') not null,
+               active   enum('yes','no') default 'yes',
                unique (name) ) ENGINE=myisam;""")
-
 
     dat_init = ("drop table if exists pvdat%3.3i",
                   """create table pvdat%3.3i(
@@ -58,6 +58,7 @@ class ArchiveMaster:
     def __exec(self,s): self.db.execute(s)
 
     def __current(self,val='db'):
+        self.db.use(master_db)
         self.__exec(self.sql_current_sel)
         return self.db.fetchone()[val]
 
@@ -104,7 +105,9 @@ class ArchiveMaster:
         self.__exec("update runs set notes=%s where db=%s"      % (note,dbstr))
 
     def set_currentDB(self,dbname):
-        r = self.db.exec_fetchone("select db from run where db=%s" % dbstr)
+        self.db.use(master_db)        
+        dbstr = clean_string(dbname)        
+        r = self.db.exec_fetchone("select db from runs where db=%s" % dbstr)
         self.__exec("update current set db=%s" % clean_string(r['db']))
 
     def get_related_pvs(self,pv,minscore=1):
@@ -126,9 +129,8 @@ class ArchiveMaster:
     def get_pair_score(self,pv1,pv2):
         p = [pv1.strip(),pv2.strip()] ;  p.sort()
         q = self.sql_pairs_select % (clean_string(p[0]),clean_string(p[1]))
-        i = self.db.exec_fetch(q)
         try:
-            return int(i[0]['score'])
+            return int( self.db.exec_fetchone(q)['score'] )
         except:
             return 0
 
@@ -206,7 +208,7 @@ class ArchiveMaster:
         
         newdb = SimpleDB(user=dbuser, passwd=dbpass,db=dbname, host=dbhost,debug=0)
         pvtable = SimpleTable(newdb, table='pv')
-        sys.stdout.write(' adding %i pvs to DB %s\n' % (len(old_data),dbname))
+        sys.stdout.write('adding %i pvs to DB %s\n' % (len(old_data),dbname))
 
         for p in old_data:
             pvtable.insert(name       =p['name'],        type    =p['type'],
@@ -214,6 +216,7 @@ class ArchiveMaster:
                            deadtime   =p['deadtime'],    graph_type =p['graph_type'],
                            graph_lo   =p['graph_lo'],    graph_hi   =p['graph_hi'])
 
+        self.db.use(master_db)
         self.__exec("delete from runs where db='%s'" % dbname)
         q = "insert into runs (db,start_time,stop_time) values ('%s',%f,%f)"
         self.__exec(q % (dbname,MAX_EPOCH,MAX_EPOCH))

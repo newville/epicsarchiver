@@ -1,21 +1,73 @@
 #!/usr/bin/env python
 
-import SimpleDB
-import EpicsCA
 import os
 import time
 import types
 import sys
 import getopt
 
-from config import cache_db
-from util import clean_input, clean_string, normalize_pvname
+import EpicsCA
+import SimpleDB
+from config   import cache_db
+from util     import clean_input, clean_string, motor_fields, normalize_pvname, set_pair_scores
+
+def add_pv_to_cache(pvname=None,cache=None,**kw):
+    """ add a PV to the Cache and Archiver
+
+    For a PV that is the '.VAL' field for an Epics motor will
+    automatically cause the following motor fields added as well:
+        .OFF .FOFF .SET .HLS .LLS .DIR _able.VAL .SPMG
+
+    Each of these pairs of PVs will also be given an inital
+    'pair score' of 10, which is used to define 'related pvs'
+
+    """
+    if pvname is None: return
+    if cache is None: cache = Cache()
+    cache.add_pv(pvname)
+
+def add_pvfile(fname):
+    """
+    Read a file that lists PVs and add them (if needed) to the PV cache
+    -- they will be automatically added to the running archives asap.
+
+    The PV file generally lists one PV per line, but also has a few features:
+    
+       1. Putting a '.VAL' PV for a PV that is from a motor record will
+          automatically have the following motor fields added:
+              .VAL  .OFF .FOFF .SET .HLS .LLS .DIR _able.VAL .SPMG
+          Each of these pairs of PVs will also be given an inital
+          'pair score' of 10, which is used to define 'related pvs'
+
+       2. Putting multiple PVs on a single line (space or comma delimited)
+          will add all PVs on that line and also give all pairs of PVs
+          on the line a 'pair score' of 10.
+          
+    """
+    print 'Adding PVs listed in file ', fname
+    f = open(fname,'r')
+    lines = f.readlines()
+    f.close()
+
+    cache  = Cache()
+    for line in lines:
+        line[:-1].strip()
+        if len(line)<2 or line.startswith('#'): continue
+        words = line.replace(',',' ').split()
+
+        for pvname in words:  cache.add_pv(pvname)
+        set_pair_scores(words)
+
+    cache.db.close()
+    print 'done.'
 
 class Cache:
     """ store and update a cache of PVs to a sqlite db file"""
 
     null_pv_value = {'value':None,'ts':0,'cvalue':None,'type':None}
     _table_names = ("info", "req", "cache")
+    q_getfull = "select value,cvalue,type,ts from cache where name=%s"
+
     def __init__(self,pvfile=None,dbcursor=None, **kw):
         if dbcursor is not None:
             self.cursor = dbcursor
@@ -25,12 +77,13 @@ class Cache:
         self.data = {}
         self.pvs  = {}
         self.pid  = os.getpid()
+        
         if pvfile is not None: self.read_pvlist(pvfile)
         self.get_pvlist()        
 
     def epics_connect(self,pvname):
-        p = EpicsCA.PV(pvname,connect=True,connect_time=1.0)
-        EpicsCA.pend_io(1.0)
+        p = EpicsCA.PV(pvname,connect=True,connect_time=5.0)
+        EpicsCA.pend_io(2.0)
         if not p.connected:  return False
         self.pvs[pvname] = p
         self.set_value(pv=p)
@@ -83,13 +136,13 @@ class Cache:
                 sys.stderr.write('connect failed for %s\n' % pvname)
                 
                
-        EpicsCA.pend_io(0.25)
+        EpicsCA.pend_io(1.0)
         t0 = time.time()
         self.start_group()
         for i,pvname in enumerate(self.pvlist):
             try:
                 pv = self.pvs[pvname]
-                pv.connect(connect_time=0.25)
+                pv.connect(connect_time=5.00)
                 pv.set_callback(self.onChanges)
                 self.data[pvname] = (pv.value , pv.char_value, time.time())
             except KeyboardInterrupt:
@@ -97,7 +150,7 @@ class Cache:
             except:
                 sys.stderr.write('connect failed for %s\n' % pvname)
             if i % n_notify == 0:
-                EpicsCA.pend_io(0.25)
+                EpicsCA.pend_io(1.0)
                 sys.stdout.write('%.2f ' % (float(i)/npvs))
                 sys.stdout.flush()
         self.end_group()
@@ -143,9 +196,8 @@ class Cache:
                 return
 
     def exit(self):
-        EpicsCA.cleanup()
         for i in self.pvs.values(): i.disconnect()
-        EpicsCA.pend_io(1.0)
+        EpicsCA.pend_io(15.0)
         sys.exit()
                    
     def begin_transaction(self):   self.cursor.execute('begin')
@@ -166,7 +218,6 @@ class Cache:
         self.cursor.execute('commit')
         return r
 
-    
     def get_pid(self):
         t = self.sql_exec_fetch("select pid from info")
         return t[0]['pid']
@@ -184,16 +235,16 @@ class Cache:
     def get_full(self,pv,add=False):
         " return full information for a cached pv"
         npv = normalize_pvname(pv)
-        ret = self.null_pv_value
         if add and (npv not in self.pvlist):
             self.add_pv(npv)
             sys.stdout.write('adding PV.....\n')
             return self.get_full(pv,add=False)
+        w = self.q_getfull % clean_string(npv)
         try:
-            r = self.sql_exec_fetch("select value,cvalue,type,ts from cache where name=%s" % clean_string(npv))
-            return r[0]
+            
+            return self.sql_exec_fetch(w)[0]
         except:
-            return ret
+            return self.null_pv_value
 
     def get(self,pv,add=False,use_char=True):
         " return cached value of pv"
@@ -208,16 +259,39 @@ class Cache:
         self.cursor.execute(qval)
 
 
-    def add_pv(self,pv):
+    def __addpv(self,pvname):
         """request a PV to be included in caching.
         will take effect once a 'process_requests' is executed."""
-        npv = normalize_pvname(pv)
-        sql = "insert into req(name) values (%s)"
-        if npv not in self.pvlist:
-            cmd = sql % clean_string(npv)
-            # print 'add_pv: ' , cmd
+        if pvname not in self.pvlist:
+            cmd = "insert into req(name) values (%s)" % clean_string(pvname)
             self.sql_exec(cmd,commit=True)
+
         
+    def add_pv(self,pvname):
+        """adds a PV to the cache: actually requests the addition, which will
+        be handled by the next process_requests in mainloop().
+
+        Here, we check for 'Motor' PV typs and make sure all motor fields are
+        requested together, and that the motor fields are 'related' by assigning
+        a pair_score = 10.                
+        """
+        pvname = normalize_pvname(pvname.strip())
+
+        prefix = pvname
+        if pvname.endswith('.VAL'): prefix = pvname[:-4]
+
+        if 'motor' == EpicsCA.caget(prefix+'.RTYP'):
+            fields = ["%s%s" % (prefix,i) for i in motor_fields]
+            for pvname in fields:
+                if EpicsCA.PV(pvname, connect=True) is not None:
+                    self.__addpv(pvname)
+            set_pair_scores(fields)
+            EpicsCA.pend_event()
+        else:
+            if EpicsCA.PV(pvname,connect=True) is not None:
+                self.__addpv(pvname)
+        EpicsCA.pend_event()
+    
     def drop_pv(self,pv):
         """delete a PV from the cache
 
@@ -250,11 +324,13 @@ class Cache:
                 valid = self.epics_connect(nam)
                 if valid:
                     pv = self.pvs[nam]
-                    self.sql_exec("%s (%f,%s,%s,%s,%s)" % (cmd,time.time(),
-                                                           es(pv.pvname),
-                                                           es(pv.value),
-                                                           es(pv.char_value),
-                                                           es(pv.type)))
+                    q  = "%s (%f,%s,%s,%s,%s)" % (cmd,time.time(),
+                                                  es(pv.pvname),
+                                                  es(pv.value),
+                                                  es(pv.char_value),
+                                                  es(pv.type))
+
+                    self.sql_exec(q)
                     self.pvlist.append(nam)
                     self.pvs[nam].set_callback(self.onChanges)                    
                 else:
@@ -268,15 +344,14 @@ class Cache:
         s = "select name,type,value,cvalue,ts from cache where ts> %i order by ts"
         return self.sql_exec_fetch(s % (time.time() - dt) )
         
-    def cache_status(self,brief=False,dt=60):
+    def status_report(self,brief=False,dt=60):
         "shows number of updated PVs in past 60 seconds"
-        
         ret = self.get_recent(dt=dt)
         pid = self.get_pid()
+        out = []
         if not brief:
             for  r in ret:
-                sys.stdout.write("  %s %.25s = %s\n" % (time.strftime("%H:%M:%S",time.localtime(r['ts'])),
+                out.append("  %s %.25s = %s" % (time.strftime("%H:%M:%S",time.localtime(r['ts'])),
                                                       r['name']+' '*20,r['value']))
-            sys.stdout.write('%i PVs had values updated in the past %i seconds. pid=%i\n' % (len(ret),dt,pid))
-        return len(ret)
-
+        out.append('%i PVs had values updated in the past %i seconds. pid=%i' % (len(ret),dt,pid))
+        return out

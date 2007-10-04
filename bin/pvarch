@@ -33,16 +33,18 @@ def show_usage():
     sys.exit()
 
 
-def next_archive(master):
+def next_archive():
     master  = EpicsArchiver.ArchiveMaster()
+
     dbname  = master.get_currentDB()
 
     next_db = master.make_nextdb()
-    print 'next database = %s ' % next_db
     master.request_stop()
     master.set_pid(0)
     master.set_currentDB(next_db)
-    time.sleep(2.0)
+    master.set_runinfo(dbname)
+
+    time.sleep(1.0)
     run_archive(action='start')
 
 
@@ -51,9 +53,10 @@ def run_archive(action='start'):
 
     def archive_loop():
         master  = EpicsArchiver.ArchiveMaster()
-        dbname  = master.get_currentDB()
-        a       = EpicsArchiver.Archiver(dbname=dbname,master=master)
+        db = master.get_currentDB()
+        a  = EpicsArchiver.Archiver(dbname=db,master=master)
         a.mainloop()
+
 
     master  = EpicsArchiver.ArchiveMaster()
     dbname  = master.get_currentDB()
@@ -61,11 +64,11 @@ def run_archive(action='start'):
     sout    = os.path.join(dir, "%s.log" % dbname)
     serr    = os.path.join(dir, "%s.err" % dbname)
     pidfile = os.path.join(dir, "pvarch.pid")
-
-
+    master.db.close()
+    
     EpicsArchiver.startstop(stdout =sout,stderr=serr, pidfile=pidfile,
-                            process_name='pvarch', action=action,
-                            func = archive_loop)
+                            process_name='pvarch', action=action)
+    archive_loop()
 
 def run_cache(action=None):
     config = EpicsArchiver.config
@@ -83,8 +86,8 @@ def run_cache(action=None):
     
 
     EpicsArchiver.startstop(stdout =sout,stderr=serr, pidfile=pidfile,
-                            process_name='pvcache', action=action,
-                            func = cache_loop)
+                            process_name='pvcache', action=action)
+    cache_loop()
    
 def read_pid(name='cache'):
     config = EpicsArchiver.config

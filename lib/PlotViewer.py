@@ -4,8 +4,7 @@ import time
 import EpicsCA
 
 from EpicsArchiver import ArchiveMaster, Archiver, Cache, config
-from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, normalize_pvname
-
+from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, normalize_pvname, timehash
 
 DEBUG=True
 DEBUG=False
@@ -55,7 +54,7 @@ jscal_setup = """<link rel='stylesheet' type='text/css' media='all'
 <script type='text/javascript' src='%s/calendar.js'></script>
 <script type='text/javascript' src='%s/lang/calendar-en.js'></script>
 <script type='text/javascript' src='%s/calendar-setup.js'></script>
-"""  % (config.jscal_url, config.jscal_dir, config.jscal_dir, config.jscal_dir)
+"""  % (config.jscal_url, config.jscal_url, config.jscal_url, config.jscal_url)
 
 
 js_cal = """
@@ -90,9 +89,8 @@ js_cal = """
 </script>
 """
 
-
 class HTMLWriter:
-    links= ((statuspage, "Beamline Status Page"),
+    links= ((statuspage, "Archiver Status Page"),
             (adminpage,"Archiver Admin Page")   )
 
     def __init__(self, top_links=None, **args):
@@ -160,22 +158,36 @@ set ytics nomirror
 """
     html_title = "Epics Archiver Data Viewer"
         
-
-    def __init__(self,**kw):
+    def __init__(self, arch=None, cache=None, **kw):
         HTMLWriter.__init__(self)
-        self.arch  = Archiver()
-        self.cache = Cache()
+
+        self.cache = cache or Cache()
+        self.arch  = arch or Archiver(cache=self.cache)
+
         self._gp = Gnuplot.Gnuplot() # "%s/out.gp" % self.file_pref)
         self.kw  = {'form_pv':'', 'form_pv2':'',  'use_ylog':'', 'use_y2log': '',
                     'submit': 'Time From Present', 'time_ago': '1 day', 
                     'ymin':'', 'ymax':'', 'y2min':'', 'y2max':'',
                     'date1': '', 'date2': ''}
         self.kw.update(kw)
+        if not self.file_pref.endswith('/'): self.file_pref = "%s/" % self.file_pref
 
     def gp(self,s):
         " simple wrapper around gnuplot "
         self.gpfile.write("%s\n" % s)
         self._gp(s)
+
+    def fix_gpfile(self,fname,pattern):
+        " simple wrapper around gnuplot "
+        self.gpfile.flush()
+        self.gpfile.close()
+        f = open(fname,'r')
+        lines = f.readlines()
+        f.close()
+        f2 = open(fname,'w')
+        for l in lines:
+            f2.write( l.replace(pattern,'') )
+        f2.close()
         
     def in_database(self,pvname):
         if not pvname: return False
@@ -329,15 +341,22 @@ set ytics nomirror
                 
         # self.write('<p> draw graph %i %i </p>' % (t0,t1))
         #
-        froot  = "pv%s"      % hex(int(1000*time.time()))[2:]
-        f_png  = "%s/%sa.png" % (self.file_pref,froot)
-        f_dat  = "%s/%sa.dat" % (self.file_pref,froot)
-        f_gp   = "%s/%sa.gp"  % (self.file_pref,froot)
-        f2_dat = "%s/%sb.dat" % (self.file_pref,froot)
+        froot  = "pv%s" % timehash()
+
+        f_png  = os.path.join(self.file_pref, "%s.png" % froot)
+        l_png  = os.path.join(self.link_pref, "%s.png" % froot)
+
+        f_gp   = os.path.join(self.file_pref, "%s.gp" % froot)
+        l_gp   = os.path.join(self.link_pref, "%s.gp" % froot)
+
+        f_dat  = os.path.join(self.file_pref, "%s.dat" % froot)
+        f_dat2 = os.path.join(self.file_pref, "%s_2.dat" % froot)
+
+        l_dat  = os.path.join(self.link_pref, "%s.dat" % froot)
+        l_dat2 = os.path.join(self.link_pref, "%s_2.dat" % froot)
 
 
         self.gpfile = open(f_gp,'w')
-        png_link= "%s%sa.png" % (self.link_pref,froot)
 
         # get PV and related data
 
@@ -353,12 +372,12 @@ set ytics nomirror
         pvlabel = pv.pvname
         if desc!=pv.pvname: pvlabel = "%s (%s)" % (pv.pvname,desc)
         legend,tics = self.get_enum_legend(pv)        
-        file_link   = """<a href='%s%sa.dat'>data for %s</a>
-        """ % (self.link_pref,froot,pvlabel)
+        file_link   = "<a href='%s'>data for %s</a>" % (l_dat,pvlabel)
 
-        self.save_data(pv,t0,t1,f_dat,legend)
+        tlo, thi,npts = self.save_data(pv,t0,t1,f_dat,legend)
+        npts2 = 0
         n_dat = 1
-
+        
         # start gnuplot session, set basic properties
         self.gp(self.gp_base)
 
@@ -380,38 +399,43 @@ set ytics nomirror
                 pv2label = pv2.pvname
                 if desc2!=arg_pv2:  pv2label = "%s (%s)" % (pv2.pvname,desc2)
 
-                file_link ="""<a href='%s%sa.dat'>data for %s</a><br>
-                <a href='%s%sb.dat'>data for %s</a>
-                """ % (self.link_pref,froot,pvlabel,self.link_pref,froot,pv2label)
+                file_link ="""<a href='%s'>data for %s</a><br>
+                <a href='%s'>data for %s</a>""" % (l_dat,pvlabel,l_dat2,pv2label)
 
                 leg2,tics2 = self.get_enum_legend(pv2)
-                self.save_data(pv2,t0,t1,f2_dat,leg2)            
+                tlo2, thi2, npts2 = self.save_data(pv2,t0,t1,f_dat2,leg2)
+                tlo = min(tlo2, tlo)
+                thi = max(thi2, thi)
                 n_dat = 2
                 self.gp(self.gp2_base)
 
         if DEBUG:
             self.write(" # of data_sets %i" % n_dat)
+
         # now generate png plot
         self.gp("set output '%s'" % f_png)
 
-        self.gp('set xrange ["%s":"%s"]' % (self.datestring(t0),self.datestring(t1)))
+        if npts > 1 or npts2>1:
+            self.gp('set xrange ["%s":"%s"]' % (self.datestring(t0),self.datestring(t1)))
+        else:
+            self.gp('set xrange ["%s":"%s"]' % (self.datestring(tlo),self.datestring(thi)))
 
-        if pvinfo['pv_type']=='DOUBLE':
+        if pvinfo['type']=='DOUBLE':
             if (self.kw['ymin']!='' or self.kw['ymax']!=''):
                 self.gp("set yrange [%(ymin)s:%(ymax)s]" % self.kw)
             else:
                 self.gp("set yrange [:]")
             use_ylog = self.kw['use_ylog']
-            if use_ylog == 'Auto' and pvinfo['pv_type']=='DOUBLE':
+            if use_ylog == 'Auto' and pvinfo['type']=='DOUBLE':
                 if pvinfo['graph_type']=='LOG': use_ylog ='Yes'
             if use_ylog=='Yes':  self.gp("set logscale y")
             
-        if n_dat==2 and pv2info['pv_type']=='DOUBLE':
+        if n_dat==2 and pv2info['type']=='DOUBLE':
             if (self.kw['y2min']!='' or self.kw['y2max']!=''):
                 self.gp("set y2range [%(y2min)s:%(y2max)s]" % self.kw)
 
             use_y2log = self.kw['use_y2log']
-            if use_y2log == 'Auto' and pv2info['pv_type']=='DOUBLE':
+            if use_y2log == 'Auto' and pv2info['type']=='DOUBLE':
                 if pv2info['graph_type']=='LOG': use_y2log ='Yes'
             if use_y2log=='Yes':  self.gp("set logscale y2")
 
@@ -431,13 +455,11 @@ set ytics nomirror
                 n_enum = 8            
             self.gp("set y2range [-0.2:%f]" % (n_enum-0.8))
             
-
         if n_dat == 1:
             self.gp("set title  '%s'" % (pvlabel))
             self.gp("set ylabel '%s'" % (pvlabel))
-            self.gp("""plot '%s' u 1:4 w steps ls 1 t '%s', \
-            '%s' u 1:4 t '' w p 1 """ %
-                    (f_dat,pvlabel,f_dat))
+            self.gp("""plot '%s' u 1:4 w steps ls 1 t '%s', \\
+            '%s' u 1:4 t '' w p 1 """ %  (f_dat,pvlabel,f_dat))
         else:
             self.gp("set title '%s | %s'" % (pvlabel,pv2label))
             self.gp("set ylabel '%s'" % (pvlabel))
@@ -447,26 +469,31 @@ set ytics nomirror
             self.gp("set ytics nomirror")
             self.gp("set y2tics")
 
-            self.gp("""plot '%s' u 1:4 axis x1y1 w steps ls 1 t '%s',\
-            '%s' u 1:4 axis x1y1 t '' w p 1,\
-            '%s' u 1:4 axis x1y2 w steps ls 2 t '%s',\
+            self.gp("""plot '%s' u 1:4 axis x1y1 w steps ls 1 t '%s',\\
+            '%s' u 1:4 axis x1y1 t '' w p 1,\\
+            '%s' u 1:4 axis x1y2 w steps ls 2 t '%s',\\
             '%s' u 1:4 axis x1y2 t '' w p 2 """ %
-                    (f_dat,pvlabel,f_dat,f2_dat,pv2label,f2_dat))
+                    (f_dat,pvlabel,f_dat,f_dat2,pv2label,f_dat2))
+
         self.arch.db.use(self.arch.dbname)
         wait_for_pngfile = True
         wait_count = 0
         while wait_for_pngfile:
             png_size   = os.stat(f_png)[6]
-            wait_count = wait_count + 1
-            wait_for_pngfile = (png_size < 4) and (wait_count < 2000)
+            wait_for_pngfile = (png_size < 4) and (wait_count < 5000)
             time.sleep(0.001)
+            wait_count = wait_count + 1
+
+        self.fix_gpfile(f_gp, self.file_pref)
+        # self.write("<b> fix %s, %s </b> " % (f_gp, self.file_pref))
 
         if png_size > 0:
-            self.write("<img src='%s'><br>" % (png_link))
+            self.write("<img src='%s'><br>" % l_png)
         else:
             self.write("<b>cannot make graph (String Data?)</b><br>")            
         self.write("<br>%s<br>" % (file_link) )
-        self.write("<a href='%s%sa.gp'>gnuplot script</a> <br>" % (self.link_pref,froot))
+        
+        self.write("<a href='%s'>gnuplot script</a> <br>" % (l_gp))
         return
 
     def show_keys(self,**kw):
@@ -511,7 +538,7 @@ set ytics nomirror
 
     def save_data(self,pv,t0,t1,fout,legend):
         "get data from database, save into tmp gnuplot-friendly file"
-        dat,stat= self.arch.get_data(pv.pvname,t0,t1)
+        dat,stat = self.arch.get_data(pv.pvname,t0,t1)
 
         pvname = pv.pvname
         if DEBUG:
@@ -519,18 +546,25 @@ set ytics nomirror
             for i in stat:
                 self.write("%s<br>\n" % str(i))
 
+        npts = len(dat)
+        tlo = dat[0][0]
+        thi = dat[npts-1][0]
         #  now write data to gnuplot-friendly file
+        dstr = self.datestring
         f = open(fout, 'w')
         f.write("# %s (%s)\n" % (pv.pvname,pv.type))
-        f.write("# time_span:  [%s , %s] \n" % (self.datestring(t0),self.datestring(t1)))
-        if legend != '':   f.write("# %s \n" % legend)
-        f.write("# n_points: %i \n" % len(dat))
+        f.write("# requested time_span:  [%s , %s] \n" % (dstr(t0),dstr(t1)))
+        f.write("# actual    time_span:  [%s , %s] \n" % (dstr(tlo),dstr(thi)))
+        if legend != '':
+            f.write("# %s \n" % legend)
+        f.write("# n_points: %i \n" % npts)
         f.write("#-------------------------------\n")
         f.write("#  date      time          value\n")
         for j in dat:
-            f.write("%s %i %s\n" % (self.datestring(j[0]), j[0], j[1]))
+            f.write("%s %i %s\n" % (dstr(j[0]), j[0], j[1]))
         f.close()
-
+        return (tlo, thi, npts)
+    
     def argclean(self,argval,formval):
         v = formval.strip()
         if v != '': return v
@@ -563,23 +597,26 @@ set ytics nomirror
         self.endhtml()
         return self.get_buffer()
 
-class Admin(HTMLWriter):
-    def __init__(self,**kw):
+class WebAdmin(HTMLWriter):
+    def __init__(self,arch=None, master=None, cache=None, **kw):
         HTMLWriter.__init__(self)
         self.html_title = "PV Archive Admin Page"
-        self.arch   = Archiver()
-        self.master = ArchiveMaster()
-        self.cache  = Cache()
+        self.master = master or ArchiveMaster()
+        self.cache  = cache or Cache()
+        self.arch   = arch or Archiver(cache=self.cache,master=self.master)
+
         self.kw  = {'form_pv':'', 'submit': '','desc':'','deadtime':'','deadband':'','type':''}
         self.kw.update(kw)
 
     def show_adminpage(self):
         self.starthtml()
-        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.show_status())
+        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.status_report())
         self.write("Archive Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)
 
-        stat = self.arch.cache.cache_status(brief=True)
-        self.write("<p>Cache Status: %i new entries in %i seconds, pid=%i<p><hr>" % (len(stat[0]),stat[1],stat[2]))
+        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.cache.status_report(brief=True))
+        self.write("Cache Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)        
+
+        self.write("\n<hr>")
 
         pvname = self.kw['form_pv'].strip()
         submit = self.kw['submit'].strip()
@@ -613,7 +650,7 @@ class Admin(HTMLWriter):
             if len(results)== 0 and sx.find('%')==-1:
                 self.write(" '%s' not found in archive or cache! &nbsp; " % pvname)
                 self.write("<input type='submit' name='submit' value='Add to Archive'><p>")
-            self.master.db.use(master_db)
+            self.master.db.use(config.master_db)
                    
         self.endhtml()
         return self.get_buffer()
@@ -638,9 +675,9 @@ class Admin(HTMLWriter):
             desc  = clean_input(self.kw['desc'].strip())
             dtime = float(clean_input(self.kw['deadtime'].strip()))
             dband = float(clean_input(self.kw['deadband'].strip()))
-            self.arch.db.execute("update pv set description=%s where pv_name=%s" %(es(desc),es(pvn)))
-            self.arch.db.execute("update pv set deadtime=%s where pv_name=%s" %(es(dtime),es(pvn)))
-            self.arch.db.execute("update pv set deadband=%s where pv_name=%s" %(es(dband),es(pvn)))
+            self.arch.db.execute("update pv set description=%s where name=%s" %(es(desc),es(pvn)))
+            self.arch.db.execute("update pv set deadtime=%s where name=%s" %(es(dtime),es(pvn)))
+            self.arch.db.execute("update pv set deadband=%s where name=%s" %(es(dband),es(pvn)))
                                                                                    
             self.write('<p> <a href="%s?pv=%s">Plot %s</a>&nbsp;&nbsp;</p>'% (thispage,pvn,pvn))
             self.endhtml()
@@ -650,7 +687,7 @@ class Admin(HTMLWriter):
             self.endhtml()
             return self.get_buffer()            
 
-        ret = self.arch.db.exec_fetch("select * from pv where pv_name = %s" % (es(pv)))
+        ret = self.arch.db.exec_fetch("select * from pv where name = %s" % (es(pv)))
         if len(ret)== 0:
             self.write("PV not in archive??")
             self.endhtml()

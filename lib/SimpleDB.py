@@ -18,6 +18,10 @@ import os
 import array
 import time
 
+import warnings
+warnings.filterwarnings("ignore", "Unknown table.*")
+warnings.filterwarnings("ignore", ".*drop database.*")
+
 from util import string_literal, clean_string, clean_input
 import config
 
@@ -88,7 +92,7 @@ class SimpleTable:
                 k = clean_input(k)
                 v = string_literal(v)
                 q = "%s and %s=%s" % (q,k,v)
-            print 'S WHERE ', q
+            # print 'S WHERE ', q
             return self.db.exec_fetch(q)
         return 0
 
@@ -169,14 +173,14 @@ class SimpleDB:
 
         self.tables = []
         # start mysql connection
-        try:
-            self.db   = MySQLdb.connect(user=self.user,
-                                        db=self.dbname,
-                                        passwd=self.passwd,
-                                        host=self.host)
-        except:
-            self.write("Could not start MySQL on %s for database %s" %
-                       (self.host, self.dbname),   status='fatal')
+        
+        self.db   = MySQLdb.connect(user=self.user,
+                                    db=self.dbname,
+                                    passwd=self.passwd,
+                                    host=self.host)
+#         except:
+#             self.write("Could not start MySQL on %s for database %s" %
+#                        (self.host, self.dbname),   status='fatal')
 
         self.cursor = self.db.cursor(cursorclass=MySQLdb.cursors.DictCursor)
         

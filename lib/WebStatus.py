@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import time
-from EpicsArchiver import Cache, util, config
-
+from EpicsArchiver import Cache, config
+from util import normalize_pvname, set_pair_scores
 pagetitle  = config.pagetitle
 cgiroot    = config.cgi_url
 footer     = config.footer
@@ -52,9 +52,11 @@ class StatusWriter:
     colored_row = "<tr><td><b>%s</b></td><td><font color=%s> %s </font></td></tr>"
     title_row   = "<tr><th colspan=2><font color=%s>%s</font></tr>"
     
-    def __init__(self,**args):
-        self._cache    = Cache()
-        self.pvget     = self._cache.get_full
+    def __init__(self,cache=None,**args):
+        self.cache  = cache  or Cache()
+
+        self.pvget  = self.cache.get_full
+        self.null_pv= self.cache.null_pv_value
 
         self.dblink    = dblink
         self.valcolor  = '#5522DD'
@@ -73,7 +75,7 @@ class StatusWriter:
         """ get cached value for a PV, formatted """
         ret = self.pvget(pv,add=True)
 
-        if ret == self._cache.null_pv_value:
+        if ret == self.null_pv:
             if desc is None: desc = pv
             return (desc,'Unknown')
 
@@ -97,8 +99,10 @@ class StatusWriter:
         if desc is None: desc = pv
         if outtype=='yes/no':
             oval = 'Unknown'
+
             if int(float(val.strip())) == 0: oval = 'No'
             if int(float(val.strip())) == 1: oval = 'Yes'
+
         return (desc,oval)
 
     def add_pv(self,pv,format=None,desc=None,type=None):    
@@ -118,7 +122,7 @@ class StatusWriter:
             outlinks = []
             for name,val in zip(pvnames,vals):
                 name = name.strip()
-                if val is None: val = 'Unknown'
+                if val is None: val = 'NONE_Unknown'
                 outlinks.append( self.archlink(name,val))
             outval =  ',&nbsp; '.join(outlinks)
             if isinstance(label,(tuple,list)):
@@ -126,7 +130,7 @@ class StatusWriter:
 
             self.row(label,outval)
         else:  # single pv/val:
-            if vals is None: vals = 'Unknown'
+            if vals is None: vals = 'SINGLE_Unknown'
             v = "<a href='%s%s'>%s</a>" % (self.dblink,pvnames,vals)
             self.row(label,v)            
             
@@ -166,10 +170,13 @@ class StatusWriter:
                 self.write(self.space_row)
             else:
                 cline = s.split('|')
+                pvnames = []
                 try:
-                    pvnames = [i.strip() for i in cline.pop(0).strip().split(',')]
+                    for i in cline.pop(0).strip().split(','):
+                        pvnames.append(normalize_pvname(i.strip()))
+
                 except:
-                    pvnames = []
+                    pass
                 try:
                     desc   = cline.pop(0).strip()
                     if len(desc)==0: desc = None
@@ -198,12 +205,14 @@ class StatusWriter:
                             label = label[1:len(label)-1]
                         labs.append(label)
                         vals.append(val)
-                    if len(pvnames) == 1:
-                        if desc is None: desc = labs[0]
-                        self.linked_row(desc,pvnames[0],vals[0])
-                    else:
+                    if len(pvnames) > 1:
                         if desc is None: desc = labs
                         self.linked_row(desc,pvnames,vals)
+                        set_pair_scores(pvnames)
+                    else:
+                        if desc is None: desc = labs[0]
+                        self.linked_row(desc,pvnames[0],vals[0])
+                        
 
     def remove_quotes(self, str):
         s = str.strip()

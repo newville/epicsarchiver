@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 #
+import time
 from MySQLdb import string_literal, escape_string
 
 MAX_EPOCH = 2147483647.0   # =  2**31 - 1.0 (max unix timestamp)
@@ -37,3 +38,30 @@ def get_force_update_time():
     """
     from random import random
     return 10800.0*(6 + random())
+
+def timehash():
+    """ genearte a simple, 10 character hash of the timestamp:
+    Number of possibilites = 16^10 ~= 10^12,
+    the hash is a linear-in-milliseconds timestamp, so collisions
+    cannot happen for 10^12 milliseconds (33 years). """ 
+    return hex(int(1000*time.time()))[-10:]
+
+
+def set_pair_scores(pvlist):
+    """ set (or check) that all pairs of pvs in list pvlist have a 'pair score'"""
+    if not isinstance(pvlist,(list,tuple)): return
+    if len(pvlist)< 2: return
+
+    from EpicsArchiver import ArchiveMaster
+    m = ArchiveMaster()
+    get_score = m.get_pair_score
+    set_score = m.set_pair_score
+       
+    while pvlist:
+        q = pvlist.pop()
+        for p in pvlist:
+            if get_score(q,p)<1: set_score(q,p,10)
+            
+    m.db.close()
+    m = None
+    return 

@@ -1,0 +1,46 @@
+This describes general usage of the pvarch program
+to control the PVarchiving processes.
+
+pvarch takes the following arguments:
+
+  pvarch help     
+     shows a list of commands  
+ 
+  pvarch status
+     shows a brief report indicating whether the
+     archiving is running, and how many recent
+     inserts there have been
+               
+  pvarch check
+     returns simply the number of archived PVs
+     in the past 10 minutes.  This can be used
+     effectively in scripts to detect problems.
+
+  pvarch start 
+     start the archiving process
+
+  pvarch stop
+     stop archiving
+
+  pvarch restart
+     force a restart of the archiving process
+                 
+  pvarch next
+     rotate the archive database to the next
+     sequential database -- this is recommended
+     periodically to keep each 'archive run' 
+     reasonably small.  Note that data retrieval
+     will automatically access multiple archives
+     if needed.
+    
+  pvarch add_pv
+  pvarch add_pvfile
+
+  pvarch drop_pv
+
+  pvarch cache start
+  pvarch cache stop
+  pvarch cache restart
+  pvarch cache status
+  pvarch cache activity
+  
