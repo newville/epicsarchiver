@@ -55,11 +55,17 @@ def add_pvfile(fname):
         line[:-1].strip()
         if len(line)<2 or line.startswith('#'): continue
         words = line.replace(',',' ').split()
-
-        for pvname in words:  cache.add_pv(pvname)
+        print words
+        for pvname in words:
+            cache.add_pv(pvname)
+        EpicsCA.pend_event(0.01)
+        EpicsCA.pend_io(2.0)        
         set_pair_scores(words)
 
     cache.close()
+    EpicsCA.pend_event(0.01)
+    EpicsCA.pend_io(15.0)
+    EpicsCA.disconnect()
     print 'done.'
 
 class Cache:
@@ -295,11 +301,11 @@ class Cache:
                 if EpicsCA.PV(pvname, connect=True) is not None:
                     self.__addpv(pvname)
             set_pair_scores(fields)
-            EpicsCA.pend_event()
+            EpicsCA.pend_event(0.01)
         else:
             if EpicsCA.PV(pvname,connect=True) is not None:
                 self.__addpv(pvname)
-        EpicsCA.pend_event()
+        EpicsCA.pend_event(0.01)
     
     def drop_pv(self,pv):
         """delete a PV from the cache

@@ -71,9 +71,8 @@ class Archiver:
     def get_cache_full(self,pv):
         " return full information for a cached pv"
         q   = "select value,cvalue,type,ts from cache where name=%s"
-
         self.use_cacheDB()
-        ret = self.exec_fetch(q % clean_string(normalize_pvname(npv)))[0]
+        ret = self.exec_fetch(q % clean_string(normalize_pvname(pv)))[0]
         self.use_currentDB(dbname=self.dbname)
         return ret
 
@@ -140,7 +139,7 @@ class Archiver:
 
         # determine if we should append the current (cached) value
         if with_current is None:
-            add_current = abs(t1-tnow) < SEC_DAY
+            add_current = abs(t1-tnow) < 1.5 * SEC_DAY
         else:
             add_current = with_current
             

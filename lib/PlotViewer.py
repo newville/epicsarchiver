@@ -132,7 +132,8 @@ class HTMLWriter:
         self.write("</body></html>")
 
 class PlotViewer(HTMLWriter):
-    ago_times = ('1 hour', '2 hours', '3 hours', '6 hours','8 hours','12 hours', 
+    ago_times = ('15 minutes', '30 minutes',
+                 '1 hour', '2 hours', '3 hours', '6 hours','8 hours','12 hours', 
                  '1 day','2 days','3 days', '1 week', '2 weeks', '1 month')
 
     years   = range(2001, time.localtime()[0]+1)
@@ -331,7 +332,8 @@ set ytics nomirror
         action =  self.kw.get('submit','Time From')
         if action.startswith('Time From'):
             n,units = self.kw['time_ago'].split()
-            if   units.startswith('ho'):   mult = 3600.
+            if   units.startswith('mi'):   mult = 60.
+            elif units.startswith('ho'):   mult = 3600.
             elif units.startswith('da'):   mult = SEC_DAY
             elif units.startswith('we'):   mult = SEC_DAY * 7
             elif units.startswith('mo'):   mult = SEC_DAY * 31.
@@ -436,7 +438,9 @@ set ytics nomirror
             use_ylog = self.kw['use_ylog']
             if use_ylog == 'Auto' and pvinfo['type']=='double':
                 if pvinfo['graph_type']=='log': use_ylog ='Yes'
-            if use_ylog=='Yes':  self.gp("set logscale y")
+            if use_ylog=='Yes':
+                self.gp("set zero 1e-14")
+                self.gp("set logscale y")
             
         if n_dat==2 and pv2info['type']=='double':
 
@@ -451,7 +455,9 @@ set ytics nomirror
             use_y2log = self.kw['use_y2log']
             if use_y2log == 'Auto' and pv2info['type']=='double':
                 if pv2info['graph_type']=='log': use_y2log ='Yes'
-            if use_y2log=='Yes':  self.gp("set logscale y2")
+            if use_y2log=='Yes':
+                self.gp("set zero 1e-14")
+                self.gp("set logscale y2")
 
         if pv.type =='enum':
             self.gp("set ytics %s" % tics)
