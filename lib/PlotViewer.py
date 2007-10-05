@@ -669,7 +669,7 @@ class WebAdmin(HTMLWriter):
             self.write('<p>Search results for "%s": </p>' % pvname)
                     
             self.master.db.use(config.cache_db)
-            results = self.exec_fetch('select name from cache where name like %s '% (clean_string(sx)))
+            results = self.exec_fetch('select name from cache where name like %s order by name'% (clean_string(sx)))
             i = 0
             
             self.write("<table><tr>")
@@ -677,8 +677,7 @@ class WebAdmin(HTMLWriter):
             for r in results:
                 self.write('<td><a href="%s?pv=%s">%s</a>&nbsp;&nbsp;</td>'% (pvinfopage,r['name'],r['name']))
                 i  = i + 1
-                if i % 4 == 0:
-                    self.write("</tr><tr>")
+                if i % 3 == 0: self.write("</tr><tr>")
 
             self.write("</table>")
             if len(results)== 0 and sx.find('%')==-1:
@@ -744,13 +743,14 @@ class WebAdmin(HTMLWriter):
             return self.get_buffer()            
 
         pvn = clean_input(pv)
-        self.write('<p> <a href="%s?pv=%s">Plot %s</a>&nbsp;&nbsp;</p>'% (thispage,pvn,pvn))
+        self.write('<p> <h4> <a href="%s?pv=%s">Plot %s</a>&nbsp;&nbsp;</h4></p>'% (thispage,pvn,pvn))
         d = ret[0]
         self.write('<form action ="%s" enctype="multipart/form-data"  method ="POST"><p>' % (pvinfopage))
         self.write('<input type="hidden" name="form_pv" value="%s">' % pvn)
         
         self.write("<table><tr>")
 
+        self.write('<td>Data Type:</td><td>%s</td></tr>' % d['type'])
         self.write("<td>Active</td><td>")
         for i in ('Yes','No'):
             sel = ''
