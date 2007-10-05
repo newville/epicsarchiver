@@ -8,27 +8,28 @@ The template format for each of these template files is detailed below.
 Ordering of Pages / Overall Structure
 -------------------------------------
 
-The file 'FileList' here contains the list of  Title, Template File pairs:
+The file 'FileList' in this directory contains the list of  
+Title, Template File pairs: 
   
     Storage Ring | storage_ring.txt
     Vacuum System | vacuum.txt
 
-etc (separated by '|').  
-
-This will make notebook tabs 'Storage Ring' and 'Vacuum System'.
+etc (separated by '|').   This will determine what notebook tabs
+are shown in the status page; in this case 'Storage Ring' and 
+'Vacuum System'.
 
 When FileList changes, you must run 'make' which will automatically
 generate pages.py which is actually used by the web scripts.
 
-You do NOT need to run make when you change a template file -- these are
-read on the fly.
+You do NOT need to run make when you change a template file -- these 
+are read on the fly.
 
 
 Template Formating:
 -------------------
 
-The status pages contain an HTML table, with each row corresponding to one
-or more Epics PVs.
+The status pages contain an HTML table, with each row corresponding 
+to one or more Epics PVs.
 
 The general idea is to list the PV(s) to be shown.
 
@@ -73,9 +74,11 @@ You can write a title line in red with '[Title]', and a horizontal rule
 with '----', and an empty row with '<>'
 
  
-Several examples are provided in the files 'GSE_pageN.txt'
+More examples are provided in the files 'GSE_pageN.txt'
 
 
 And, again, the template files can be edited 'on-the-fly'.
+
+
 
 

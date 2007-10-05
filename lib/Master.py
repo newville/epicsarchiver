@@ -226,6 +226,7 @@ class ArchiveMaster:
         sys.stdout.write('adding %i pvs to DB %s\n' % (len(old_data),dbname))
 
         for p in old_data:
+            if p['active'] == 'no': continue
             pvtable.insert(name       =p['name'],        type    =p['type'],
                            description=p['description'], data_table =p['data_table'],
                            deadtime   =p['deadtime'],    graph_type =p['graph_type'],

@@ -44,9 +44,9 @@ dat_format = "%s_%.5i"
 #    pv_deadtime_enum will be used for ENUM and STRING PVs
 #    pv_deadtime_dble will be used for all other PVs
 # The deadtime can be adjusted per PV while archiving.
+
 pv_deadtime_dble = 5
 pv_deadtime_enum = 1
-
 
 ######################################################
 ##
@@ -67,6 +67,7 @@ data_dir  = apache_root + 'htdocs/cgi-data/pvarch'
 data_url  = url_root    + 'cgi-data/pvarch'
 
 # location for javascript calendar used by PlotViewer how this maps to a URL:
+#  (this will be installed by setup.py)
 jscal_dir  = apache_root + 'htdocs/cgi-data/jscal'
 jscal_url  = url_root    + 'cgi-data/jscal'
 

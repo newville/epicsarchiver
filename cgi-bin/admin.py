@@ -13,9 +13,9 @@ def __auth__(req,user,passwd):
     if is_valid(user,passwd): return 1
     return 0
 
-def index(req,pv=None,pv2=None,**kw):
+def index(req,pv='',**kw):
     p = WebAdmin(**kw)
-    return p.show_adminpage()
+    return p.show_adminpage(pv=pv)
 
 
 def show_pvinfo(req,pv=None,**kw):

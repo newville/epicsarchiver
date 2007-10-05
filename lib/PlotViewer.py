@@ -91,13 +91,13 @@ js_cal = """
 """
 
 class HTMLWriter:
-    links= ((statuspage, "Archiver Status Page"),
-            (adminpage,"Archiver Admin Page")   )
+    stat_link  = (statuspage, "Archiver Status Page")
+    admin_link = (adminpage,"Archiver Admin Page") 
 
-    def __init__(self, top_links=None, **args):
+    def __init__(self, **args):
         self.tabledef  ="<table width=90% cellpadding=0 cellspacing=1>"
         self.buffer  = []
-        if top_links: self.links = top_links
+
         
     def write(self,s):
         self.buffer.append(s)
@@ -116,17 +116,19 @@ class HTMLWriter:
         if refresh == '' : refresh = REFRESH_TIME
         self.write(htmlhead % (self.html_title,refresh,jscal_setup))
 
-    def show_links(self):
+    def show_links(self,pv='',**kw):
         self.write("<ul id='tabmenu'>")
-        for url,name in self.links:
-            self.write("<li><a  href='%s'>%s</a></li>" % (url,name))
+        self.write("<li><a  href='%s'>%s</a></li>" % self.stat_link)
+        ad_title, ad_link = self.admin_link
+        if pv != '':  pv = "?pv=%s" % pv
+        self.write("<li><a  href='%s%s'>%s</a></li>" % (ad_title, pv, ad_link))
         self.write("</ul><br>")
 
     def endhtml(self):
-        s = "["
-        for url,name in self.links:
-            s = "%s<a href='%s'>%s</a> |" % (s,url,name)
-        s = s[:-1] + ']'
+#         s = "["
+#         for url,name in self.links:
+#             s = "%s<a href='%s'>%s</a> |" % (s,url,name)
+#         s = s[:-1] + ']'
         self.write("</body></html>")
 
 class PlotViewer(HTMLWriter):
@@ -214,7 +216,9 @@ set ytics nomirror
         self.write("<table border=0 cellpadding=1>")
         #
         self.write("<tr><td colspan=5>")
-        self.show_links()
+        xpv1 = self.argclean(pvname1,  self.kw['form_pv'])
+       
+        self.show_links(pv=xpv1)
         self.write("</td></tr>")
         self.write("<tr><td colspan=5 class='xtitle'>&nbsp;&nbsp;&nbsp;&nbsp; %s</td></tr>" % tx)
         #
@@ -420,23 +424,33 @@ set ytics nomirror
         else:
             self.gp('set xrange ["%s":"%s"]' % (self.datestring(tlo),self.datestring(thi)))
 
-        if pvinfo['type']=='DOUBLE':
-            if (self.kw['ymin']!='' or self.kw['ymax']!=''):
-                self.gp("set yrange [%(ymin)s:%(ymax)s]" % self.kw)
-            else:
-                self.gp("set yrange [:]")
+        if pvinfo['type']=='double':
+            ymin = str(pvinfo['graph_lo']) or ''
+            if self.kw['ymin'] != '': ymin = self.kw['ymin']
+
+            ymax = str(pvinfo['graph_hi']) or ''
+            if self.kw['ymax'] != '': ymax = self.kw['ymax']
+
+            self.gp("set yrange [%s:%s]" % (ymin,ymax))
+
             use_ylog = self.kw['use_ylog']
-            if use_ylog == 'Auto' and pvinfo['type']=='DOUBLE':
-                if pvinfo['graph_type']=='LOG': use_ylog ='Yes'
+            if use_ylog == 'Auto' and pvinfo['type']=='double':
+                if pvinfo['graph_type']=='log': use_ylog ='Yes'
             if use_ylog=='Yes':  self.gp("set logscale y")
             
-        if n_dat==2 and pv2info['type']=='DOUBLE':
-            if (self.kw['y2min']!='' or self.kw['y2max']!=''):
-                self.gp("set y2range [%(y2min)s:%(y2max)s]" % self.kw)
+        if n_dat==2 and pv2info['type']=='double':
+
+            y2min = str(pv2info['graph_lo']) or ''
+            if self.kw['y2min'] != '': y2min = self.kw['y2min']
+
+            y2max = str(pv2info['graph_hi']) or ''
+            if self.kw['y2max'] != '': y2max = self.kw['y2max']
+
+            self.gp("set y2range [%s:%s]" % (y2min,y2max))
 
             use_y2log = self.kw['use_y2log']
-            if use_y2log == 'Auto' and pv2info['type']=='DOUBLE':
-                if pv2info['graph_type']=='LOG': use_y2log ='Yes'
+            if use_y2log == 'Auto' and pv2info['type']=='double':
+                if pv2info['graph_type']=='log': use_y2log ='Yes'
             if use_y2log=='Yes':  self.gp("set logscale y2")
 
         if pv.type =='enum':
@@ -613,7 +627,7 @@ class WebAdmin(HTMLWriter):
         self.kw  = {'form_pv':'', 'submit': '','desc':'','deadtime':'','deadband':'','type':''}
         self.kw.update(kw)
 
-    def show_adminpage(self):
+    def show_adminpage(self,pv=''):
         self.starthtml()
         stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.status_report())
         self.write("Archive Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)
@@ -624,6 +638,10 @@ class WebAdmin(HTMLWriter):
         self.write("\n<hr>")
 
         pvname = self.kw['form_pv'].strip()
+        if pvname == '' and pv != '':
+            pvname = pv
+            self.kw['form_pv'] = pvname
+            
         submit = self.kw['submit'].strip()
 
         if submit.startswith('Add') and len(pvname)>1:
@@ -637,7 +655,8 @@ class WebAdmin(HTMLWriter):
             return self.get_buffer()
         
         self.write('<form action ="%s" enctype="multipart/form-data"  method ="POST"><p>' % (adminpage))
-        self.write('<p>Search for PV:<input type="text" name="form_pv" value="%s" size=30> (use \'*\' for wildcard searches)</p>' % pvname)
+        self.write('<p>Search for PV:&nbsp;&nbsp;&nbsp;')
+        self.write('<input type="text" name="form_pv" value="%s" size=40> &nbsp; (use \'*\' for wildcard searches)</p>' % pvname)
 
         if pvname != '':
             sx = clean_input(pvname.replace('*','%'))
@@ -646,11 +665,16 @@ class WebAdmin(HTMLWriter):
             self.master.db.use(config.cache_db)
             results = self.exec_fetch('select name from cache where name like %s '% (clean_string(sx)))
             i = 0
+            
+            self.write("<table><tr>")
+
             for r in results:
-                self.write('<a href="%s?pv=%s">%s</a>&nbsp;&nbsp;'% (pvinfopage,r['name'],r['name']))
+                self.write('<td><a href="%s?pv=%s">%s</a>&nbsp;&nbsp;</td>'% (pvinfopage,r['name'],r['name']))
                 i  = i + 1
-                if i % 6 == 5: self.write("<br")
-                
+                if i % 4 == 0:
+                    self.write("</tr><tr>")
+
+            self.write("</table>")
             if len(results)== 0 and sx.find('%')==-1:
                 self.write(" '%s' not found in archive or cache! &nbsp; " % pvname)
                 self.write("<input type='submit' name='submit' value='Add to Archive'><p>")
@@ -679,13 +703,26 @@ class WebAdmin(HTMLWriter):
             pvn = clean_input(pv)
             self.write("<p>Updating data for %s!!<p><hr>" % (pvn))
             desc  = clean_input(self.kw['desc'].strip())
-            dtime = float(clean_input(self.kw['deadtime'].strip()))
-            dband = float(clean_input(self.kw['deadband'].strip()))
-
             self.sql_exec("update pv set description=%s where name=%s" %(es(desc),es(pvn)))
-            self.sql_exec("update pv set deadtime=%s where name=%s" %(es(dtime),es(pvn)))
-            self.sql_exec("update pv set deadband=%s where name=%s" %(es(dband),es(pvn)))
                                                                                    
+            for key in ('graph_hi', 'graph_lo', 'deadtime','deadband'):
+                if self.kw.has_key(key):
+                    val = clean_input(self.kw[key].strip())
+                    try:
+                        val = float(val)
+                    except:
+                        val = ''
+                    self.sql_exec("update pv set %s=%s where name=%s" %(key,es(val),es(pvn)))
+
+            for key in ('active', 'graph_type'):
+                if self.kw.has_key(key):
+                    val = clean_input(self.kw[key].strip()).lower()
+                    if val != '':
+                        try:
+                            self.sql_exec("update pv set %s=%s where name=%s" %(key,es(val),es(pvn)))
+                        except:
+                            pass
+                
             self.write('<p> <a href="%s?pv=%s">Plot %s</a>&nbsp;&nbsp;</p>'% (thispage,pvn,pvn))
             self.endhtml()
             return self.get_buffer()
@@ -706,12 +743,35 @@ class WebAdmin(HTMLWriter):
         self.write('<form action ="%s" enctype="multipart/form-data"  method ="POST"><p>' % (pvinfopage))
         self.write('<input type="hidden" name="form_pv" value="%s">' % pvn)
         
-        self.write("<table><tr><td>")
+        self.write("<table><tr>")
+
+        self.write("<td>Active</td><td>")
+        for i in ('Yes','No'):
+            sel = ''
+            if i.lower() == d['active'].lower():  sel = "checked=\"true\""
+            self.write('<input type="radio" %s name="active" value="%s">&nbsp;%s' % (sel,i,i))
+        self.write("</td></tr>")
+
+        self.write("<td>")        
         self.write('Description:</td><td><input type="text" name="desc" value="%s" size=30></td>' % d['description'])
         self.write("</tr><tr><td>")
         self.write('Deadtime (seconds):</td><td><input type="text" name="deadtime" value="%s" size=30></td>' % str(d['deadtime']))
         self.write("</tr><tr><td>")
         self.write('Deadband (fraction):</td><td><input type="text" name="deadband" value="%s" size=30></td>' % str(d['deadband']))
+
+        self.write("</tr><tr><td>")
+        self.write('Graph Upper Limit:</td><td><input type="text" name="graph_hi" value="%s" size=30></td>' % str(d['graph_hi']))
+        self.write("</tr><tr><td>")
+        self.write('Graph Lower Limit:</td><td><input type="text" name="graph_lo" value="%s" size=30></td>' % str(d['graph_lo']))
+
+        self.write("</tr><tr><td>Graph Type</td><td>")
+        for i in ('normal','log','discrete'):
+            sel = ''
+            if i.lower() == d['graph_type'].lower():  sel = "checked=\"true\""
+            self.write('<input type="radio" %s name="graph_type" value="%s">&nbsp;%s' % (sel,i,i))
+        self.write("</td></tr>")
+
+
         self.write("</tr></table><p><input type='submit' name='submit' value='Update PV Data'><p>")
 
         self.master.db.use(config.master_db)

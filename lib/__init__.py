@@ -16,7 +16,8 @@ import config
 os.environ['PYTHON_EGG_CACHE'] = config.data_dir
 import MySQLdb
 
-from util import string_literal, clean_input, escape_string, timehash
+from util import string_literal, clean_input, escape_string, \
+     timehash, set_pair_scores
 
 from SimpleDB import SimpleDB, SimpleTable
 

@@ -188,7 +188,11 @@ class Archiver:
         """add PV to the database"""
         pvname = normalize_pvname(name)
         if self.pvinfo.has_key(pvname):
-            self.write("PV %s is already in database.\n" % pvname)
+            if 'yes' == self.pvinfo[pvname]['active']:
+                self.write("PV %s is already in database.\n" % pvname)
+            else:
+                self.write("PV %s is in database, reactivating!\n" % pvname)                
+                self.pvinfo[pvname]['active'] = 'yes'
             return None
         # create an Epics PV, check that it's valid
         try:
