@@ -7,9 +7,9 @@ import sys
 import getopt
 
 import EpicsCA
-import SimpleDB
-from config   import cache_db
-from util     import clean_input, clean_string, motor_fields, normalize_pvname, set_pair_scores
+import config
+from SimpleDB import SimpleDB
+from util import clean_input, clean_string, motor_fields, normalize_pvname, set_pair_scores
 
 def add_pv_to_cache(pvname=None,cache=None,**kw):
     """ add a PV to the Cache and Archiver
@@ -25,6 +25,7 @@ def add_pv_to_cache(pvname=None,cache=None,**kw):
     if pvname is None: return
     if cache is None: cache = Cache()
     cache.add_pv(pvname)
+    cache.close()
 
 def add_pvfile(fname):
     """
@@ -58,29 +59,33 @@ def add_pvfile(fname):
         for pvname in words:  cache.add_pv(pvname)
         set_pair_scores(words)
 
-    cache.db.close()
+    cache.close()
     print 'done.'
 
 class Cache:
     """ store and update a cache of PVs to a sqlite db file"""
 
     null_pv_value = {'value':None,'ts':0,'cvalue':None,'type':None}
-    _table_names = ("info", "req", "cache")
-    q_getfull = "select value,cvalue,type,ts from cache where name=%s"
+    _table_names  = ("info", "req", "cache")
+    q_getfull     = "select value,cvalue,type,ts from cache where name=%s"
 
-    def __init__(self,pvfile=None,dbcursor=None, **kw):
-        if dbcursor is not None:
-            self.cursor = dbcursor
+    def __init__(self,db=None, **kw):
+
+        self.dbname = config.cache_db
+
+        if isinstance(db,SimpleDB):
+            self.db = db
         else:
-            self.cursor = SimpleDB.db_connect(dbname=cache_db,autocommit=0)
-            
+            self.db = SimpleDB(dbname=self.dbname,autocommit=1)
+
         self.data = {}
         self.pvs  = {}
         self.pid  = os.getpid()
         
-        if pvfile is not None: self.read_pvlist(pvfile)
         self.get_pvlist()        
 
+    def close(self): self.db.close()
+    
     def epics_connect(self,pvname):
         p = EpicsCA.PV(pvname,connect=True,connect_time=5.0)
         EpicsCA.pend_io(2.0)
@@ -103,7 +108,7 @@ class Cache:
             v = [clean_string(str(i)) for i in val]
             v.append(clean_string(nam))
             q = "update cache set value=%s,cvalue=%s,ts=%s where name=%s" % tuple(v)
-            self.cursor.execute(q)
+            self.db.execute(q)
         self.commit_transaction()
         return nout
 
@@ -196,26 +201,30 @@ class Cache:
                 return
 
     def exit(self):
+        self.close()
         for i in self.pvs.values(): i.disconnect()
         EpicsCA.pend_io(15.0)
         sys.exit()
                    
-    def begin_transaction(self):   self.cursor.execute('begin')
-    def commit_transaction(self):  self.cursor.execute('commit')
+    def begin_transaction(self):
+        pass # self.db.execute('begin')
 
-    def sql_exec(self,sql,commit=False):
-        if commit: self.cursor.execute('begin')
-        self.cursor.execute(sql)
-        if commit: self.cursor.execute('commit')        
+    def commit_transaction(self):
+        pass # self.db.execute('commit')
+
+    def sql_exec(self,sql,commit=True):
+        self.db.use(self.dbname)
+        if commit: self.begin_transaction()
+        self.db.execute(sql)
+        if commit: self.commit_transaction()
 
     def sql_exec_fetch(self,sql):
-        self.cursor.execute('begin')
-        self.cursor.execute(sql)
+        self.db.use(self.dbname)
+        self.sql_exec(sql,commit=False)
         try:
-            r =self.cursor.fetchall()
+            r =self.db.fetchall()
         except:
             r = [{}]
-        self.cursor.execute('commit')
         return r
 
     def get_pid(self):
@@ -256,7 +265,7 @@ class Cache:
         # print 'Set Value ', pv, pv.value, pv.char_value, pv.pvname
         v    = [clean_string(i) for i in [pv.value,pv.char_value,time.time(),pv.pvname]]
         qval = "update cache set value=%s,cvalue=%s,ts=%s where name=%s" % tuple(v)
-        self.cursor.execute(qval)
+        self.db.execute(qval)
 
 
     def __addpv(self,pvname):
@@ -304,6 +313,7 @@ class Cache:
         
     def get_pvlist(self):
         " return list of pv names currently being cached"
+
         self.pvlist = [i['name'] for i in self.sql_exec_fetch("select name from cache")]
         return self.pvlist
 
@@ -330,7 +340,7 @@ class Cache:
                                                   es(pv.char_value),
                                                   es(pv.type))
 
-                    self.sql_exec(q)
+                    self.sql_exec(q,commit=False)
                     self.pvlist.append(nam)
                     self.pvs[nam].set_callback(self.onChanges)                    
                 else:

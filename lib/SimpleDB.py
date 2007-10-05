@@ -30,7 +30,7 @@ def db_connect(dbname='test',
                passwd=config.dbpass,
                host=config.dbhost,
                autocommit=1):
-    return SimpleDB(db=dbname,user=user, passwd=passwd,
+    return SimpleDB(dbname=dbname,user=user, passwd=passwd,
                     host=host, autocommit=autocommit)
 
 def save_db(dbname=None,compress=True):
@@ -161,31 +161,33 @@ class SimpleDB:
                     'fatal': 'Fatal Error: '}
 
     SimpleDB_Exception = 'Simple DB Exception'
-    def __init__(self,db=None, user=None, passwd=None, host=None,
+    def __init__(self,dbname=None, user=None, passwd=None, host=None,
                  debug=0, messenger=None,bindir=None,autocommit=1):
+        
 
         self.debug     = debug
         self.messenger = messenger or sys.stdout
         self.user      = user      or config.dbuser
         self.passwd    = passwd    or config.dbpass
         self.host      = host      or config.dbhost
-        self.dbname    = db        or 'test'
+        self.dbname    = dbname    or 'test'
 
         self.tables = []
         # start mysql connection
-        
-        self.db   = MySQLdb.connect(user=self.user,
-                                    db=self.dbname,
-                                    passwd=self.passwd,
-                                    host=self.host)
-#         except:
-#             self.write("Could not start MySQL on %s for database %s" %
-#                        (self.host, self.dbname),   status='fatal')
-
+        try:
+            self.db   = MySQLdb.connect(user=self.user,
+                                        db=self.dbname,
+                                        passwd=self.passwd,
+                                        host=self.host)
+        except:
+            self.write("Could not start MySQL on %s for database %s" %
+                       (self.host, self.dbname),   status='fatal')
+            
         self.cursor = self.db.cursor(cursorclass=MySQLdb.cursors.DictCursor)
         
         self.use(self.dbname)
         self.__execute("set AUTOCOMMIT=%i" % autocommit)
+        self.read_table_info()
 
     def close(self):
         " close db connection"
@@ -236,11 +238,13 @@ class SimpleDB:
 
     def use(self,db):
         " use database, populate initial list of tables "
-        self.table_list = []
-        self.tables     = {}
-
         self.dbname  = db
         self.__execute("use %s" % db)
+
+    def read_table_info(self):
+        " use database, populate initial list of tables "
+        self.table_list = []
+        self.tables     = {}
         x = self.exec_fetch("show TABLES")
         self.table_list = [i.values()[0] for i in x]
         for i in self.table_list:

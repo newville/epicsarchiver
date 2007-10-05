@@ -3,7 +3,7 @@
 import time
 import sys
 from SimpleDB import SimpleDB, SimpleTable
-from config import dbuser, dbpass, dbhost, master_db, dat_prefix, dat_format
+from config import dbuser, dbpass, dbhost, master_db, cache_db, dat_prefix, dat_format
 from util import normalize_pvname, clean_string, MAX_EPOCH, SEC_DAY
 
 def nextname(current=None,dbname=None):
@@ -53,16 +53,16 @@ class ArchiveMaster:
     sql_get_times    = "select min(time),max(time) from pvdat%3.3i"
     
     def __init__(self):
-        self.db = SimpleDB(user=dbuser,passwd=dbpass,host=dbhost, db=master_db)
+        self.db = SimpleDB(user=dbuser,passwd=dbpass,host=dbhost, dbname=master_db)
         
+    def close(self): self.db.close()
+    
     def __exec(self,s): self.db.execute(s)
 
     def __current(self,val='db'):
         self.db.use(master_db)
         self.__exec(self.sql_current_sel)
         return self.db.fetchone()[val]
-
-    def texec(self,s):        return self.db.exec_fetch(s)
 
     def get_currentDB(self):  return self.__current('db')
     def get_status(self):     return self.__current('status')
@@ -162,6 +162,21 @@ class ArchiveMaster:
         out.append("%i values archived in past %i minutes"  % (tot , minutes))
         self.db.use(master_db)
         return out
+
+    def use_currdb(self):
+        currdb = self.__current('db')
+        self.db.use(currdb)
+
+        
+    def get_cache_status(self,dt=60):
+        self.db.use(cache_db)
+        out = []
+        q   = "select name,type,value,cvalue,ts from cache where ts> %i order by ts"
+        ret = self.db.exec_fetch(q % (time.time() - dt) )
+        pid = self.db.exec_fetch("select pid from info")[0]['pid']
+        self.db.use(master_db)
+        return ['%i PVs had values updated in the past %i seconds. pid=%i' % (len(ret),dt,pid)]
+
         
     def show_tables(self):
         currdb = self.__current('db')
@@ -199,14 +214,14 @@ class ArchiveMaster:
         "create a new pvarch database, copying pvs to save from an old database"
 
         currdb = self.__current('db')
-        olddb  = SimpleDB(user=dbuser, passwd=dbpass,db=currdb, host=dbhost,debug=0)
+        olddb  = SimpleDB(user=dbuser, passwd=dbpass,dbname=currdb, host=dbhost,debug=0)
         olddb.use(currdb)
         old_data = olddb.exec_fetch("select * from pv")
 
         dbname = nextname(current=currdb,dbname=dbname)
         self.create_emptydb(dbname)
         
-        newdb = SimpleDB(user=dbuser, passwd=dbpass,db=dbname, host=dbhost,debug=0)
+        newdb = SimpleDB(user=dbuser, passwd=dbpass,dbname=dbname, host=dbhost,debug=0)
         pvtable = SimpleTable(newdb, table='pv')
         sys.stdout.write('adding %i pvs to DB %s\n' % (len(old_data),dbname))
 
@@ -220,6 +235,8 @@ class ArchiveMaster:
         self.__exec("delete from runs where db='%s'" % dbname)
         q = "insert into runs (db,start_time,stop_time) values ('%s',%f,%f)"
         self.__exec(q % (dbname,MAX_EPOCH,MAX_EPOCH))
+        olddb.close()
+        newdb.close()        
         return dbname
    
     def dbs_for_time(self, t0=SEC_DAY, t1=MAX_EPOCH):

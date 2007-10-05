@@ -35,7 +35,6 @@ def show_usage():
 
 def next_archive():
     master  = EpicsArchiver.ArchiveMaster()
-
     dbname  = master.get_currentDB()
 
     next_db = master.make_nextdb()
@@ -43,41 +42,39 @@ def next_archive():
     master.set_pid(0)
     master.set_currentDB(next_db)
     master.set_runinfo(dbname)
+    master.close()
 
     time.sleep(1.0)
     run_archive(action='start')
 
 
 def run_archive(action='start'):
-    config = EpicsArchiver.config
-
     def archive_loop():
-        master  = EpicsArchiver.ArchiveMaster()
-        db = master.get_currentDB()
-        a  = EpicsArchiver.Archiver(dbname=db,master=master)
+        a  = EpicsArchiver.Archiver()
         a.mainloop()
 
 
+    config  = EpicsArchiver.config
     master  = EpicsArchiver.ArchiveMaster()
     dbname  = master.get_currentDB()
     dir     = config.logdir
+    if not os.path.exists(dir):   os.mkdir(dir)
     sout    = os.path.join(dir, "%s.log" % dbname)
     serr    = os.path.join(dir, "%s.err" % dbname)
     pidfile = os.path.join(dir, "pvarch.pid")
-    master.db.close()
+    master.close()
     
     EpicsArchiver.startstop(stdout =sout,stderr=serr, pidfile=pidfile,
                             process_name='pvarch', action=action)
     archive_loop()
 
 def run_cache(action=None):
-    config = EpicsArchiver.config
-
 
     def cache_loop():
         cache   = EpicsArchiver.Cache()
         cache.mainloop()
-
+        
+    config  = EpicsArchiver.config
     dir     = config.logdir
     if not os.path.exists(dir):   os.mkdir(dir)
     sout    = os.path.join(dir, "cache.log")
@@ -88,7 +85,7 @@ def run_cache(action=None):
     EpicsArchiver.startstop(stdout =sout,stderr=serr, pidfile=pidfile,
                             process_name='pvcache', action=action)
     cache_loop()
-   
+
 def read_pid(name='cache'):
     config = EpicsArchiver.config
     pidfile = "%s/%s.pid" % (config.logdir,name)
@@ -114,10 +111,14 @@ def cache_status(action='activity', dt=60):
             stime = time.strftime("%H:%M:%S", time.localtime(r['ts']))
             print "  %s   %.29s = %s" % (stime, r['name']+' '*20,r['value'])
     print msg % (len(ret), int(dt), cache.get_pid(), status)    
+    cache.close()
     
 def archive_status(minutes=10):
     master  = EpicsArchiver.ArchiveMaster()
-    return master.status_report(minutes=minutes)
+    stat = master.status_report(minutes=minutes)
+    master.close()
+    return stat
+    
         
 def drop_pv(pvname):
     master  = EpicsArchiver.ArchiveMaster()
@@ -126,6 +127,9 @@ def drop_pv(pvname):
     cache   = EpicsArchiver.Cache()
     cache.drop_pv(pvname)
     arch.drop_pv(pvname)
+    master.close()
+    arch.close()
+    cache.close()
     
 def main():
     opts, rawargs = getopt.getopt(sys.argv[1:], "h", ["help"])

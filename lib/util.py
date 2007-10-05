@@ -51,8 +51,8 @@ def set_pair_scores(pvlist):
     """ set (or check) that all pairs of pvs in list pvlist have a 'pair score'"""
     if not isinstance(pvlist,(list,tuple)): return
     if len(pvlist)< 2: return
+    from Master import ArchiveMaster
 
-    from EpicsArchiver import ArchiveMaster
     m = ArchiveMaster()
     get_score = m.get_pair_score
     set_score = m.set_pair_score
@@ -62,6 +62,22 @@ def set_pair_scores(pvlist):
         for p in pvlist:
             if get_score(q,p)<1: set_score(q,p,10)
             
-    m.db.close()
+    m.close()
     m = None
     return 
+
+def get_related_pvs(pvname):
+    from Master import ArchiveMaster
+    m = ArchiveMaster()
+    out = m.get_related_pvs(normalize_pvname(pvname),minscore=1)
+    m.close()
+    m = None
+    return out
+
+def increment_pair_score(pv1,pv2):
+    from Master import ArchiveMaster    
+    m = ArchiveMaster()
+    m.increment_pair_score(normalize_pvname(pv1),normalize_pvname(pv2))
+    m.close()
+    m = None
+

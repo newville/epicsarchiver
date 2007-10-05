@@ -7,18 +7,30 @@ import getopt
 
 import EpicsCA
 from SimpleDB import SimpleDB
-from Cache    import Cache
-from Master   import ArchiveMaster
+from Cache    import add_pv_to_cache
 import config
 
 from util import normalize_pvname, get_force_update_time, \
-     escape_string, clean_string, SEC_DAY
+     escape_string, clean_string, SEC_DAY, MAX_EPOCH
 
 class Archiver:
     MIN_TIME = 1000000
 
-    def __init__(self,dbname=None,cache=None,master=None,**args):
-        self.dbname = dbname
+    def __init__(self,db=None,dbname=None, **args):
+
+        self.cache_db  = config.cache_db
+        self.master_db = config.master_db
+        self.dbname    = dbname
+        if self.dbname is None: self.dbname = self.master_db
+        
+        if isinstance(db,SimpleDB):
+            self.db = db
+        else:
+            self.db = SimpleDB(dbname=self.dbname,autocommit=1)
+
+        self.use_currentDB()
+        self.db.read_table_info()
+        
         self.debug  = 0
         self.force_checktime = 0
         self.messenger = sys.stdout
@@ -30,41 +42,64 @@ class Archiver:
             if   (k == 'debug'):      self.debug     = v
             elif (k == 'messenger'):  self.messenger = v
 
-                         
-        self.cache  = cache or Cache()
-        self.master = master or ArchiveMaster()
+    def use_masterDB(self):    self.db.use(self.master_db)
+    def use_cacheDB(self):     self.db.use(self.cache_db)
+
+    def use_currentDB(self,dbname=None):
+        if dbname is None:
+            self.use_masterDB()
+            self.db.execute("select db from current")
+            dbname = self.db.fetchone()['db']
+        self.dbname = dbname
+        self.db.use(self.dbname)
         
-        sys.stdout.write('create Archiver: master = %s, cache=%s \n' % (repr(master), repr(cache)))
+    def exec_fetch(self,sql):
+        self.db.execute(sql)
+        ret = [{}]
+        try:
+            ret = self.db.fetchall()
+        except:
+            pass
+        return ret
+        
+    def get_cache_names(self):
+        self.use_cacheDB()
+        self.cache_names = [i['name'] for i in self.exec_fetch("select name from cache")]
+        self.use_currentDB(dbname=self.dbname)        
+        return self.cache_names
 
-        if self.dbname is None: self.dbname = self.master.get_currentDB()
+    def get_cache_full(self,pv):
+        " return full information for a cached pv"
+        q   = "select value,cvalue,type,ts from cache where name=%s"
 
-        self.db = SimpleDB(db=self.dbname,
-                           messenger=self.messenger,
-                           debug=self.debug)
+        self.use_cacheDB()
+        ret = self.exec_fetch(q % clean_string(normalize_pvname(npv)))[0]
+        self.use_currentDB(dbname=self.dbname)
+        return ret
+
+    def get_cache_changes(self,dt=30):
+        """ get list of name,type,value,cvalue,ts from cache """
+        q = "select name,type,value,cvalue,ts from cache where ts> %i order by ts"
+        self.use_cacheDB()
+        ret = self.exec_fetch(q % (time.time() - dt) )
+        self.use_currentDB(dbname=self.dbname)
+        return ret
 
     def sync_with_cache(self):
         self.pvinfo = {}
         self.last_insert = {}
-        print 'Sync With Cache: %i tables' %( len(self.db.tables))
-        
-        db_pvs = self.db.tables['pv'].select()
-
-        self.cache_names = self.cache.get_pvlist()
-        for pv in db_pvs:  self.initialize_data(pv)
+        self.get_cache_names()
+        for pvdata in self.db.tables['pv'].select():
+            self.initialize_data(pvdata)
         self.check_for_new_pvs()
 
-
     def check_for_new_pvs(self):
-        self.cache_names = self.cache.get_pvlist()        
         # print 'check for new pvs ', len(self.cache_names), len(self.pvinfo)
-        for p in self.cache_names:
+        for p in self.get_cache_names():
             if not self.pvinfo.has_key(p):
                 self.write('adding %s to Archive\n' % p)
                 self.add_pv(p)
    
-    def db_for_time(self,t):
-        return self.master.dbs_for_time(t0=t-10.0,t1=t)[0]
-
     def get_pv(self,pvname):
         " "
         if self.pvs.has_key(pvname): return self.pvs[pvname]
@@ -75,6 +110,7 @@ class Archiver:
             return None
 
     def get_info(self,pvname):
+        self.use_currentDB(dbname=self.dbname)
         r = self.db.tables['pv'].select_where(name=pvname)
         if len(r)>0: return r[0]
         return {}
@@ -109,7 +145,7 @@ class Archiver:
             add_current = with_current
             
         try:
-            for db in self.master.dbs_for_time(t0,t1):
+            for db in self.dbs_for_time(t0,t1):
                 self.db.use(db)
                 q     = tquery % clean_string(pvname)
                 stat.append(q)
@@ -128,12 +164,12 @@ class Archiver:
                         stat.append('no data before t0!')
                 q = squery % (table,pvid,t0,t1)
                 stat.append(q)
-                for i in self.db.exec_fetch(q):
+                for i in self.exec_fetch(q):
                     dat.append((i['time'],i['value']))
             # add cached value if needed
             if add_current:
                 stat.append('adding cached value')
-                r= self.cache.get_full(pvname)
+                r= self.get_cache_full(pvname)
                 stat.append(r)
                 if r['value'] is not None:
                     dat.append((time.time(),r['value']))
@@ -222,6 +258,7 @@ class Archiver:
             
         self.write('Archiver adding PV: %s, table: %s \n' % (pvname,table))
         
+        self.use_currentDB(dbname=self.dbname)
         self.db.tables['pv'].insert(name    = pvname,
                                     type    = dtype,
                                     description= description,
@@ -241,12 +278,10 @@ class Archiver:
         pv.disconnect()
         # should add an insert here!!
         
-    def get_pvlist(self):
-        return self.cache.get_pvlist()        
-
     def reread_db(self,pvname):
         ' re-read database settings for PV'
         if self.pvinfo.has_key(pvname):
+            self.use_currentDB(dbname=self.dbname)
             try:
                 self.pvinfo.update( self.db.tables['pv'].select_where(name=pvname)[0] )
             except:
@@ -254,24 +289,23 @@ class Archiver:
         else:
             self.add_pv(pvname)
     
-    def initialize_data(self,pvinfo):
-        
-        name = normalize_pvname(pvinfo['name'])
+    def initialize_data(self,pvdata):
+        name = normalize_pvname(pvdata['name'])
         if name not in self.cache_names:
-            self.cache.add_pv(name)
+            add_pv_to_cache(name)
 
-        pvinfo['force_time'] = get_force_update_time()
-        self.pvinfo[name]    = pvinfo
+        pvdata['force_time'] = get_force_update_time()
+        self.pvinfo[name]    = pvdata
         self.last_insert[name] = (0,None)
 
         t0 = time.time() - SEC_DAY
         q ="select time,value from %s where pv_id=%i and time>%i order by time desc limit 1"
 
-        db_dat = self.db.exec_fetchone(q  % (pvinfo['data_table'], pvinfo['id'],t0))
+        db_dat = self.db.exec_fetchone(q  % (pvdata['data_table'], pvdata['id'],t0))
         if db_dat.has_key('time') and db_dat.has_key('value'):
             self.last_insert[name] = (db_dat['time'],db_dat['value'])
         else:
-            r= self.cache.get_full(name)
+            r= self.get_cache_full(name)
             if r['value'] is not None and r['ts'] is not None:
                 self.update_value(name,r['ts'],r['value'])
                 
@@ -289,19 +323,19 @@ class Archiver:
         except TypeError:
             self.write("cannot update %s\n" % name)
 
-    def get_related_pvs(self,pvname):
-        return self.master.get_related_pvs(pvname,minscore=1)
 
-    def increment_pair_score(self,pv1,pv2):
-        npv1 = normalize_pvname(pv1)
-        npv2 = normalize_pvname(pv2)
-        self.master.increment_pair_score(npv1,npv2)
+    def dbs_for_time(self, t0=SEC_DAY, t1=MAX_EPOCH):
+        """ return list of databases with data in the given time range"""
+        timerange = ( min(t0,t1) - SEC_DAY, max(t0,t1) + SEC_DAY)
+        q = 'select db from runs where stop_time>=%i and start_time<=%i order by start_time'
+        r = []
+        self.use_masterDB()
+        for i in self.exec_fetch(q % timerange):
+            if i['db'] not in r:
+                r.append(i['db'])
+        self.use_currentDB(dbname=self.dbname)        
+        return r
 
-        
-    def get_cache_changes(self,dt=30):
-        """ get list of name,type,value,cvalue,ts from cache """
-        return self.cache.get_recent(dt=dt)
-    
     def collect(self):
         """ one pass of collecting new values, deciding what to archive"""
         newvals, forced = [],[]
@@ -362,7 +396,7 @@ class Archiver:
                 ftime = info['force_time']
                 if last_ts is None:  last_ts = 0
                 if tnow-last_ts > ftime:
-                    r = self.cache.get_full(name)
+                    r = self.get_cache_full(name)
                     if r['type'] is None and r['value'] is None: # an empty / non-cached PV?
                         try:
                             test_pv = EpicsCA.PV(name,connect=True)
@@ -385,6 +419,27 @@ class Archiver:
             self.write("%s  %.30s = %.30s  / %s\n" % (prefix, v[0]+' '*30,
                                                       v[1]+' '*30, time.ctime(v[2])))
         
+    def set_pidstatus(self, pid=None, status='unknown'):
+        self.use_masterDB()
+        if status not in ('running','offline','stopping','unknown'):
+            status = 'unknown'
+
+        self.db.execute("update current set status = '%s'" % status)
+        
+        if pid is not None:
+            self.write(" setting pid to %i\n" % pid)
+            self.db.execute("update current set pid=%i" % pid)
+        self.use_currentDB(dbname=self.dbname)
+        
+
+    def get_pidstatus(self):
+        self.use_masterDB()
+        r = self.exec_fetch("select pid,status from current")[0]
+        pid    = int(r['pid'])
+        status = r['status']
+        self.use_currentDB(dbname=self.dbname)
+        return pid, status
+
     def mainloop(self,verbose=False):
         t0 = time.time()
         self.last_collect = t0
@@ -395,10 +450,9 @@ class Archiver:
         self.write("connecting to %i Epics PVs ... \n" % ( len(self.pvinfo) ))
         self.write('======   Start monitoring / saving to DB=%s\n' % self.dbname)
 
-        self.master.set_status(status='running')
+
         mypid = os.getpid()
-        self.master.set_pid(pid=mypid)
-        self.master.set_runinfo()
+        self.set_pidstatus(pid=mypid, status='running')
 
         is_collecting = True
         n_changed = 0
@@ -426,11 +480,9 @@ class Archiver:
                 sys.stderr.write('Interrupted by user.\n')
                 return None
             
-            status = self.master.get_status()
-            if status in ('stopping','offline'):
-                self.master.set_status('offline')
+            masterpid, status = self.get_pidstatus()
+            if (status in ('stopping','offline')) or (masterpid != mypid):
+                self.set_pidstatus(status='offline')
                 is_collecting = False
-            pid = self.master.get_pid()
-            if pid != mypid: is_collecting = False
 
         return None

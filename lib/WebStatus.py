@@ -7,7 +7,7 @@ pagetitle  = config.pagetitle
 cgiroot    = config.cgi_url
 footer     = config.footer
 thispage   = "%s/status.py" % cgiroot
-dblink     = "%s/archiver.py?pv=" % cgiroot
+dblink     = "%s/viewer.py?pv=" % cgiroot
 
 
 htmlhead = """<html>

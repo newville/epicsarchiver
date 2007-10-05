@@ -3,15 +3,16 @@ import os
 import time
 import EpicsCA
 
-from EpicsArchiver import ArchiveMaster, Archiver, Cache, config
-from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, normalize_pvname, timehash
+from EpicsArchiver import Archiver, Cache, config, add_pv_to_cache
+from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, normalize_pvname, timehash, \
+     get_related_pvs, increment_pair_score
 
 DEBUG=True
 DEBUG=False
 cgiroot   = config.cgi_url
 
 
-thispage  = "%s/archiver.py" % cgiroot
+thispage  = "%s/viewer.py" % cgiroot
 adminpage = "%s/admin.py" % cgiroot
 pvinfopage= "%s/admin.py/show_pvinfo" % cgiroot
 statuspage= "%s/status.py" % cgiroot
@@ -161,8 +162,7 @@ set ytics nomirror
     def __init__(self, arch=None, cache=None, **kw):
         HTMLWriter.__init__(self)
 
-        self.cache = cache or Cache()
-        self.arch  = arch or Archiver(cache=self.cache)
+        self.arch  = arch or Archiver()
 
         self._gp = Gnuplot.Gnuplot() # "%s/out.gp" % self.file_pref)
         self.kw  = {'form_pv':'', 'form_pv2':'',  'use_ylog':'', 'use_y2log': '',
@@ -194,7 +194,7 @@ set ytics nomirror
         if pvname == '': return False
         x = pvname
         if x.find('.') == -1: x = "%s.VAL" % x
-        return x in self.arch.get_pvlist()
+        return x in self.arch.get_cache_names()
     
 
     def draw_form(self,arg_pv1=None,arg_pv2=None,**kw):
@@ -294,7 +294,7 @@ set ytics nomirror
 
     def make_related_pvs_page(self,pvname,pvname2):
         out = []
-        r = self.arch.get_related_pvs(pvname)
+        r = get_related_pvs(pvname)
         if pvname2 != '': out.append("<input type='submit' name='submit' value='Swap PV 1 and 2'><p>")        
         out.append("<p class='xtitle'>related pvs:%s<p>" % '')  # pvname)
         n = 0
@@ -389,7 +389,7 @@ set ytics nomirror
             pv2  = self.arch.get_pv(arg_pv2)
             pv2.connect()
             pv2info = self.arch.get_info(arg_pv2)
-            self.arch.increment_pair_score(arg_pv1,arg_pv2)
+            increment_pair_score(arg_pv1,arg_pv2)
             if DEBUG:
                 self.write(" PV#2  !!! %s, %s" % (str(pv2 is None), pv2.pvname))
                 
@@ -475,13 +475,17 @@ set ytics nomirror
             '%s' u 1:4 axis x1y2 t '' w p 2 """ %
                     (f_dat,pvlabel,f_dat,f_dat2,pv2label,f_dat2))
 
-        self.arch.db.use(self.arch.dbname)
+        self.arch.use_currentDB()
         wait_for_pngfile = True
         wait_count = 0
         while wait_for_pngfile:
-            png_size   = os.stat(f_png)[6]
-            wait_for_pngfile = (png_size < 4) and (wait_count < 5000)
-            time.sleep(0.001)
+            try:
+                png_size   = os.stat(f_png)[6]
+            except OSError:
+                png_size = 0
+                
+            wait_for_pngfile = (png_size < 4) and (wait_count < 1000)
+            time.sleep(0.005)
             wait_count = wait_count + 1
 
         self.fix_gpfile(f_gp, self.file_pref)
@@ -598,12 +602,13 @@ set ytics nomirror
         return self.get_buffer()
 
 class WebAdmin(HTMLWriter):
-    def __init__(self,arch=None, master=None, cache=None, **kw):
+    def __init__(self, master=None, **kw):
         HTMLWriter.__init__(self)
         self.html_title = "PV Archive Admin Page"
+        from EpicsArchiver import ArchiveMaster
         self.master = master or ArchiveMaster()
-        self.cache  = cache or Cache()
-        self.arch   = arch or Archiver(cache=self.cache,master=self.master)
+        self.sql_exec = self.master.db.execute
+        self.exec_fetch = self.master.db.exec_fetch
 
         self.kw  = {'form_pv':'', 'submit': '','desc':'','deadtime':'','deadband':'','type':''}
         self.kw.update(kw)
@@ -613,7 +618,7 @@ class WebAdmin(HTMLWriter):
         stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.status_report())
         self.write("Archive Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)
 
-        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.cache.status_report(brief=True))
+        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.get_cache_status())
         self.write("Cache Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)        
 
         self.write("\n<hr>")
@@ -624,7 +629,7 @@ class WebAdmin(HTMLWriter):
         if submit.startswith('Add') and len(pvname)>1:
             sx = clean_input(pvname)
             self.write("<p>Adding %s to archive!!<p><hr>" % (sx))
-            self.cache.add_pv(sx)
+            add_pv_to_cache(sx)
             self.kw['submit'] = ''
             self.kw['form_pv'] = ''
             pvname = ''
@@ -639,8 +644,7 @@ class WebAdmin(HTMLWriter):
             self.write('<p>Search results for "%s": </p>' % pvname)
                     
             self.master.db.use(config.cache_db)
-            self.master.db.execute('select name from cache where name like %s '% (clean_string(sx)))
-            results = self.master.db.fetchall()
+            results = self.exec_fetch('select name from cache where name like %s '% (clean_string(sx)))
             i = 0
             for r in results:
                 self.write('<a href="%s?pv=%s">%s</a>&nbsp;&nbsp;'% (pvinfopage,r['name'],r['name']))
@@ -669,15 +673,18 @@ class WebAdmin(HTMLWriter):
 
         submit = self.kw['submit'].strip()
         es  = clean_string
+        self.master.use_currdb()
+
         if submit.startswith('Update') and len(pv)>1:
             pvn = clean_input(pv)
             self.write("<p>Updating data for %s!!<p><hr>" % (pvn))
             desc  = clean_input(self.kw['desc'].strip())
             dtime = float(clean_input(self.kw['deadtime'].strip()))
             dband = float(clean_input(self.kw['deadband'].strip()))
-            self.arch.db.execute("update pv set description=%s where name=%s" %(es(desc),es(pvn)))
-            self.arch.db.execute("update pv set deadtime=%s where name=%s" %(es(dtime),es(pvn)))
-            self.arch.db.execute("update pv set deadband=%s where name=%s" %(es(dband),es(pvn)))
+
+            self.sql_exec("update pv set description=%s where name=%s" %(es(desc),es(pvn)))
+            self.sql_exec("update pv set deadtime=%s where name=%s" %(es(dtime),es(pvn)))
+            self.sql_exec("update pv set deadband=%s where name=%s" %(es(dband),es(pvn)))
                                                                                    
             self.write('<p> <a href="%s?pv=%s">Plot %s</a>&nbsp;&nbsp;</p>'% (thispage,pvn,pvn))
             self.endhtml()
@@ -687,7 +694,7 @@ class WebAdmin(HTMLWriter):
             self.endhtml()
             return self.get_buffer()            
 
-        ret = self.arch.db.exec_fetch("select * from pv where name = %s" % (es(pv)))
+        ret = self.exec_fetch("select * from pv where name = %s" % (es(pv)))
         if len(ret)== 0:
             self.write("PV not in archive??")
             self.endhtml()
@@ -707,6 +714,6 @@ class WebAdmin(HTMLWriter):
         self.write('Deadband (fraction):</td><td><input type="text" name="deadband" value="%s" size=30></td>' % str(d['deadband']))
         self.write("</tr></table><p><input type='submit' name='submit' value='Update PV Data'><p>")
 
-
+        self.master.db.use(config.master_db)
         self.endhtml()
         return self.get_buffer()

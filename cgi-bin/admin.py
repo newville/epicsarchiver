@@ -19,30 +19,15 @@ def index(req,pv=None,pv2=None,**kw):
 
 
 def show_pvinfo(req,pv=None,**kw):
-    global cache
-    global arch
     global master
-
-    try:
-        cache is None
-    except NameError:
-        cache = None
-
-    try:
-        arch is None
-    except NameError:
-        arch = None
 
     try:
         master is None
     except NameError:
         master = None
 
-
-    p = Webadmin(cache=cache,arch=arch,master=master)
+    p = WebAdmin(master=master)
     master= p.master
-    cache = p.cache
-    arch  = p.arch
 
     return p.show_pvinfo(pv,**kw)
 
