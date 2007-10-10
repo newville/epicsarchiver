@@ -1,3 +1,4 @@
+------------------------------------------------------------------
 This describes general usage of the pvarch program to control the
 PVarchiving processes.  Note that two processes will be running:
 
@@ -7,7 +8,7 @@ PVarchiving processes.  Note that two processes will be running:
  o  the archiving process archives values of PVs by reading the  
     cache and saving data to archive tables.
 
-
+------------------------------------------------------------------
 pvarch takes the following arguments:
 
   pvarch help     
@@ -32,9 +33,9 @@ pvarch takes the following arguments:
                  
   pvarch next
      rotate the archive database to the next sequential database.
-     This is recommended periodically to keep each 'archive
-     run' reasonably small.  Note that data retrieval will
-     automatically access multiple archives if needed.
+     This is recommended periodically to keep each 'archive run'
+     reasonably small.  Data retrieval will automatically access 
+     multiple archives as needed. 
     
   pvarch add_pv
      add one or more PVs to the cache and archive.  If more than
@@ -44,11 +45,11 @@ pvarch takes the following arguments:
   pvarch add_pvfile
      add a file listing PV to the cache and archive.  This is
      similar to adding all the PVs with
-       pvarch add_pv  XXX.VAL, YYY.VAL
+         pvarch add_pv XXX.VAL YYY.VAL
 
      Multiple PVs may be specified on a line (separated with a
-     comma), which will cause the "pair score" for all pairs of
-     PVs to be set, making them "related PVs".
+     space or comma), which will cause the "pair score" for all 
+     pairs of PVs to be set, making them "related PVs".
 
   pvarch drop_pv
      remove a PV from the cache and archiving process.  Existing
@@ -58,6 +59,16 @@ pvarch takes the following arguments:
      included in the next data table.
 
      To add a dropped pv back to the database, use add_pv.
+
+  pvarch list
+     prints a list of recent data archive databases
+
+  pvarch save
+     save databases to gzipped ASCII files that can later be 
+     loaded to reproduce database.  The cache, master, and
+     current data archive are always saved (as for simple 
+     backups).  Other databases can be saved by listing them
+     on the command line. 
 
   pvarch cache start
      start the caching process
@@ -75,3 +86,5 @@ pvarch takes the following arguments:
   pvarch cache activity
      print more detailed information of the caching process,
      including a list of all PVs updated in the past minute.
+
+------------------------------------------------------------------

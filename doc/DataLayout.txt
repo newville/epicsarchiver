@@ -1,3 +1,4 @@
+------------------------------------------------------------------
 This documents the layout of Databases and Tables for 
 the Epics Archiver. 
 
@@ -6,6 +7,7 @@ master_database, and the cache_database.  In addition, there will
 be a series of data archives, each containing historical data for
 a given time period.
 
+------------------------------------------------------------------
 The master_database contains the following tables:
 
     current: Current Status for Archiving Process
@@ -26,7 +28,8 @@ The master_database contains the following tables:
         start_time  starting timestamp for database
         stop_time   ending timestamp for database
 
-The cache_database contains the following tables:
+------------------------------------------------------------------
+The cache database contains the following tables:
 
     info: Status information for the Caching Process
         id        index
@@ -46,7 +49,8 @@ The cache_database contains the following tables:
         id       index
         name     name of PV requested to be added to cache.
 
-Each of the Data tables will have the following tables:
+------------------------------------------------------------------
+Each of the Archive databases will have the following tables:
  
     pv:  Information about PVs
         id          index for PV
@@ -74,4 +78,4 @@ Each of the Data tables will have the following tables:
        pv_id        PV id (ie, from pv table)
        value        value for PV=pv_id at Time=time
 
-
+------------------------------------------------------------------

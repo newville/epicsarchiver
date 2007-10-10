@@ -1,3 +1,4 @@
+-----------------------------------------------------------------
 Notes on configuring apache / mod_python :
 
 You will need to configure Apache to load the mod_python module, 
@@ -24,9 +25,11 @@ should be accurate description of your system.
 Once added to Apache's httpd.conf (or to another config
 file loaded by Apache),  restart Apache 
     ...../bin/apachectl restart
+or 
+    /etc/init.d/httpd restart
 
 and you should be off and running.  
-
+-----------------------------------------------------------------
 
 
 
