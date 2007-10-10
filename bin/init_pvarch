@@ -46,13 +46,25 @@ welcome_msg = """
 master= ("drop table if exists current",
          "drop table if exists pairs",
          "drop table if exists runs",
+         "drop table if exists pvnames",
+         "drop table if exists instruments",
+         "drop table if exists instrument_pvs",
+         "drop table if exists instrument_positions",         
+
+         """create table pvnames (
+         id      int unsigned not null auto_increment,         
+         name    varchar(64) not null,
+         type    varchar(64) not null,
+         primary key  (id))""",
+
+
          """create table pairs (
-          pv1   varchar(64) not null,
-          pv2   varchar(64) not null,
+          pv1   int not null,
+          pv2   int not null,
           score int unsigned default 0)""", 
 
          """create table runs (
-         id         smallint unsigned not null auto_increment,
+         id         int unsigned not null auto_increment,
          db         varchar(32) not null default '',
          notes      varchar(511) default null,
          start_time double not null default 0,
@@ -60,7 +72,8 @@ master= ("drop table if exists current",
          primary key  (id),
          unique  key db (db))""",
          
-         """create table current (
+         """create table info  (
+         process enum('archive','cache','stopping','unknown') default 'unknown',
          status enum('offline','running','stopping','unknown') default 'unknown',
          db     varchar(32) default null,
          pid    int unsigned default null)""",
@@ -72,6 +85,7 @@ master_run0    =  "insert into runs values (1,'%s','%s',%f,%f)"
 cache = ("drop table if exists cache",
          "drop table if exists info",
          "drop table if exists req",
+         "drop table if exists alerts",
 
          """create table cache (
   id     int(10) unsigned not null auto_increment,
@@ -80,20 +94,33 @@ cache = ("drop table if exists cache",
   value  varchar(64) default null,
   cvalue varchar(64) default null,
   ts     double not null,
+  active   enum('yes','no') default 'yes',
   primary key  (id))""",
 
          """create table req (
+  id     int(10) unsigned not null auto_increment,
+  name   varchar(64) default null,
+  primary key  (id))""",
+
+         """create table alerts (
   id int(10) unsigned not null auto_increment,
-  name varchar(64) default null,
+  name      varchar(64) default null,
+  mailto    varchar(256) default null,
+  mailmsg   varchar(1024) default null,
+  trippoint tinyblob default null,
+  compare   enum('eq','ne','le','lt','ge','gt') default 'eq',
+  status    enum('alarm','ok') default 'ok',
+  active    enum('yes','no') default 'yes',
   primary key  (id))""",
 
          """create table info (
-  id int(10) unsigned not null auto_increment,
-  ts double default null,
+  id       int(10) unsigned not null auto_increment,
+  ts       double default null,
   datetime varchar(128) default null,
-  pid int(10) unsigned default null,
+  pid      int(10) unsigned default null,
   primary key  (id))""",
-         "insert into info values (1,0.0,'created',0)"
+         
+         "insert into info values (1,0.0,'created',0)",
 )
 
 def initialize(config):
