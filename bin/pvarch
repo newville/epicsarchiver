@@ -15,20 +15,27 @@ def show_usage():
     print """    pvarch:   run and interact with Epics PV Archiver and MySQL process
     
     pvarch -h            shows this message.
-    pvarch status        shows cache status, some recent statistics.
-    pvarch check         returns # of variables updated in past minute. Should be >1!
-    pvarch restart       restarts the caching process
-    pvarch add_pv        add a PV to the currently running cache
-    pvarch drop_pv       add a PV to the currently running cache
+    pvarch status        shows cache and archiving status, some recent statistics.
+    pvarch check         print # of archivedsin past 10 minutes. Should be >1!
 
+    pvarch start         start the archiving process
+    pvarch stop          stop the archiving process
+    pvarch restart       restart the archiving process
+    pvarch next          restart with 'next run' of data archives
+
+    pvarch add_pv        add a PV to the cache and archive
     pvarch add_pvfile    read a file of PVs to add to the Archiver
+
+    pvarch drop_pv       remove a PV from cahce and archive
+
+    pvarch list          prints a list of recent data archives
+    pvarch save          save a list of recent data archives
 
     pvarch cache start        start cache process (if it's not already running)
            cache stop         stop  cache process
            cache restart      restart cache process
            cache status   t   show # of PVs cached in past t seconds (default=60)
            cache activity t   show list of PVs cached in past t seconds (default=60)
-
     """
     sys.exit()
 
@@ -42,17 +49,37 @@ def next_archive():
     master.set_pid(0)
     master.set_currentDB(next_db)
     master.set_runinfo(dbname)
-    master.close()
-
     time.sleep(1.0)
+
+    master.close()
     run_archive(action='start')
 
+def save_archives(args):
+    " save archives to gzipped ascii files" 
+    config  = EpicsArchiver.config
+    master  = EpicsArchiver.ArchiveMaster()
+    currdb  = master.get_currentDB()
+
+    for db in (currdb,config.master_db,config.cache_db):
+        master.save_db(dbname=db)
+        if db in args:
+            args.remove(db)
+        
+    for db in args:
+        master.save_db(dbname=db)
+        
+    master.close()
+
+def list_archives():
+    master  = EpicsArchiver.ArchiveMaster()
+    out = master.show_tables()
+    master.close()
+    for i in out: print i
 
 def run_archive(action='start'):
     def archive_loop():
         a  = EpicsArchiver.Archiver()
         a.mainloop()
-
 
     config  = EpicsArchiver.config
     master  = EpicsArchiver.ArchiveMaster()
@@ -62,11 +89,15 @@ def run_archive(action='start'):
     sout    = os.path.join(dir, "%s.log" % dbname)
     serr    = os.path.join(dir, "%s.err" % dbname)
     pidfile = os.path.join(dir, "pvarch.pid")
+
+    if 'stop'==action:
+        master.set_status('stopping')
+        print 'Stopping ....'
     master.close()
     
     EpicsArchiver.startstop(stdout =sout,stderr=serr, pidfile=pidfile,
-                            process_name='pvarch', action=action)
-    archive_loop()
+                            process_name='pvarch', action=action,
+                            func = archive_loop)
 
 def run_cache(action=None):
 
@@ -83,8 +114,8 @@ def run_cache(action=None):
     
 
     EpicsArchiver.startstop(stdout =sout,stderr=serr, pidfile=pidfile,
-                            process_name='pvcache', action=action)
-    cache_loop()
+                            process_name='pvcache', action=action,
+                            func = cache_loop)
 
 def read_pid(name='cache'):
     config = EpicsArchiver.config
@@ -110,7 +141,10 @@ def cache_status(action='activity', dt=60):
         for r in ret:
             stime = time.strftime("%H:%M:%S", time.localtime(r['ts']))
             print "  %s   %.29s = %s" % (stime, r['name']+' '*20,r['value'])
-    print msg % (len(ret), int(dt), cache.get_pid(), status)    
+    elif 'check' == action:            
+        print len(ret)
+    else:
+        print msg % (len(ret), int(dt), cache.get_pid(), status)
     cache.close()
     
 def archive_status(minutes=10):
@@ -170,6 +204,12 @@ def main():
             
     elif 'next' == cmd:
         next_archive()
+
+    elif 'save' == cmd:
+        save_archives(args)
+
+    elif 'list' == cmd:
+        list_archives()
         
     elif 'add_pv' == cmd:
         for pv in args:
@@ -188,17 +228,16 @@ def main():
     elif 'cache' == cmd:
         action = args.pop(0)
 
-        if action not in ('start','stop','restart','status','activity'):
-            print "'pvarch cache' needs one of start, stop, restart, status, activity"
+        if action not in ('start','stop','restart','status','activity','check'):
+            print "'pvarch cache' needs one of start, stop, restart, status, check, activity"
             print "    Try 'pvarch -h' "
             
-        if action in ('status','activity'):
+        if action in ('status','check','activity'):
             dt = 60
             if len(args)>0: dt = args.pop(0)
             cache_status(action=action,dt=float(dt))
         else:
             run_cache(action=action)
-           
 
     else: print "pvarch  unknown command '%s'.    Try 'pvarch -h'" % cmd
 
