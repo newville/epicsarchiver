@@ -49,9 +49,8 @@ class SimpleTable:
             sys.stdout.write("Warning SimpleTable needs a database\n")
             return None
 
-        self.fields  = []
-        self.primary = None
-        self._name = None
+        self.fields = []
+        self._name  = None
         if table in self.db.table_list:
             self._name = table
         else:
@@ -64,7 +63,6 @@ class SimpleTable:
 
         # print "done: describe %s" % self._name
         for j in self.db.exec_fetch("describe %s" % self._name):
-            if (j['key'] == 'PRI'):  self.primary = j['field']
             self.fields.append(j['field'].lower())
             
     def check_args(self,**args):
@@ -205,7 +203,7 @@ class SimpleDB:
             self.write(msg % (self.dbname,file))            
         if compress:
             try:
-                os.system("gzip %s" % (file))
+                os.system("gzip -f %s" % (file))
             except:
                 self.write("could compress database file %s" % (file))
 
@@ -223,9 +221,17 @@ class SimpleDB:
             f = open(file)
 	    lines = f.readlines()
 	    count = 0
+            cmds = []
             for x in lines:
                 if not x.startswith('#'):
-                    self.__execute(x[:-1])
+                    x = x[:-1].strip()
+                    if x.endswith(';'):
+                        cmds.append(x[:-1])
+                        sql = "".join(cmds)
+                        self.__execute(sql)
+                        cmds = []
+                    else:
+                        cmds.append(x)
                 count = count +1
                 if (report>0 and (count % report == 0)):
                     self.write("%i / %i " % (count,len(lines)))

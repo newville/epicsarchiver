@@ -93,22 +93,31 @@ class ArchiveMaster:
                 pass
         
         if currdb == dbname:  max_time = MAX_EPOCH
+        self.__setrun(dbname,min_time,max_time)
 
-        note = "%s to %s" % (time.strftime("%d-%b-%Y", time.localtime(min_time)),
-                             time.strftime("%d-%b-%Y", time.localtime(max_time)))
-
+    def __setrun(self,dbname,t0=None,t1=None):
+        if t0 is None: t0 = time.time()
+        if t1 is None: t1 = MAX_EPOCH
         self.db.use(master_db)
         dbstr = clean_string(dbname)
-        note  = clean_string(note)
-        self.__exec("update runs set start_time=%f where db=%s" % (min_time, dbstr))
-        self.__exec("update runs set stop_time=%f where db=%s"  % (max_time, dbstr))
-        self.__exec("update runs set notes=%s where db=%s"      % (note,dbstr))
+        r = self.db.exec_fetchone("select db from runs where db=%s" % dbstr)
+        if r == {}:
+            self.__exec("insert into runs (db) values (%s)" % dbstr)
+
+
+        notes = clean_string("%s to %s" % (time.strftime("%d-%b-%Y", time.localtime(t0)),
+                                           time.strftime("%d-%b-%Y", time.localtime(t1))))
+
+        self.__exec("update runs set start_time=%f  where db=%s" % (t0, dbstr))
+        self.__exec("update runs set stop_time=%f   where db=%s" % (t1, dbstr))
+        self.__exec("update runs set notes=%s       where db=%s" % (notes, dbstr))
+
 
     def set_currentDB(self,dbname):
         self.db.use(master_db)        
         dbstr = clean_string(dbname)        
-        r = self.db.exec_fetchone("select db from runs where db=%s" % dbstr)
-        self.__exec("update current set db=%s" % clean_string(r['db']))
+        self.__setrun(dbname)
+        self.__exec("update current set db=%s" % dbstr)
 
     def get_related_pvs(self,pv,minscore=1):
         npv = normalize_pvname(pv)        
@@ -181,16 +190,19 @@ class ArchiveMaster:
     def show_tables(self):
         currdb = self.__current('db')
         r = []
-        timefmt = "%6.2f "
         for i in self.db.exec_fetch("select * from runs order by start_time desc limit 10"):
+            timefmt = "%6.2f "
             if  i['db']== currdb:
-                timefmt = "%6.2f* "
+                timefmt = "%6.2f*"
                 i['stop_time'] = time.time()
             i['days'] = timefmt % ((i['stop_time'] - i['start_time'])/(24*3600.0))
-            r.append(" %(db)s :   %(days)s      %(notes)s" % i)
+            r.append("| %(db)16s  | %(notes)30s  |   %(days)10s    |" % i)
         r.reverse()
-        out = [' =  DB       Duration(days)     Time Range ']
+        out = ['|  database         |         date range              | duration (days) |']
+##                                     012345678901234568901234567890
+        out.append('|-------------------|---------------------------------|-----------------|')
         for i in r: out.append(i)
+        out.append('|-------------------|---------------------------------|-----------------|')
         return out
 
     def request_stop(self):
@@ -232,14 +244,12 @@ class ArchiveMaster:
                            deadtime   =p['deadtime'],    graph_type =p['graph_type'],
                            graph_lo   =p['graph_lo'],    graph_hi   =p['graph_hi'])
 
-        self.db.use(master_db)
-        self.__exec("delete from runs where db='%s'" % dbname)
-        q = "insert into runs (db,start_time,stop_time) values ('%s',%f,%f)"
-        self.__exec(q % (dbname,MAX_EPOCH,MAX_EPOCH))
+        self.__setrun(dbname)
         olddb.close()
         newdb.close()        
         return dbname
    
+        
     def dbs_for_time(self, t0=SEC_DAY, t1=MAX_EPOCH):
         """ return list of databases with data in the given time range"""
         timerange = ( min(t0,t1) - SEC_DAY, max(t0,t1) + SEC_DAY)

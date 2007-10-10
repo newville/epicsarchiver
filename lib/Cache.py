@@ -64,8 +64,10 @@ def add_pvfile(fname):
 
     cache.close()
     EpicsCA.pend_event(0.01)
-    EpicsCA.pend_io(15.0)
-    EpicsCA.disconnect()
+    EpicsCA.pend_io(10.0)
+    EpicsCA.disconnect_all()
+    EpicsCA.pend_io(10.0)
+    
     print 'done.'
 
 class Cache:

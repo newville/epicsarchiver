@@ -77,14 +77,18 @@ def daemonize(stdout='/dev/null', stderr=None, stdin='/dev/null',
     os.dup2(so.fileno(), sys.stdout.fileno())
     os.dup2(se.fileno(), sys.stderr.fileno())
 
+    if callable(func): func(*args,**kws)
     
 def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
               process_name = '',   pidfile='pid.txt',
               startmsg = 'started with pid %s',
-              action='start',**kws):
+              action='start',func=None,**kws):
+
+    fname = ''
+    if func is not None: fname = "(%s)" % func.__name__
     
     if action not in ('start','stop','restart','status'):
-        print "startstop: %s start|stop|restart|status" % (process_name)
+        print "startstop: %s %s start|stop|restart|status" % (process_name,fname)
         sys.exit(2)        
     try:
         pf  = file(pidfile,'r')
@@ -135,7 +139,7 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
             mess = " Process ID=%i (found from file '%s') is running.\n Try 'restart?'\n"
             sys.stderr.write(mess % (pid,pidfile))
         else:
-            daemonize(stdout,stderr,stdin,pidfile,startmsg,*kws)
+            daemonize(stdout,stderr,stdin,pidfile,startmsg,func=func,**kws)
     return
         
 
@@ -167,7 +171,6 @@ if __name__ == "__main__":
 
     print args
     startstop(stdout='/tmp/daemon1.log',  pidfile='/tmp/daemon1.pid',
-              process_name = args[0],   action=args[1])
-    test()
+              process_name = args[0],   action=args[1], func=test)
     
     
