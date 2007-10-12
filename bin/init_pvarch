@@ -9,7 +9,7 @@ import getpass
 import warnings
 
 try:
-    from EpicsArchiver import util, SimpleDB, Master
+    from EpicsArchiver import util, SimpleDB
 except ImportError:
     xx, yy, zz = sys.exc_info()
     sys.excepthook(xx,yy,zz)
@@ -37,91 +37,15 @@ welcome_msg = """
  of a mysql account that can grant permissions to %(dbuser)s 
 
  *** Warning *** Warning *** Warning *** Warning *** Warning *** 
- This will destroy the databases %(master_db)s and %(cache_db)s
+ This will destroy the existing database %(master_db)s
 
  Use Ctrl-C now if you do not want these databases destroyed!
  **************************************************************
 """
 
-master= ("drop table if exists current",
-         "drop table if exists pairs",
-         "drop table if exists runs",
-         "drop table if exists pvnames",
-         "drop table if exists instruments",
-         "drop table if exists instrument_pvs",
-         "drop table if exists instrument_positions",         
-
-         """create table pvnames (
-         id      int unsigned not null auto_increment,         
-         name    varchar(64) not null,
-         type    varchar(64) not null,
-         primary key  (id))""",
-
-
-         """create table pairs (
-          pv1   int not null,
-          pv2   int not null,
-          score int unsigned default 0)""", 
-
-         """create table runs (
-         id         int unsigned not null auto_increment,
-         db         varchar(32) not null default '',
-         notes      varchar(511) default null,
-         start_time double not null default 0,
-         stop_time  double not null default 0,
-         primary key  (id),
-         unique  key db (db))""",
-         
-         """create table info  (
-         process enum('archive','cache','stopping','unknown') default 'unknown',
-         status enum('offline','running','stopping','unknown') default 'unknown',
-         db     varchar(32) default null,
-         pid    int unsigned default null)""",
-       )
-
-master_current =  "insert into current values ('unknown','%s',0)"
+init_sql = 'pvarch_init.sql'
+master_current =  "update info set db='%s' where process='archive'" 
 master_run0    =  "insert into runs values (1,'%s','%s',%f,%f)"
-
-cache = ("drop table if exists cache",
-         "drop table if exists info",
-         "drop table if exists req",
-         "drop table if exists alerts",
-
-         """create table cache (
-  id     int(10) unsigned not null auto_increment,
-  name   varchar(64) default null,
-  type   varchar(64) default null,
-  value  varchar(64) default null,
-  cvalue varchar(64) default null,
-  ts     double not null,
-  active   enum('yes','no') default 'yes',
-  primary key  (id))""",
-
-         """create table req (
-  id     int(10) unsigned not null auto_increment,
-  name   varchar(64) default null,
-  primary key  (id))""",
-
-         """create table alerts (
-  id int(10) unsigned not null auto_increment,
-  name      varchar(64) default null,
-  mailto    varchar(256) default null,
-  mailmsg   varchar(1024) default null,
-  trippoint tinyblob default null,
-  compare   enum('eq','ne','le','lt','ge','gt') default 'eq',
-  status    enum('alarm','ok') default 'ok',
-  active    enum('yes','no') default 'yes',
-  primary key  (id))""",
-
-         """create table info (
-  id       int(10) unsigned not null auto_increment,
-  ts       double default null,
-  datetime varchar(128) default null,
-  pid      int(10) unsigned default null,
-  primary key  (id))""",
-         
-         "insert into info values (1,0.0,'created',0)",
-)
 
 def initialize(config):
     print welcome_msg % config.__dict__
@@ -144,30 +68,23 @@ def initialize(config):
         print 'exiting...'
         sys.exit(2)
 
-    try:
-        xdb   = SimpleDB(user=super_user, db='mysql',
+    if True:# try:
+        xdb   = SimpleDB(user=super_user, dbname='mysql',
                          passwd=super_pass, host = config.dbhost)
-    except:
-        print 'error starting mysql. Invalid Username/Password? Is mysql running?'
-        sys.exit(1)
+#     except:
+#         print 'error starting mysql. Invalid Username/Password? Is mysql running?'
+#         sys.exit(1)
 
 
     grant_kws = {'user':config.dbuser,
                  'passwd':config.dbpass,
                  'host':config.dbhost}
 
-    print 'creating database %s :' % config.cache_db,
-    xdb.create_and_use(config.cache_db)
-    xdb.execute(cache)
 
-    print 'granting permissions...',
-    xdb.grant(db=config.cache_db, **grant_kws)
-
-
-    print 'done.\ncreating database %s :' % config.master_db,
+    print 'reating database %s :' % config.master_db,
     xdb.create_and_use(config.master_db) 
 
-    xdb.execute(master) 
+    xdb.source_file(init_sql)
 
     print 'granting permissions...',
     xdb.grant(db=config.master_db, **grant_kws)
@@ -181,6 +98,7 @@ def initialize(config):
                                time.time(), util.MAX_EPOCH))
     
     print 'done.\ncreating database %s...' % firstdb,
+    from EpicsArchiver import Master
     m = Master.ArchiveMaster()
     m.create_emptydb(dbname=firstdb)
 

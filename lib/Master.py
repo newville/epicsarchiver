@@ -1,10 +1,11 @@
 #!/usr/bin/python
 
 import time
-import sys
+from MasterDB import MasterDB
 from SimpleDB import SimpleDB, SimpleTable
-from config import dbuser, dbpass, dbhost, master_db, cache_db, dat_prefix, dat_format
-from util import normalize_pvname, clean_string, MAX_EPOCH, SEC_DAY
+from config   import dbuser, dbpass, dbhost, master_db, dat_prefix, dat_format
+from util     import normalize_pvname, clean_string, tformat, MAX_EPOCH, SEC_DAY
+
 
 def nextname(current=None,dbname=None):
     if dbname is not None: return dbname
@@ -22,63 +23,57 @@ def nextname(current=None,dbname=None):
         index = int(current[nlen:]) + 1
     return dat_format % (dat_prefix,index)
 
-
-class ArchiveMaster:
+class ArchiveMaster(MasterDB):
+    """ class for access to Master database as the Meta table of Archive databases
+    """
     pv_init = ("drop table if exists pv",
                """create table pv (id  smallint unsigned not null primary key auto_increment,
-               name        varchar(64) not null,
-               description varchar(128),
-               data_table  varchar(16),
-               deadtime    double default 10.0,
-               deadband    double default 1.e-8,
-               graph_hi    tinyblob,
-               graph_lo    tinyblob,
+               name        varchar(64) not null unique,
+               description varchar(128),          data_table  varchar(16),
+               deadtime    double default 10.0,   deadband    double default 1.e-8,
+               graph_hi    tinyblob,              graph_lo    tinyblob,
                graph_type  enum('normal','log','discrete'),
                type        enum('int','double','string','enum') not null,
-               active   enum('yes','no') default 'yes',
-               unique (name) ) ENGINE=myisam;""")
+               active   enum('yes','no') default 'yes')""")
 
     dat_init = ("drop table if exists pvdat%3.3i",
-                  """create table pvdat%3.3i(
-                  time   double not null,
-                  pv_id  smallint unsigned not null,
-                  value  tinyblob) ENGINE=myisam;""")
+                """create table pvdat%3.3i( time   double not null,
+                pv_id  smallint unsigned not null, value  tinyblob);""")
 
-    sql_pairs_order  = "select * from pairs where %s=%s and score>=%i order by score"
-    sql_pairs_select = "select score from pairs where pv1=%s and pv2=%s"
-    sql_pairs_update = "insert into pairs values (%s,%s,%i)"
-    sql_pairs_insert = "update pairs set score=%i where pv1=%s and pv2=%s"
-    sql_current_sel  = "select * from current"
-    sql_set_pid      = "update current set pid=%i"
-    sql_get_times    = "select min(time),max(time) from pvdat%3.3i"
+    sql_get_times   = "select min(time),max(time) from pvdat%3.3i"
     
     def __init__(self):
-        self.db = SimpleDB(user=dbuser,passwd=dbpass,host=dbhost, dbname=master_db)
-        
-    def close(self): self.db.close()
-    
-    def __exec(self,s): self.db.execute(s)
+        # use of MasterDB assumes that there are not a lot of new PVs being
+        # added to the cache so that this lookup of PVs can be done once.
+        MasterDB.__init__(self)
 
-    def __current(self,val='db'):
-        self.db.use(master_db)
-        self.__exec(self.sql_current_sel)
-        return self.db.fetchone()[val]
-
-    def get_currentDB(self):  return self.__current('db')
-    def get_status(self):     return self.__current('status')
-    def get_pid(self):        return self.__current('pid')
-    def set_pid(self,pid=0):  return self.__exec(self.sql_set_pid % int(pid))
+    def stop_archiver(self):
+        self.set_arch_status('stopping')
 
     def save_db(self,dbname=None):
-        if dbname is None: dbname = self.__current('db')
+        if dbname is None: dbname = self.arch_db
         sys.stdout.write('saving %s\n' % dbname)
         self.db.use(dbname)
         self.db.safe_dump(compress=True)
         self.db.use(master_db)
+
+    def __setrun(self,dbname,t0=None,t1=None):
+        if t0 is None: t0 = time.time()
+        if t1 is None: t1 = MAX_EPOCH
+        dbstr = clean_string(dbname)
+        r = self.runs.select_one(where = "db=%s" % dbstr)['db']
+        if r == {}:
+            self.runs.insert(db=dbstr)
+
+        notes = clean_string("%s to %s" % (tformat(t0), tformat(t1)))
+
+        where = "db=%s" % (dbstr)
+        self.runs.update(start_time=t0,  where=where)
+        self.runs.update(stop_time=t1,   where=where)
+        self.runs.update(notes=notes,    where=where)
         
     def set_runinfo(self,dbname=None):
-        currdb = self.__current('db')
-        if dbname is None: dbname = currdb
+        if dbname is None: dbname = self.arch_db
         self.db.use(dbname)
         min_time=MAX_EPOCH
         max_time=0
@@ -92,145 +87,33 @@ class ArchiveMaster:
             except TypeError:
                 pass
         
-        if currdb == dbname:  max_time = MAX_EPOCH
+        if dbname == self.arch_db:  max_time = MAX_EPOCH
         self.__setrun(dbname,min_time,max_time)
-
-    def __setrun(self,dbname,t0=None,t1=None):
-        if t0 is None: t0 = time.time()
-        if t1 is None: t1 = MAX_EPOCH
         self.db.use(master_db)
-        dbstr = clean_string(dbname)
-        r = self.db.exec_fetchone("select db from runs where db=%s" % dbstr)
-        if r == {}:
-            self.__exec("insert into runs (db) values (%s)" % dbstr)
-
-
-        notes = clean_string("%s to %s" % (time.strftime("%d-%b-%Y", time.localtime(t0)),
-                                           time.strftime("%d-%b-%Y", time.localtime(t1))))
-
-        self.__exec("update runs set start_time=%f  where db=%s" % (t0, dbstr))
-        self.__exec("update runs set stop_time=%f   where db=%s" % (t1, dbstr))
-        self.__exec("update runs set notes=%s       where db=%s" % (notes, dbstr))
-
-
+    
     def set_currentDB(self,dbname):
-        self.db.use(master_db)        
         dbstr = clean_string(dbname)        
         self.__setrun(dbname)
-        self.__exec("update current set db=%s" % dbstr)
-
-    def get_related_pvs(self,pv,minscore=1):
-        npv = normalize_pvname(pv)        
-        tmp = []
-        for i in ('pv1','pv2'):
-            q = self.sql_pairs_order % (i,clean_string(npv),minscore)
-            for j in self.db.exec_fetch(q):
-                tmp.append((j['score'],j['pv1'].strip(),j['pv2'].strip()))
-        tmp.sort()
-        out = []
-        for i in tmp:
-            n = normalize_pvname(i[1])
-            if n == npv: n =i[2]
-            if n != npv and n not in out: out.append(n)
-        out.reverse()
-        return out
-
-    def get_pair_score(self,pv1,pv2):
-        p = [pv1.strip(),pv2.strip()] ;  p.sort()
-        q = self.sql_pairs_select % (clean_string(p[0]),clean_string(p[1]))
-        try:
-            return int( self.db.exec_fetchone(q)['score'] )
-        except:
-            return 0
-
-    def set_pair_score(self,pv1,pv2,score=None):
-        p = [pv1.strip(),pv2.strip()] ;  p.sort()
-        current_score  = self.get_pair_score(p[0],p[1])
-        if score is None: score = 1 + current_score
-        if current_score == 0:
-            self.__exec(self.sql_pairs_update % (clean_string(p[0]),clean_string(p[1]),score))
-        else:
-            self.__exec(self.sql_pairs_insert % (score,clean_string(p[0]),clean_string(p[1])))
-
-    def increment_pair_score(self,pv1,pv2):  self.set_pair_score(pv1,pv2,score=None)
-
-    def get_all_scores(self,pv1,pv2,score):  self.db.exec_fetch("select * from pairs")
-
-    def status_report(self,minutes=10):
-        currdb = self.__current('db')
-        out = []
-        out.append("Current Database=%s,  status=%s,  PID=%i " % (currdb, self.get_status(), self.get_pid()))
-        self.db.use(currdb)
-        n = []
-        dt = time.time() - minutes * 60.
-        for i in range(1,129):
-            r = self.db.exec_fetch("select * from pvdat%3.3i where time > %f " % (i,dt))
-            n.append(len(r))
-            tot = 0
-        for i in n: tot = tot + i
-        out.append("%i values archived in past %i minutes"  % (tot , minutes))
-        self.db.use(master_db)
-        return out
-
-    def use_currdb(self):
-        currdb = self.__current('db')
-        self.db.use(currdb)
-
-        
-    def get_cache_status(self,dt=60):
-        self.db.use(cache_db)
-        out = []
-        q   = "select name,type,value,cvalue,ts from cache where ts> %i order by ts"
-        ret = self.db.exec_fetch(q % (time.time() - dt) )
-        pid = self.db.exec_fetch("select pid from info")[0]['pid']
-        self.db.use(master_db)
-        return ['%i PVs had values updated in the past %i seconds. pid=%i' % (len(ret),dt,pid)]
-
-        
-    def show_tables(self):
-        currdb = self.__current('db')
-        r = []
-        for i in self.db.exec_fetch("select * from runs order by start_time desc limit 10"):
-            timefmt = "%6.2f "
-            if  i['db']== currdb:
-                timefmt = "%6.2f*"
-                i['stop_time'] = time.time()
-            i['days'] = timefmt % ((i['stop_time'] - i['start_time'])/(24*3600.0))
-            r.append("| %(db)16s  | %(notes)30s  |   %(days)10s    |" % i)
-        r.reverse()
-        out = ['|  database         |         date range              | duration (days) |']
-##                                     012345678901234568901234567890
-        out.append('|-------------------|---------------------------------|-----------------|')
-        for i in r: out.append(i)
-        out.append('|-------------------|---------------------------------|-----------------|')
-        return out
-
-    def request_stop(self):
-        self.set_status('stopping')
-
-    def set_status(self,status='running'):
-        if status not in ('running','offline','stopping','unknown'):
-            status = 'unknown'
-        self.__exec("update current set status = '%s'" % status)
+        self.info.update(db=dbstr,where="process='archive'")
 
     def create_emptydb(self,dbname):
-        self.__exec("drop database if exists %s" % dbname)
-        self.__exec("create database %s" % dbname)
+        self.db.execute("drop database if exists %s" % dbname)
+        self.db.execute("create database %s" % dbname)
         self.db.use(dbname)
-        self.__exec(self.pv_init)
+        self.db.execute(self.pv_init)
         for i in range(1,129):
-            for q in self.dat_init: self.__exec(q % i)
+            for q in self.dat_init: self.db.execute(q % i)
         self.db.grant(db=dbname,user=dbuser,passwd=dbpass,host=dbhost)
+        self.db.use(master_db)
 
     def make_nextdb(self,dbname=None):
         "create a new pvarch database, copying pvs to save from an old database"
 
-        currdb = self.__current('db')
-        olddb  = SimpleDB(user=dbuser, passwd=dbpass,dbname=currdb, host=dbhost,debug=0)
-        olddb.use(currdb)
-        old_data = olddb.exec_fetch("select * from pv")
+        olddb  = SimpleDB(user=dbuser, passwd=dbpass,dbname=self.arch_db, host=dbhost,debug=0)
+        olddb.use(self.arch_db)
+        old_data = olddb.tables['pv'].select()
 
-        dbname = nextname(current=currdb,dbname=dbname)
+        dbname = nextname(current=self.arch_db,dbname=dbname)
         self.create_emptydb(dbname)
         
         newdb = SimpleDB(user=dbuser, passwd=dbpass,dbname=dbname, host=dbhost,debug=0)
@@ -248,13 +131,13 @@ class ArchiveMaster:
         olddb.close()
         newdb.close()        
         return dbname
-   
         
     def dbs_for_time(self, t0=SEC_DAY, t1=MAX_EPOCH):
         """ return list of databases with data in the given time range"""
         timerange = ( min(t0,t1) - SEC_DAY, max(t0,t1) + SEC_DAY)
-        q = 'select db from runs where stop_time>=%i and start_time<=%i order by start_time'
+        where = "stop_time>=%i and start_time<=%i order by start_time"
         r = []
-        for i in self.db.exec_fetch(q % timerange):
+        for i in self.runs.select(where=where % timerange):
             if i['db'] not in r: r.append(i['db'])
         return r
+        
