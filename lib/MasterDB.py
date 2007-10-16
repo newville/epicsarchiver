@@ -14,17 +14,20 @@ class MasterDB:
     runs_title= '|  database         |         date range              | duration (days)|'
     runs_line = '|-------------------|---------------------------------|----------------|'
 
-    def __init__(self,**kw):
-        self.db = SimpleDB(user=dbuser, passwd=dbpass,
-                           host=dbhost, dbname=master_db)
+    def __init__(self,db=None, **kw):
+        if db is None:
+            self.db = SimpleDB(user=dbuser, passwd=dbpass,
+                               host=dbhost, dbname=master_db)
+        else:
+            self.db = db
+            
         self.info    = self.db.tables['info']
         self.cache   = self.db.tables['cache']
         self.runs    = self.db.tables['runs']
-        self.pairs   = self.db.tables['pairs'] 
-
+        self.pairs   = self.db.tables['pairs']
         self.arch_db = self._get_info('db',  process='archive')
         self.get_pvnames()
-
+        
     def use_master(self):
         self.db.use(master_db)
 
@@ -104,6 +107,19 @@ class MasterDB:
         EpicsCA.pend_event(0.01)
         EpicsCA.pend_io(1.0)
 
+
+    def get_recent(self,dt=60):
+        where = "ts>%f order by ts" % (time.time() - dt)
+        return self.cache.select(where=where)
+        
+    def dbs_for_time(self, t0=SEC_DAY, t1=MAX_EPOCH):
+        """ return list of databases with data in the given time range"""
+        timerange = ( min(t0,t1) - SEC_DAY, max(t0,t1) + SEC_DAY)
+        where = "stop_time>=%i and start_time<=%i order by start_time"
+        r = []
+        for i in self.runs.select(where=where % timerange):
+            if i['db'] not in r: r.append(i['db'])
+        return r
 
     def close(self): self.db.close()
     
@@ -259,16 +275,152 @@ class MasterDB:
     def get_all_scores(self,pv1,pv2,score):
         self.pairs.select()
 
-    def get_recent(self,dt=60):
-        where = "ts>%f order by ts" % (time.time() - dt)
-        return self.cache.select(where=where)
         
-    def dbs_for_time(self, t0=SEC_DAY, t1=MAX_EPOCH):
-        """ return list of databases with data in the given time range"""
-        timerange = ( min(t0,t1) - SEC_DAY, max(t0,t1) + SEC_DAY)
-        where = "stop_time>=%i and start_time<=%i order by start_time"
-        r = []
-        for i in self.runs.select(where=where % timerange):
-            if i['db'] not in r: r.append(i['db'])
-        return r
+class InstrumentDB(MasterDB):
+    """ interface to Instruments"""
+
+    def __init__(self,**kw):
+        MasterDB.__init__(self)
+
+        self.stations  = self.db.tables['stations']         
+        self.instruments = self.db.tables['instruments']         
+        self.inst_pvs  = self.db.tables['instrument_pvs']
+        self.inst_pos  = self.db.tables['instrument_positions']
+
+    ##
+    ## Instruments
+    def get_instruments_with_pv(self,pv):
+        """ return a list of (instrument ids, inst name, station name) for
+        instruments which  contain a named pv"""
+        inames = []
+        for r in self.inst_pvs.select(where="pvname='%s'" % pv):
+            inst = self.instruments.select_one(where="id=%i" % r['inst'])
+            sta  = self.stations.select_one(where="id=%i" % inst['station'])
+            inames.append((r['inst'],inst['name'],sta['name']))
+        return inames
+
+    def create_station(self,name=None,notes=''):
+        " create a station by name"
+        if name is not None:
+            self.stations.insert(name=name,notes=notes)
+
+    def list_stations(self):
+        " return a list of dictionaries for current stations"
+        return  self.stations.select()
+
+    def list_instruments(self,station=None):
+        """ return a list of dictionaries for all defined instruments
+        providing an optional station name will return all defined
+        instruments in that station
+        """                
+        where = '1=1'
+        if station is not None:
+            s_id = self.get_station_id(name=station)
+            if s_id is not None:  where="station=%i" % s_id
+
+        return  self.instruments.select(where=where)
+
+    def get_station_id(self,name=None):
+        "return station id from station name"
+        ret = None
+        if name is not None:
+            o = self.stations.select_one(where="name='%s'" % name)
+            ret = o['id']
+        return ret
+
+    def get_instrument_id(self,name=None,station=None):
+        """return list of instrument ids from name -- note
+        that there may be more than one instrument with the
+        same name!!  Use optional station argument to
+        limit instrument choices"""
+
+        ilist = self.list_instruments(station=station)
+        return [i['id'] for i in ilist]
+
+    def create_instrument(self,name=None,station=None,notes=''):
+        station_id = self.get_station_id(station)
+        if station_id is None or name is None: return
+        self.instruments.insert(name=name,station=station_id,notes=notes)
+
+    def get_instruments(self,name=None,station=None):
+        where = '1=1'
+        if name is not None:
+            where = "name='%s'" % name
+        if station is not None:
+            sta = self.get_station_id(station)
+            if sta is not None:
+                where = "%s and station=%i" % (where,sta)
+
+        return self.instruments.select(where=where)
+
+    def set_instrument_pvs(self,pvlist,name=None,station=None,notes=''):
+        insts = self.get_instruments(name=name,station=station)
+        if len(insts)> 1:
+            print 'multiple instruments matched name/station=%s/%s' % (name,station)
+            return None
+        if not isinstance(pvlist,(tuple,list)):
+            print 'must provide list of PVs for instrument %s' % (name)
+            return None
+        inst_id = insts[0]['id']
+        for pvname in pvlist:
+            where = "inst=%i and pvname='%s'" % (inst_id,pvname)
+            x = self.inst_pvs.select_one(where=where)
+            print x
+            if x == {}:
+                print 'adding pvname %s to %s' % (pvname,inst_id)
+                x = self.inst_pvs.insert(pvname=pvname,inst=inst_id)
+
+    def save_instrument_position(self,name=None,ts=None,inst=None,station=None):
+        print 'save instrument position ', name, inst, ts
+        inst_id = self.get_instrument_id(name=inst,station=station)
+        if len(inst_id) == 0: warn = 'no'
+        if len(inst_id)  > 1: warn = 'multiple'
+        if len(inst_id) != 1:
+            print "warning: %s instruments found for name='%s', station='%s'" %(warn,inst,station)
+            if len(inst_id)==0:
+                return
+
+        inst_id = inst_id[0]
+        if ts is None: ts = time.time()
+        if name is None: name = time.ctime()
+        self.inst_pos.insert(inst=inst_id,name=name,ts=ts)
+
+    def list_position(self,inst=None,station=None,name=None):
+        """return a list of (id,name,ts) for instrument_positions
+        (that is the position id, position name, timestamp for position)
+        given an instrument name, and optionally a station name, and
+        optionally a position name """
         
+        inst_id = self.get_instrument_id(name=inst,station=station)
+        if len(inst_id) == 0:
+            warn = 'no'
+            print "warning: %s instruments found for name='%s', station='%s'" %(warn,inst,station)
+            return
+
+        out = []
+        where = '1=1'
+        if name is not None: where = "name='%s'" %  name
+        for inst in inst_id:
+            ret = self.inst_pos.select(where="%s and inst=%i" % (where,inst))
+            for r in ret:
+                out.append((r['id'],r['name'],r['ts']))
+        return out
+        
+    def get_position_values(self,position):
+        """ given a position tuple (returned from list_positions)
+        return a list of (pvname,values) for all PVs in that position.
+        """
+        pos_id,name,ts = position
+
+        where = "inst=%i and pvname='%s'" % (inst_id,pvname)
+        x = self.inst_pvs.select_one(where=where)
+
+        from Archiver import Archiver
+        a = Archiver()
+
+        for arch_db in dbs_for_time(t0=ts,t1=ts):
+            print 'using arch_db: ', arch_db
+            
+
+        self.use_master()
+

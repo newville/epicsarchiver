@@ -12,13 +12,14 @@ DEBUG=False
 cgiroot   = config.cgi_url
 
 
-thispage  = "%s/viewer.py" % cgiroot
-adminpage = "%s/admin.py" % cgiroot
-pvinfopage= "%s/admin.py/show_pvinfo" % cgiroot
-statuspage= "%s/status.py" % cgiroot
+thispage   = "%s/viewer.py" % cgiroot
+adminpage  = "%s/admin.py" % cgiroot
+pvinfopage = "%s/admin.py/pvinfo"       % cgiroot
+relpv_page = "%s/admin.py/related_pvs"  % cgiroot
+inst_page  = "%s/admin.py/instruments"  % cgiroot
+statuspage = "%s/status.py" % cgiroot
 
 os.environ['GNUTERM'] = 'png'
-
 
 import Gnuplot
 Gnuplot.GnuplotOpts.default_term='png'
@@ -91,8 +92,10 @@ js_cal = """
 """
 
 class HTMLWriter:
-    stat_link  = (statuspage, "Archiver Status Page")
-    admin_link = (adminpage,"Archiver Admin Page") 
+    top_links  = ((statuspage, "PV Status", False),
+                  (inst_page,  "Instruments", True),                  
+                  (adminpage,  "Settings / Admin",  True) )
+                  
 
     def __init__(self, **args):
         self.tabledef  ="<table width=90% cellpadding=0 cellspacing=1>"
@@ -118,10 +121,12 @@ class HTMLWriter:
 
     def show_links(self,pv='',**kw):
         self.write("<ul id='tabmenu'>")
-        self.write("<li><a  href='%s'>%s</a></li>" % self.stat_link)
-        ad_title, ad_link = self.admin_link
-        if pv != '':  pv = "?pv=%s" % pv
-        self.write("<li><a  href='%s%s'>%s</a></li>" % (ad_title, pv, ad_link))
+        for s in self.top_links:
+            link,title,use_pv = s
+            if use_pv and pv != '':
+                link = "%s?pv=%s" % (link,pv)
+            self.write("<li><a  href='%s'>%s</a></li>" % (link,title))
+
         self.write("</ul><br>")
 
     def endhtml(self):
@@ -218,9 +223,9 @@ set ytics nomirror
         self.write("<table border=0 cellpadding=1>")
         #
         self.write("<tr><td colspan=5>")
-        xpv1 = self.argclean(pvname1,  self.kw['form_pv'])
+        pv1 = self.argclean(pvname1,  self.kw['form_pv'])
        
-        self.show_links(pv=xpv1)
+        self.show_links(pv=pv1)
         self.write("</td></tr>")
         self.write("<tr><td colspan=5 class='xtitle'>&nbsp;&nbsp;&nbsp;&nbsp; %s</td></tr>" % tx)
         #
@@ -632,19 +637,22 @@ class WebAdmin(HTMLWriter):
         self.kw.update(kw)
 
     def show_adminpage(self,pv=''):
-        self.starthtml()
-        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.arch_report())
-        self.write("Archive Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)
-
-        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.cache_report(brief=True))
-        self.write("Cache Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)        
-
-        self.write("\n<hr>")
-
         pvname = self.kw['form_pv'].strip()
         if pvname == '' and pv != '':
             pvname = pv
             self.kw['form_pv'] = pvname
+
+        self.starthtml()
+        self.show_links(pv=pvname)
+
+        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.arch_report())
+        self.write("Archive Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)
+
+        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.cache_report(brief=True))
+        self.write("<p>Cache Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)        
+
+        self.write("<hr>")
+
             
         submit = self.kw['submit'].strip()
 
@@ -660,15 +668,15 @@ class WebAdmin(HTMLWriter):
         
         self.write('<form action ="%s" enctype="multipart/form-data"  method ="POST"><p>' % (adminpage))
         self.write('<p>Search for PV:&nbsp;&nbsp;&nbsp;')
-        self.write('<input type="text" name="form_pv" value="%s" size=40> &nbsp; (use \'*\' for wildcard searches)</p>' % pvname)
-
+        self.write('<input type="text" name="form_pv" value="%s" size=40> &nbsp; (use \'*\' for wildcard searches)' % pvname)
+        self.write("<input type='submit' name='submit' value='Search Archive'><p>")
         if pvname != '':
             i = 0
             sx = clean_input(pvname.replace('*','%'))
 
             results = self.master.cache.select(where="pvname like '%s' order by pvname" % sx)
 
-            self.write("<p>Search results for '%s' (%i matches): </p>" % (sx,len(results)))
+            self.write("<p>Search results for '%s' (%i matches): </p>" % (pvname,len(results)))
             self.write("<table><tr>")
 
             for r in results:
@@ -677,16 +685,24 @@ class WebAdmin(HTMLWriter):
                 if i % 3 == 0: self.write("</tr><tr>")
 
             self.write("</table>")
+
             if len(results)== 0 and sx.find('%')==-1:
-                self.write(" '%s' not found in archive or cache! &nbsp; " % pvname)
-                self.write("<input type='submit' name='submit' value='Add to Archive'><p>")
+                self.write("<input type='submit' name='submit' value='Add %s to Archive'><p>" % pvname)
                    
         self.endhtml()
         return self.get_buffer()
 
     def show_pvinfo(self,pv=None,**kw):
         self.kw.update(kw)
+
+        pvname = self.kw['form_pv'].strip()
+        if pvname == '' and pv != '':
+            pvname = pv
+            self.kw['form_pv'] = pvname
+
         self.starthtml()
+        self.show_links(pv=pvname)
+
         if DEBUG:
             self.write('<p> === Keys: === </p>')
             for key,val in self.kw.items():
@@ -754,7 +770,7 @@ class WebAdmin(HTMLWriter):
         self.write("<table><tr><td colspan=2><hr></td></tr><tr>")
 
         self.write('<td>Data Type:</td><td>%s</td></tr>' % d['type'])
-        self.write("<td>Active</td><td>")
+        self.write("<td>Actively Archived:</td><td>")
         for i in ('Yes','No'):
             sel = ''
             if i.lower() == d['active'].lower():  sel = "checked=\"true\""
@@ -791,9 +807,9 @@ class WebAdmin(HTMLWriter):
         r = self.master.get_related_pvs(pvn)
         i = 0
         if len(r)==0:
-            self.write("<p>No 'Related PVs'</p>")
+            self.write("<h4>No Related PVs:  <a href=%s?pv=%s>View and Change</a></h4> <table><tr>" % (relpv_page,pvn))
         else:
-            self.write("<h4>Related PVs: <a href=%s/show_related_pvs?pv=%s>View and Change</a></h4> <table><tr>" % (adminpage,pvn))
+            self.write("<h4>Related PVs: <a href=%s?pv=%s>View and Change</a></h4> <table><tr>" % (relpv_page,pvn))
             for pv2 in r:
                 self.write('<td><a href="%s?pv=%s">%s</a>&nbsp;&nbsp;</td>'% (pvinfopage,pv2,pv2))
                 i  = i + 1
@@ -802,6 +818,22 @@ class WebAdmin(HTMLWriter):
             self.write("</tr></table>")
         
             
+        #  Instruments PVs
+        r = self.master.get_related_pvs(pvn)
+        i = 0
+        if len(r)==0:
+            self.write("<p>No Instruments for %s</p>" % pvn)
+        else:
+            self.write("<h4>Instruments: <a href=%s?pv=%s>View and Change</a></h4> <table><tr>" % (relpv_page,pvn))
+            for pv2 in r:
+                self.write('<td><a href="%s?pv=%s">%s</a>&nbsp;&nbsp;</td>'% (pvinfopage,pv2,pv2))
+                i  = i + 1
+                if i % 3 == 0: self.write("</tr><tr>")
+                
+            self.write("</tr></table>")
+        
+            
+
         self.endhtml()
         return self.get_buffer()
 
@@ -809,26 +841,68 @@ class WebAdmin(HTMLWriter):
         self.kw.update(kw)
         submit = self.kw['submit'].strip()
 
+        pvname = self.kw['form_pv'].strip()
+        if pvname == '' and pv != '':
+            pvname = pv
+            self.kw['form_pv'] = pvname
+
         self.starthtml()
+        self.show_links(pv=pvname)
+        
+        get_score = self.master.get_pair_score
+        set_score = self.master.set_pair_score
+
         if submit.startswith('Update'):
-            self.write("<p> Hit Update!!! </p>")
+            if len(kw)>0:
+                x   = kw.pop('submit')
+                pv1 = kw.pop('form_pv')
+                for i in ('pv0','pv1','pv2'):
+                    pv2 = kw.get(i,'').strip()
+                    if pv2 != '':  set_score(pv1,pv2,10)
+                    kw[i] = ''
+                for i in ('pv0','pv1','pv2'): kw.pop(i)
+                for pv2,action in kw.items():
+                    score = None
+                    if 'remove' == action:
+                        score = 0
+                    elif action.startswith('increase'):
+                        score = int(action[9:]) + 5
+                    elif action.startswith('decrease'):
+                        score = int(action[9:]) - 5                                    
+
+                    if score is not None:   set_score(pv1,pv2,score)
 
         if pv is not None:
             pvn = normalize_pvname(clean_input(pv))
+
+            self.write('<form action ="%s?pv=%s" enctype="multipart/form-data"  method ="POST"><p>' % (relpv_page,pvn))
+            self.write('<input type="hidden" name="form_pv" value="%s">' % pvn)
+
             r = self.master.get_related_pvs(pvn)
-            get_score = self.master.get_pair_score
             i = 0
+            self.write("<h4>Related PVs for &nbsp; &nbsp; %s:</h4> <table cellpadding=2 border=0> " % pvn)
+
             if len(r)==0:
-                self.write("<p>No 'Related PVs'</p>")
+                self.write("<tr><td colspan=4>no Related PVs for %s</td></tr>" % pvn)
             else:
-                self.write("<h4>Related PVs:</h4> <table><tr><td>PV </td><td>Score</td></tr><tr><td colspan=2><hr></td></tr>")
+                self.write("""<tr><td>PV </td><td>Current Score</td><td></td><td colspan=2>Change Score</td></tr>
+                <td colspan=5><hr></td><td></td></tr>""")
                 for pv2 in r:
-                    self.write('<tr><td>  %s</td><td>%i</td></tr>' % (pv2,get_score(pv2,pvn)))
-                    
-                self.write("</tr></table>")
-        
+                    score = get_score(pv2,pvn)                    
+                    self.write("""<tr><td>  %s &nbsp;</td><td>&nbsp; %i</td><td>
+                    <input type='radio' name='%s' value="increase_%i">&nbsp;+5&nbsp;</td><td>
+                    <input type='radio' name='%s' value="decrease_%i">&nbsp;-5&nbsp;</td><td>
+                    <input type='radio' name='%s' value="remove">&nbsp;remove</td></tr>
+                    """ % (pv2,score,pv2,score,pv2,score,pv2))
 
+                self.write("<tr><td colspan=5><hr></td></tr>")
+            
+            for i in range(3):
+                self.write("""<tr><td>Add related PV &nbsp;</td><td colspan=4>
+                <input type="text" name="pv%i" value="" size=30></td></tr>""" % i)
 
+            self.write("""<tr><td colspan=5><hr></td></tr><tr><td colspan=2>
+            <input type='submit' name='submit' value='Update Relate PVs'></td></tr></table>""")
 
         self.endhtml()
         return self.get_buffer()
@@ -838,7 +912,10 @@ class WebAdmin(HTMLWriter):
         self.kw.update(kw)
         submit = self.kw['submit'].strip()        
         self.starthtml()
-        
+        self.show_links()        
+
+        self.write("<h4>Instruments Page</hr>")
+
         self.endhtml()
         return self.get_buffer()
 

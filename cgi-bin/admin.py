@@ -18,7 +18,7 @@ def index(req,pv='',**kw):
     return p.show_adminpage(pv=pv)
 
 
-def show_pvinfo(req,pv=None,**kw):
+def pvinfo(req,pv=None,**kw):
     global arch
     try:
         arch is None
@@ -30,7 +30,7 @@ def show_pvinfo(req,pv=None,**kw):
 
     return p.show_pvinfo(pv,**kw)
 
-def show_related_pvs(req,pv=None,**kw):
+def related_pvs(req,pv=None,**kw):
     global arch
     try:
         arch is None
@@ -43,7 +43,7 @@ def show_related_pvs(req,pv=None,**kw):
     return p.show_related_pvs(pv,**kw)
 
 
-def show_instruments(req,station=None,instrument=None,pv=None,**kw):
+def instruments(req,station=None,instrument=None,pv=None,**kw):
     global arch
     try:
         arch is None
@@ -53,5 +53,5 @@ def show_instruments(req,station=None,instrument=None,pv=None,**kw):
     p = WebAdmin(arch=arch)
     arch = p.arch
 
-    return p.show_related_pvs(station=station,instrument=instrument,pv=pv,**kw)
+    return p.show_instruments(station=station,instrument=instrument,pv=pv,**kw)
 

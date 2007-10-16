@@ -20,7 +20,7 @@ from util import string_literal, clean_input, escape_string, timehash
 
 from SimpleDB import SimpleDB, SimpleTable
 
-from MasterDB import MasterDB
+from MasterDB import MasterDB, InstrumentDB
 from ArchiveMaster  import ArchiveMaster
 from Cache import Cache, add_pv_to_cache, add_pvfile
 from Archiver import Archiver
