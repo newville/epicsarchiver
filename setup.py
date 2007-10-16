@@ -23,8 +23,6 @@ try:
         raise TypeError('Password too short ("dbpass" in config.py)!')
     if len(config.dat_prefix)<2:
         raise TypeError('Need a Data Table Prefix ("dat_prefix" in config.py)!')
-    if len(config.cache_db)<2:
-        raise TypeError('Need a Name for the Cache DB ("cache_db" in config.py)!')
 except:
     xtype, errmsg, tb = sys.exc_info()
     print 

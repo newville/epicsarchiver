@@ -22,9 +22,6 @@ logdir = '/home/newville/logs/pvarch'
 # name of 'master' database
 master_db = 'pvarch_master'
 
-# name of caching db
-cache_db  = 'pvarch_cache'
-
 # prefix used for sequentially named databases
 # this *MUST* contain lowercase letters only
 dat_prefix = 'pvdata'
@@ -87,3 +84,10 @@ footer = """<hr>[
 #   directory needs to be world-readable, but can be in a user directory
 
 template_dir  = '/usr/local/share/pvarch/templates/'
+
+######################################################
+##
+## Email setup for email alerts
+##
+mailserver = 'localhost'
+mailfrom   = 'pvarchiver' 

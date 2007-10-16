@@ -37,13 +37,13 @@ welcome_msg = """
  of a mysql account that can grant permissions to %(dbuser)s 
 
  *** Warning *** Warning *** Warning *** Warning *** Warning *** 
- This will destroy the existing database %(master_db)s
+ This will destroy the existing databases %(master_db)s
 
  Use Ctrl-C now if you do not want these databases destroyed!
  **************************************************************
 """
 
-init_sql = 'pvarch_init.sql'
+init_sql       = 'pvarch_init.sql'
 master_current =  "update info set db='%s' where process='archive'" 
 master_run0    =  "insert into runs values (1,'%s','%s',%f,%f)"
 
@@ -68,12 +68,13 @@ def initialize(config):
         print 'exiting...'
         sys.exit(2)
 
-    if True:# try:
+    try:
         xdb   = SimpleDB(user=super_user, dbname='mysql',
                          passwd=super_pass, host = config.dbhost)
-#     except:
-#         print 'error starting mysql. Invalid Username/Password? Is mysql running?'
-#         sys.exit(1)
+    except:
+        raise
+        print 'error starting mysql. Invalid Username/Password? Is mysql running?'
+        sys.exit(1)
 
 
     grant_kws = {'user':config.dbuser,
@@ -81,7 +82,7 @@ def initialize(config):
                  'host':config.dbhost}
 
 
-    print 'reating database %s :' % config.master_db,
+    print 'creating database %s :' % config.master_db,
     xdb.create_and_use(config.master_db) 
 
     xdb.source_file(init_sql)
@@ -98,8 +99,8 @@ def initialize(config):
                                time.time(), util.MAX_EPOCH))
     
     print 'done.\ncreating database %s...' % firstdb,
-    from EpicsArchiver import Master
-    m = Master.ArchiveMaster()
+    from EpicsArchiver.ArchiveMaster import ArchiveMaster
+    m = ArchiveMaster()
     m.create_emptydb(dbname=firstdb)
 
     print 'done.\n\nReady to start EpicsArchiver!'

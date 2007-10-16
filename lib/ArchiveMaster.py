@@ -4,7 +4,7 @@ import time
 from MasterDB import MasterDB
 from SimpleDB import SimpleDB, SimpleTable
 from config   import dbuser, dbpass, dbhost, master_db, dat_prefix, dat_format
-from util     import normalize_pvname, clean_string, tformat, MAX_EPOCH, SEC_DAY
+from util     import normalize_pvname, clean_string, tformat, MAX_EPOCH
 
 
 def nextname(current=None,dbname=None):
@@ -132,12 +132,4 @@ class ArchiveMaster(MasterDB):
         newdb.close()        
         return dbname
         
-    def dbs_for_time(self, t0=SEC_DAY, t1=MAX_EPOCH):
-        """ return list of databases with data in the given time range"""
-        timerange = ( min(t0,t1) - SEC_DAY, max(t0,t1) + SEC_DAY)
-        where = "stop_time>=%i and start_time<=%i order by start_time"
-        r = []
-        for i in self.runs.select(where=where % timerange):
-            if i['db'] not in r: r.append(i['db'])
-        return r
         

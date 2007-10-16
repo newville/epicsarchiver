@@ -1,6 +1,9 @@
 import time
+import EpicsCA
 from SimpleDB import SimpleDB, SimpleTable
 from config import dbuser, dbpass, dbhost, master_db
+from util import normalize_pvname, clean_string, tformat, \
+     MAX_EPOCH, SEC_DAY, motor_fields
 
 class MasterDB:
     """ general interface to Master Database of Epics Archiver.
@@ -14,24 +17,93 @@ class MasterDB:
     def __init__(self,**kw):
         self.db = SimpleDB(user=dbuser, passwd=dbpass,
                            host=dbhost, dbname=master_db)
-        self._table_pvnames = self.db.tables['pvnames']
         self.info    = self.db.tables['info']
         self.cache   = self.db.tables['cache']
         self.runs    = self.db.tables['runs']
         self.pairs   = self.db.tables['pairs'] 
 
         self.arch_db = self._get_info('db',  process='archive')
-
         self.get_pvnames()
+
+    def use_master(self):
+        self.db.use(master_db)
+
+    def use_current_archive(self):
+        self.arch_db = self._get_info('db',  process='archive')        
+        self.db.use(self.arch_db)
+
         
     def get_pvnames(self):
-        """ generate pvnames: a dict of pvnames and their ids: {id:pvname}
-        and pvids: a dict of {pvname:id} pairs"""
-        self.pvids = {}
-        self.xxpvidsxx   = {}
-        for i in self._table_pvnames.select():
-            self.pvids[i['pvname']] = i['id']
-            self.xxpvidsxx[i['id']]       = i['pvname']
+        """ generate self.pvnames: a list of pvnames in the cache"""
+        self.pvnames = []
+        for i in self.cache.select():
+            if i['pvname'] not in self.pvnames:
+                self.pvnames.append(i['pvname'])
+
+
+    def request_pv_cache(self,pvname):
+        """request a PV to be included in caching.
+        will take effect once a 'process_requests' is executed."""
+        npv = normalize_pvname(pvname)
+        if npv in self.pvnames: return
+
+        cmd = "insert into requests (pvname,action) values ('%s','add')" % npv
+        self.db.execute(cmd)
+
+    def add_epics_pv(self,pv):
+        """ add an epics PV to the cache"""
+        if not pv.connected:  return
+
+        self.get_pvnames()
+        if pv.pvname in self.pvnames: return
+
+        EpicsCA.pend_io(0.1)
+
+        self.cache.insert(pvname=pv.pvname,type=pv.type)
+
+        where = "pvname='%s'" % pv.pvname
+        o = self.cache.select_one(where=where)
+        if o['pvname'] not in self.pvnames:
+            self.pvnames.append(o['pvname'])
+
+
+
+    def drop_pv(self,pvname):
+        """drop a PV from the caching process -- really this 'suspends updates'
+        will take effect once a 'process_requests' is executed."""
+        npv = normalize_pvname(pvname)
+
+        if not npv in self.pvnames: return
+
+        cmd = "insert into requests (pvname,action) values ('%s','suspend')" % npv
+        self.sql_exec(cmd)
+
+    def add_pv(self,pvname):
+        """adds a PV to the cache: actually requests the addition, which will
+        be handled by the next process_requests in mainloop().
+
+        Here, we check for 'Motor' PV typs and make sure all motor fields are
+        requested together, and that the motor fields are 'related' by assigning
+        a pair_score = 10.                
+        """
+        pvname = normalize_pvname(pvname.strip())
+
+        prefix = pvname
+        if pvname.endswith('.VAL'): prefix = pvname[:-4]
+
+        if 'motor' == EpicsCA.caget(prefix+'.RTYP'):
+            fields = ["%s%s" % (prefix,i) for i in motor_fields]
+            for pvname in fields:
+                if EpicsCA.PV(pvname, connect=True) is not None:
+                    self.request_pv_cache(pvname)
+            self.set_allpairs(fields)
+            EpicsCA.pend_event(0.01)
+        else:
+            if EpicsCA.PV(pvname,connect=True) is not None:
+                self.request_pv_cache(pvname)
+        EpicsCA.pend_event(0.01)
+        EpicsCA.pend_io(1.0)
+
 
     def close(self): self.db.close()
     
@@ -41,9 +113,8 @@ class MasterDB:
         except:
             return None
 
-    def _set_info(self,process='archive',**kws):
-        print '_set info ', kws
-        self.info.update(set=kws, where="process='%s'" % process)
+    def _set_info(self,process='archive',**kw):
+        self.info.update("process='%s'" % process, **kw)
 
     def get_cache_status(self):
         return self._get_info('status', process='cache')
@@ -93,7 +164,7 @@ class MasterDB:
         if not brief:
             for r in ret:
                 out.append(fmt % (tformat(t=r['ts'],format="%H:%M:%S"),
-                                  r['name']+' '*20, r['value']) )
+                                  r['pvname']+' '*20, r['value']) )
                     
         fmt = '%i PVs had values updated in the past %i seconds. pid=%i'
         out.append(fmt % (len(ret),dt,pid))
@@ -121,47 +192,52 @@ class MasterDB:
         with a minumum pair score"""
         
         out = []
-        npv = normalize_pvname(pv)
-        if not self.pvids.has_key(npv): return out
-        ipv = self.pvids[npv]
         tmp = []
+        npv = normalize_pvname(pv)
+        if npv not in self.pvnames: return out
         for i in ('pv1','pv2'):
-            where = "%s=%i and score>=%i order by score" 
-            for j in self.pairs.select(where = where % (i,ipv,minscore)):
+            where = "%s='%s' and score>=%i order by score" 
+            for j in self.pairs.select(where = where % (i,npv,minscore)):
                 tmp.append((j['score'],j['pv1'],j['pv2']))
         tmp.sort()
         for r in tmp:
-            j = 1
-            if r[1] == ipv: j = 2
-            n = self.xxpvidsxx[r[j]]
-            if n not in out: out.append(n)
+            if   r[1] == npv:  out.append(r[2])
+            elif r[2] == npv:  out.append(r[1])
         out.reverse()
         return out
 
-    def get_pair_score(self,pv1,pv2):
-        p = [pv1.strip(),pv2.strip()]
+    def __get_pvpairs(self,pv1,pv2):
+        p = [normalize_pvname(pv1),normalize_pvname(pv2)]
         p.sort()
-        if not (self.pvids.has_key(p[0]) and self.pvids.has_key(p[1])):
+        return tuple(p)
+    
+        
+    def get_pair_score(self,pv1,pv2):
+        p = self.__get_pvpairs(pv1,pv2)
+        if not ((p[0] in self.pvnames) and (p[1] in self.pvnames)):
             return 0
-        where = "pv1=%i and pv2=%i" % (self.pvids[p[0]],self.pvids[p[1]])
-        return int(self.pairs.select_one(where=where)['score']) 
+        where = "pv1='%s' and pv2='%s'" % p
+        score = -1
+        o  = self.pairs.select_one(where=where)
+        if o.has_key('score'): score = int(o['score'])
+        return score
 
     def set_pair_score(self,pv1,pv2,score=None):
-        p = [pv1.strip(),pv2.strip()]
-        p.sort()
-        if not (self.pvids.has_key(p[0]) and self.pvids.has_key(p[1])):
-            return
+        p = self.__get_pvpairs(pv1,pv2)
+        for i in p:
+            if i not in self.pvnames:
+                self.request_pv_cache(i)
         
         current_score  = self.get_pair_score(p[0],p[1])
         if score is None: score = 1 + current_score
        
-        ids = (self.pvids[p[0]],self.pvids[p[1]])
-
-        if current_score == 0:
-            self.pairs.update(score=score, where="pv1=%i and pv2=%i" %ids)
+        if current_score <= 0:
+            q = "insert into pairs set score=%i, pv1='%s', pv2='%s'"
         else:
-            self.pairs.insert(pv1=ids[0],pv2=ids[1],score=score)
-
+            q = "update pairs set score=%i where pv1='%s' and pv2='%s'"
+        # print q % (score,p[0],p[1])        
+        self.db.exec_fetch(q % (score,p[0],p[1]))
+        
     def increment_pair_score(self,pv1,pv2):
         """increase by 1 the pair score for two pvs """
         self.set_pair_score(pv1,pv2,score=None)
@@ -169,16 +245,30 @@ class MasterDB:
     def set_allpairs(self,pvlist,score=10):
         """for a list/tuple of pvs, set all pair scores
         to be at least the provided score"""
+        # print 'This is set_allpairs ', pvlist, type(pvlist)
         if not isinstance(pvlist,(tuple,list)): return
         _tmp = list(pvlist[:])
         while _tmp:
             a = _tmp.pop()
-            for bin in _tmp:
+            for b in _tmp:
                 if self.get_pair_score(a,b)<score:
                     self.set_pair_score(a,b,score=score)
                     
-            
         self.pairs.select()
 
     def get_all_scores(self,pv1,pv2,score):
         self.pairs.select()
+
+    def get_recent(self,dt=60):
+        where = "ts>%f order by ts" % (time.time() - dt)
+        return self.cache.select(where=where)
+        
+    def dbs_for_time(self, t0=SEC_DAY, t1=MAX_EPOCH):
+        """ return list of databases with data in the given time range"""
+        timerange = ( min(t0,t1) - SEC_DAY, max(t0,t1) + SEC_DAY)
+        where = "stop_time>=%i and start_time<=%i order by start_time"
+        r = []
+        for i in self.runs.select(where=where % timerange):
+            if i['db'] not in r: r.append(i['db'])
+        return r
+        

@@ -3,9 +3,9 @@ import os
 import time
 import EpicsCA
 
-from EpicsArchiver import Archiver, Cache, config, add_pv_to_cache
+from EpicsArchiver import ArchiveMaster, Archiver, config, add_pv_to_cache
 from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, normalize_pvname, timehash, \
-     get_related_pvs, increment_pair_score
+     increment_pair_score, tformat
 
 DEBUG=True
 DEBUG=False
@@ -165,8 +165,9 @@ set ytics nomirror
     def __init__(self, arch=None, cache=None, **kw):
         HTMLWriter.__init__(self)
 
-        self.arch  = arch or Archiver()
-
+        self.arch   = arch or Archiver()
+        self.master = self.arch.master
+        
         self._gp = Gnuplot.Gnuplot() # "%s/out.gp" % self.file_pref)
         self.kw  = {'form_pv':'', 'form_pv2':'',  'use_ylog':'', 'use_y2log': '',
                     'submit': 'Time From Present', 'time_ago': '1 day', 
@@ -299,7 +300,7 @@ set ytics nomirror
 
     def make_related_pvs_page(self,pvname,pvname2):
         out = []
-        r = get_related_pvs(pvname)
+        r = self.master.get_related_pvs(pvname)
         if pvname2 != '': out.append("<input type='submit' name='submit' value='Swap PV 1 and 2'><p>")        
         out.append("<p class='xtitle'>related pvs:%s<p>" % '')  # pvname)
         n = 0
@@ -310,8 +311,7 @@ set ytics nomirror
         return '\n'.join(out)
     
     def time_sec2str(self,sec=None):
-        if sec is None: sec = time.time()
-        return time.strftime("%Y-%m-%d %H:%M", time.localtime(sec))
+        return tformat(t=sec,format="%Y-%m-%d %H:%M")
         
     def time_str2sec(self,str):
         xdat,xtim=str.split(' ')
@@ -395,7 +395,7 @@ set ytics nomirror
             pv2  = self.arch.get_pv(arg_pv2)
             pv2.connect()
             pv2info = self.arch.get_info(arg_pv2)
-            increment_pair_score(arg_pv1,arg_pv2)
+            self.master.increment_pair_score(arg_pv1,arg_pv2)
             if DEBUG:
                 self.write(" PV#2  !!! %s, %s" % (str(pv2 is None), pv2.pvname))
                 
@@ -558,7 +558,7 @@ set ytics nomirror
     def datestring(self,t):
         "return 'standard' date string given a unix timestamp"
         # Gnuplot hint: set xrange ["2005/08/17 09:00:00":"2005/08/17 14:00:00"]
-        return time.strftime("%Y%m%d %H%M%S",time.localtime(t))        
+        return time.strftime("%Y%m%d %H%M%S", time.localtime(t))
 
     def save_data(self,pv,t0,t1,fout,legend):
         "get data from database, save into tmp gnuplot-friendly file"
@@ -622,23 +622,21 @@ set ytics nomirror
         return self.get_buffer()
 
 class WebAdmin(HTMLWriter):
-    def __init__(self, master=None, **kw):
+    def __init__(self, arch=None, **kw):
         HTMLWriter.__init__(self)
         self.html_title = "PV Archive Admin Page"
-        from EpicsArchiver import ArchiveMaster
-        self.master = master or ArchiveMaster()
-        self.sql_exec = self.master.db.execute
-        self.exec_fetch = self.master.db.exec_fetch
+        self.arch    = arch or Archiver()
+        self.master  = self.arch.master
 
-        self.kw  = {'form_pv':'', 'submit': '','desc':'','deadtime':'','deadband':'','type':''}
+        self.kw  = {'form_pv':'', 'submit': '','description':'','deadtime':'','deadband':'','type':''}
         self.kw.update(kw)
 
     def show_adminpage(self,pv=''):
         self.starthtml()
-        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.status_report())
+        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.arch_report())
         self.write("Archive Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)
 
-        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.get_cache_status())
+        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.cache_report(brief=True))
         self.write("Cache Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)        
 
         self.write("\n<hr>")
@@ -665,17 +663,16 @@ class WebAdmin(HTMLWriter):
         self.write('<input type="text" name="form_pv" value="%s" size=40> &nbsp; (use \'*\' for wildcard searches)</p>' % pvname)
 
         if pvname != '':
-            sx = clean_input(pvname.replace('*','%'))
-            self.write('<p>Search results for "%s": </p>' % pvname)
-                    
-            self.master.db.use(config.cache_db)
-            results = self.exec_fetch('select name from cache where name like %s order by name'% (clean_string(sx)))
             i = 0
-            
+            sx = clean_input(pvname.replace('*','%'))
+
+            results = self.master.cache.select(where="pvname like '%s' order by pvname" % sx)
+
+            self.write("<p>Search results for '%s' (%i matches): </p>" % (sx,len(results)))
             self.write("<table><tr>")
 
             for r in results:
-                self.write('<td><a href="%s?pv=%s">%s</a>&nbsp;&nbsp;</td>'% (pvinfopage,r['name'],r['name']))
+                self.write('<td><a href="%s?pv=%s">%s</a>&nbsp;&nbsp;</td>'% (pvinfopage,r['pvname'],r['pvname']))
                 i  = i + 1
                 if i % 3 == 0: self.write("</tr><tr>")
 
@@ -683,7 +680,6 @@ class WebAdmin(HTMLWriter):
             if len(results)== 0 and sx.find('%')==-1:
                 self.write(" '%s' not found in archive or cache! &nbsp; " % pvname)
                 self.write("<input type='submit' name='submit' value='Add to Archive'><p>")
-            self.master.db.use(config.master_db)
                    
         self.endhtml()
         return self.get_buffer()
@@ -702,53 +698,60 @@ class WebAdmin(HTMLWriter):
 
         submit = self.kw['submit'].strip()
         es  = clean_string
-        self.master.use_currdb()
+
+        self.master.use_current_archive()
 
         if submit.startswith('Update') and len(pv)>1:
+            pv_update = self.arch.pv_table.update
             pvn = clean_input(pv)
             self.write("<p>Updating data for %s!!<p><hr>" % (pvn))
-            desc  = clean_input(self.kw['desc'].strip())
-            self.sql_exec("update pv set description=%s where name=%s" %(es(desc),es(pvn)))
+            desc  = clean_input(self.kw['description'].strip())
+            where = "name='%s'" % (pvn)
+            pv_update(where=where, description=desc)
                                                                                    
-            for key in ('graph_hi', 'graph_lo', 'deadtime','deadband'):
-                if self.kw.has_key(key):
-                    val = clean_input(self.kw[key].strip())
-                    try:
-                        val = float(val)
-                    except:
-                        val = ''
-                    self.sql_exec("update pv set %s=%s where name=%s" %(key,es(val),es(pvn)))
-
-            for key in ('active', 'graph_type'):
+            kws = {}
+            for key in ('description', 'graph_hi', 'graph_lo', 'deadtime',
+                        'deadband', 'active', 'graph_type'):
                 if self.kw.has_key(key):
                     val = clean_input(self.kw[key].strip()).lower()
-                    if val != '':
+                    if key in ('active','graph_type'):
+                        if val != '':
+                            kws[key] = val
+                    else:
                         try:
-                            self.sql_exec("update pv set %s=%s where name=%s" %(key,es(val),es(pvn)))
+                            kws[key] = float(val)
                         except:
                             pass
+
+            if len(kws)>0:
+                for k,v in kws.items():
+                    self.write('<p> update    %s :: %s </p>'  % (k,v))
+                pv_update(where=where, **kws)
                 
             self.write('<p> <a href="%s?pv=%s">Plot %s</a>&nbsp;&nbsp;</p>'% (thispage,pvn,pvn))
             self.endhtml()
             return self.get_buffer()
         if pv in (None,''):
             self.write("No PV given??")
+            self.write("No PV given???  Click <a href='%s'>here</a> for Main Admin Page" % adminpage)
+
             self.endhtml()
             return self.get_buffer()            
 
-        ret = self.exec_fetch("select * from pv where name = %s" % (es(pv)))
+        ret = self.arch.pv_table.select(where="name='%s'" % pv)
         if len(ret)== 0:
             self.write("PV not in archive??")
             self.endhtml()
             return self.get_buffer()            
 
         pvn = clean_input(pv)
-        self.write('<p> <h4> <a href="%s?pv=%s">Plot %s</a>&nbsp;&nbsp;</h4></p>'% (thispage,pvn,pvn))
+        self.write('<p> <h4> %s    ' % (pvn))
+        self.write('  &nbsp;&nbsp;&nbsp;&nbsp; <a href="%s?pv=%s">Show Plot</a></h4></p>' % (thispage,pvn))
         d = ret[0]
         self.write('<form action ="%s" enctype="multipart/form-data"  method ="POST"><p>' % (pvinfopage))
         self.write('<input type="hidden" name="form_pv" value="%s">' % pvn)
         
-        self.write("<table><tr>")
+        self.write("<table><tr><td colspan=2><hr></td></tr><tr>")
 
         self.write('<td>Data Type:</td><td>%s</td></tr>' % d['type'])
         self.write("<td>Active</td><td>")
@@ -778,8 +781,65 @@ class WebAdmin(HTMLWriter):
         self.write("</td></tr>")
 
 
-        self.write("</tr></table><p><input type='submit' name='submit' value='Update PV Data'><p>")
+        self.write("<tr><td><input type='submit' name='submit' value='Update PV Settings'></td><td></td></tr>")
 
-        self.master.db.use(config.master_db)
+        self.write("<tr><td colspan=2><hr></td></tr></table>")
+
+        
+        self.master.use_master()
+        #  Related PVs
+        r = self.master.get_related_pvs(pvn)
+        i = 0
+        if len(r)==0:
+            self.write("<p>No 'Related PVs'</p>")
+        else:
+            self.write("<h4>Related PVs: <a href=%s/show_related_pvs?pv=%s>View and Change</a></h4> <table><tr>" % (adminpage,pvn))
+            for pv2 in r:
+                self.write('<td><a href="%s?pv=%s">%s</a>&nbsp;&nbsp;</td>'% (pvinfopage,pv2,pv2))
+                i  = i + 1
+                if i % 3 == 0: self.write("</tr><tr>")
+                
+            self.write("</tr></table>")
+        
+            
         self.endhtml()
         return self.get_buffer()
+
+    def show_related_pvs(self,pv=None,**kw):
+        self.kw.update(kw)
+        submit = self.kw['submit'].strip()
+
+        self.starthtml()
+        if submit.startswith('Update'):
+            self.write("<p> Hit Update!!! </p>")
+
+        if pv is not None:
+            pvn = normalize_pvname(clean_input(pv))
+            r = self.master.get_related_pvs(pvn)
+            get_score = self.master.get_pair_score
+            i = 0
+            if len(r)==0:
+                self.write("<p>No 'Related PVs'</p>")
+            else:
+                self.write("<h4>Related PVs:</h4> <table><tr><td>PV </td><td>Score</td></tr><tr><td colspan=2><hr></td></tr>")
+                for pv2 in r:
+                    self.write('<tr><td>  %s</td><td>%i</td></tr>' % (pv2,get_score(pv2,pvn)))
+                    
+                self.write("</tr></table>")
+        
+
+
+
+        self.endhtml()
+        return self.get_buffer()
+
+
+    def show_instruments(self,station=None, instrument=None,pvname=None,**kw):
+        self.kw.update(kw)
+        submit = self.kw['submit'].strip()        
+        self.starthtml()
+        
+        self.endhtml()
+        return self.get_buffer()
+
+            

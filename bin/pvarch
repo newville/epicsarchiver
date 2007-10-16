@@ -82,8 +82,9 @@ def run_archive(action='start'):
         a.mainloop()
 
     config  = EpicsArchiver.config
-    master  = EpicsArchiver.ArchiveMaster()
-    dbname  = master.get_currentDB()
+    master  = EpicsArchiver.MasterDB()
+    dbname  = master.arch_db
+
     dir     = config.logdir
     if not os.path.exists(dir):   os.mkdir(dir)
     sout    = os.path.join(dir, "%s.log" % dbname)
@@ -91,8 +92,10 @@ def run_archive(action='start'):
     pidfile = os.path.join(dir, "pvarch.pid")
 
     if 'stop'==action:
-        master.set_status('stopping')
         print 'Stopping ....'
+        master.set_arch_status('stopping')
+        master.set_arch_pid(0)
+        time.sleep(1.0)
     master.close()
     
     EpicsArchiver.startstop(stdout =sout,stderr=serr, pidfile=pidfile,
@@ -102,8 +105,8 @@ def run_archive(action='start'):
 def run_cache(action=None):
 
     def cache_loop():
-        cache   = EpicsArchiver.Cache()
-        cache.mainloop()
+        c  = EpicsArchiver.Cache()
+        c.mainloop()
         
     config  = EpicsArchiver.config
     dir     = config.logdir
@@ -112,6 +115,15 @@ def run_cache(action=None):
     serr    = os.path.join(dir, "cache.err")
     pidfile = os.path.join(dir, "cache.pid")
     
+
+    if 'stop'==action:
+        c = EpicsArchiver.MasterDB()
+        c.set_cache_status('stopping')
+        c.set_cache_pid(0)
+        time.sleep(1.0)        
+
+        c.close()
+
 
     EpicsArchiver.startstop(stdout =sout,stderr=serr, pidfile=pidfile,
                             process_name='pvcache', action=action,
@@ -139,7 +151,7 @@ def cache_status(action='activity', dt=60):
     msg = '%i changed PVs cached in past %i seconds.  PID=%i  Status=%s'
     if 'activity' == action:
         for r in ret:
-            stime = time.strftime("%H:%M:%S", time.localtime(r['ts']))
+            stime = tformat(r['ts'],format="%H:%M:%S")
             print "  %s   %.29s = %s" % (stime, r['name']+' '*20,r['value'])
     elif 'check' == action:            
         print len(ret)
@@ -148,8 +160,8 @@ def cache_status(action='activity', dt=60):
     cache.close()
     
 def archive_status(minutes=10):
-    master  = EpicsArchiver.ArchiveMaster()
-    stat = master.status_report(minutes=minutes)
+    m    = EpicsArchiver.MasterDB()
+    stat = master.arch_report(minutes=minutes)
     master.close()
     return stat
     
@@ -178,8 +190,8 @@ def main():
     for arg in rawargs:
         if ',' in arg:
             for i in arg.split(','):
-                args.append(i.strip())
-        else:
+                if len(i)>0:  args.append(i.strip())
+        elif len(arg)>0:
             args.append(arg)
             
     if   'help' == cmd:
@@ -212,10 +224,12 @@ def main():
         list_archives()
         
     elif 'add_pv' == cmd:
+        c    = EpicsArchiver.Cache()
         for pv in args:
-            EpicsArchiver.add_pv_to_cache(pv)
+            c.add_pv(pv)
         if len(args)>1:
-            EpicsArchiver.set_pair_scores(args)
+            c.set_allpairs(args)
+        c.close()
 
     elif 'add_pvfile' == cmd:
         for pvfile in args:

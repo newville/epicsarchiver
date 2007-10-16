@@ -16,14 +16,14 @@ import config
 os.environ['PYTHON_EGG_CACHE'] = config.data_dir
 import MySQLdb
 
-from util import string_literal, clean_input, escape_string, \
-     timehash, set_pair_scores
+from util import string_literal, clean_input, escape_string, timehash
 
 from SimpleDB import SimpleDB, SimpleTable
 
+from MasterDB import MasterDB
+from ArchiveMaster  import ArchiveMaster
 from Cache import Cache, add_pv_to_cache, add_pvfile
 from Archiver import Archiver
-from Master  import ArchiveMaster
 from Daemon import startstop
 from WebStatus import StatusWriter
 from PlotViewer import PlotViewer, WebAdmin

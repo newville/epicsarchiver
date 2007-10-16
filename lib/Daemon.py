@@ -85,8 +85,7 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
               action='start',func=None,**kws):
 
     fname = ''
-    if func is not None: fname = "(%s)" % func.__name__
-    
+    if callable(func): fname = "(%s)" % func.__name__
     if action not in ('start','stop','restart','status'):
         print "startstop: %s %s start|stop|restart|status" % (process_name,fname)
         sys.exit(2)        
@@ -133,7 +132,7 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
     if 'status' == action:
         msg = 'running'
         if not pid: msg = 'stopped'
-        sys.stderr.write("status for %s: %s\n" % (process_name,msg))
+        sys.stderr.write("status for %s %s: %s\n" % (process_name,fname,msg))
     if 'start' == action:
         if pid and pid_status == 'alive':
             mess = " Process ID=%i (found from file '%s') is running.\n Try 'restart?'\n"

@@ -19,15 +19,39 @@ def index(req,pv='',**kw):
 
 
 def show_pvinfo(req,pv=None,**kw):
-    global master
-
+    global arch
     try:
-        master is None
+        arch is None
     except NameError:
-        master = None
+        arch = None
 
-    p = WebAdmin(master=master)
-    master= p.master
+    p = WebAdmin(arch=arch)
+    arch = p.arch
 
     return p.show_pvinfo(pv,**kw)
+
+def show_related_pvs(req,pv=None,**kw):
+    global arch
+    try:
+        arch is None
+    except NameError:
+        arch = None
+
+    p = WebAdmin(arch=arch)
+    arch = p.arch
+
+    return p.show_related_pvs(pv,**kw)
+
+
+def show_instruments(req,station=None,instrument=None,pv=None,**kw):
+    global arch
+    try:
+        arch is None
+    except NameError:
+        arch = None
+
+    p = WebAdmin(arch=arch)
+    arch = p.arch
+
+    return p.show_related_pvs(station=station,instrument=instrument,pv=pv,**kw)
 

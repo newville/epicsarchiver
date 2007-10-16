@@ -8,6 +8,7 @@ SEC_DAY   = 86400.0
 
 motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS','.DIR','_able.VAL','.SPMG')
 
+
 def clean_input(x,maxlen=256):
     """clean input, forcing it to be a string, with comments stripped,
     and guarding against extra sql statements"""
@@ -19,6 +20,11 @@ def clean_input(x,maxlen=256):
     if eol > 0: x = x[:eol]
     return x
                        
+def safe_string(x):
+    x = clean_input(x)
+    if "'" in x:  return  '"%s"' %  escape_string(x)
+    return  string_literal(x)
+
 def clean_string(x):
     x = clean_input(x)
     if "'" in x:  return  '"%s"' %  escape_string(x)
@@ -26,7 +32,7 @@ def clean_string(x):
 
 def normalize_pvname(p):
     """ normalizes a PV name (so that it ends in .VAL if needed)."""
-    x = clean_input(p)
+    x = clean_input(p.strip())
     if x.find('.') < 1: return '%s.VAL' % x
     return x
 
@@ -46,14 +52,19 @@ def timehash():
     cannot happen for 10^12 milliseconds (33 years). """ 
     return hex(int(1000*time.time()))[-10:]
 
+def tformat(t=None,format="%d-%b-%Y"):
+    """ time formatting"""
+    if t is None: t = time.time()
+    return time.strftime(format, time.localtime(t))
 
+    
 def set_pair_scores(pvlist):
     """ set (or check) that all pairs of pvs in list pvlist have a 'pair score'"""
     if not isinstance(pvlist,(list,tuple)): return
     if len(pvlist)< 2: return
-    from Master import ArchiveMaster
+    from MasterDB import MasterDB
 
-    m = ArchiveMaster()
+    m = MasterDB()
     get_score = m.get_pair_score
     set_score = m.set_pair_score
        
@@ -67,16 +78,15 @@ def set_pair_scores(pvlist):
     return 
 
 def get_related_pvs(pvname):
-    from Master import ArchiveMaster
-    m = ArchiveMaster()
+    m = MasterDB()
     out = m.get_related_pvs(normalize_pvname(pvname),minscore=1)
     m.close()
     m = None
     return out
 
 def increment_pair_score(pv1,pv2):
-    from Master import ArchiveMaster    
-    m = ArchiveMaster()
+    from MasterDB import MasterDB
+    m = MasterDB()
     m.increment_pair_score(normalize_pvname(pv1),normalize_pvname(pv2))
     m.close()
     m = None

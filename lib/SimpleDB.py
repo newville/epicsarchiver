@@ -17,12 +17,13 @@ import sys
 import os
 import array
 import time
+import types
 
 import warnings
 warnings.filterwarnings("ignore", "Unknown table.*")
 warnings.filterwarnings("ignore", ".*drop database.*")
 
-from util import string_literal, clean_string, clean_input
+from util import string_literal, safe_string, clean_input, clean_string
 import config
 
 def db_connect(dbname='test',
@@ -99,7 +100,12 @@ class SimpleTable:
         q= "select %s from %s where %s" % (vals, self._name, where)
         return self.db.exec_fetch(q)
 
-    def update(self,where=None,set=None):
+    def select_one(self,vals='*', where='1=1'):
+        """check for a table row, and return matches"""
+        q= "select %s from %s where %s" % (vals, self._name, where)
+        return self.db.exec_fetchone(q)
+
+    def update(self,where='1=1', **kw): # set=None,where=None):
         """update a table row with set and where dictionaries:
 
            table.update_where({'x':1},{'y':'a'})
@@ -110,23 +116,17 @@ class SimpleTable:
             self.db.write("update must give 'where' and 'set' arguments")
             return
         try:
-            q = ''
-            if self.check_columns(set.keys()+where.keys()):
-                q = "update %s set" % (self._name)
-                for k,v in set.items():
-                    k = clean_input(k)
-                    v = string_literal(v)
-                    q = "%s %s=%s," % (q,k,v)
-                q = "%s where " % (q[:-1])  # strip off last ','
+            s = []
+            if self.check_columns(kw.keys()):
+                for k,v in kw.items():
+                    s.append("%s=%s" % (clean_input(k),safe_string(v)))
+            s = ','.join(s)
+            q = "update %s set %s where %s" % (self._name,s,where)
 
-                for k,v in where.items():
-                    k = clean_input(k)
-                    v = string_literal(v)
-                    q = "%s %s=%s and" % (q,k,v)
-                q = q[:-3]  # strip off last 'and'
             self.db.execute(q)
         except:
             self.db.write('update failed ')
+            self.db.write("##q = %s" % q)
         return self.db.affected_rows()
 
     def insert(self,**args):
@@ -135,13 +135,19 @@ class SimpleTable:
         if (ok == 0):
             self.db.write("Bad argument for insert ")
             return 0
-        q  = "insert into %s set " % (self._name)
+        q  = []
         for k,v in args.items():
             field = clean_input(k.lower())
             if (v == None): v = ''
-            q = "%s %s=%s," % (q,field,self.db.string_literal(v))
-        cmd = q[:-1]  # strip of trailing ','
-        self.db.execute(cmd)
+            if type(v) == types.StringType:
+                v = safe_string(v)
+            else:
+                v = str(v)
+            q.append("%s=%s" % (field, v))
+        s = ','.join(q)
+        qu = "insert into %s set %s" % (self._name,s)
+        # print 'insert: ', qu
+        self.db.execute(qu)
         return self.db.affected_rows()
 
     def __repr__(self):

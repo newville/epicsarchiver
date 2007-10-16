@@ -11,7 +11,6 @@ sys.path.insert(0,file_base)
 
 from pages import pagelist, filemap
 
-
 def show_page(req,page=None,**kw):
     global cache
     try:
