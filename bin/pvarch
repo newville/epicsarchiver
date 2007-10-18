@@ -161,10 +161,9 @@ def cache_status(action='activity', dt=60):
     
 def archive_status(minutes=10):
     m    = EpicsArchiver.MasterDB()
-    stat = master.arch_report(minutes=minutes)
-    master.close()
+    stat = m.arch_report(minutes=minutes)
+    m.close()
     return stat
-    
         
 def drop_pv(pvname):
     master  = EpicsArchiver.ArchiveMaster()

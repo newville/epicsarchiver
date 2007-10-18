@@ -20,10 +20,13 @@ from util import string_literal, clean_input, escape_string, timehash
 
 from SimpleDB import SimpleDB, SimpleTable
 
-from MasterDB import MasterDB, InstrumentDB
+from MasterDB   import MasterDB, InstrumentDB
 from ArchiveMaster  import ArchiveMaster
-from Cache import Cache, add_pv_to_cache, add_pvfile
-from Archiver import Archiver
-from Daemon import startstop
-from WebStatus import StatusWriter
-from PlotViewer import PlotViewer, WebAdmin
+from Cache      import Cache, add_pv_to_cache, add_pvfile
+from Archiver   import Archiver
+from Daemon     import startstop
+from HTMLWriter import HTMLWriter
+from PlotViewer import PlotViewer
+from WebStatus  import WebStatus
+from WebAdmin   import WebAdmin
+from WebInstruments import WebInstruments

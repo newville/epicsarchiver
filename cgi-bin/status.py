@@ -3,7 +3,7 @@
 
 from mod_python import apache
 
-from EpicsArchiver import StatusWriter, Cache, ArchiveMaster, config
+from EpicsArchiver import WebStatus, Cache, config
 import sys
 
 file_base   = config.template_dir
@@ -18,7 +18,7 @@ def show_page(req,page=None,**kw):
     except NameError:
         cache = None
 
-    stat   = StatusWriter(cache=cache)
+    stat   = WebStatus(cache=cache)
 
     cache  = stat.cache
 

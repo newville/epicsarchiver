@@ -45,7 +45,7 @@ body {margin: 20px; padding: 0px; background: #FCFCEA;
 <body><h4>%s&nbsp;&nbsp;&nbsp;&nbsp; %s</h4><ul id='tabmenu'>
 """ 
 
-class StatusWriter:
+class WebStatus:
     table_def   = "<table width=90% cellpadding=1 border=0 cellspacing=2>"    
     hrule_row   = "<tr><td colspan=2> <hr>   </td></tr>"
     space_row   = "<tr><td colspan=2> &nbsp; </td></tr>"

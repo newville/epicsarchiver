@@ -2,7 +2,7 @@ import time
 import EpicsCA
 from SimpleDB import SimpleDB, SimpleTable
 from config import dbuser, dbpass, dbhost, master_db
-from util import normalize_pvname, clean_string, tformat, \
+from util import normalize_pvname, tformat, \
      MAX_EPOCH, SEC_DAY, motor_fields
 
 class MasterDB:
@@ -282,6 +282,7 @@ class InstrumentDB(MasterDB):
     def __init__(self,**kw):
         MasterDB.__init__(self)
 
+        self.stations  = self.db.tables['stations']
         self.stations  = self.db.tables['stations']         
         self.instruments = self.db.tables['instruments']         
         self.inst_pvs  = self.db.tables['instrument_pvs']
@@ -293,7 +294,8 @@ class InstrumentDB(MasterDB):
         """ return a list of (instrument ids, inst name, station name) for
         instruments which  contain a named pv"""
         inames = []
-        for r in self.inst_pvs.select(where="pvname='%s'" % pv):
+        pvn = normalize_pvname(pv)
+        for r in self.inst_pvs.select(where="pvname='%s'" % pvn):
             inst = self.instruments.select_one(where="id=%i" % r['inst'])
             sta  = self.stations.select_one(where="id=%i" % inst['station'])
             inames.append((r['inst'],inst['name'],sta['name']))
@@ -335,7 +337,13 @@ class InstrumentDB(MasterDB):
         limit instrument choices"""
 
         ilist = self.list_instruments(station=station)
-        return [i['id'] for i in ilist]
+        if name is None: [i['id'] for i in ilist]            
+        out = []
+        for i in ilist:
+            if i['name'] == name: out.append(i['id'])
+
+        return out
+        return out
 
     def create_instrument(self,name=None,station=None,notes=''):
         station_id = self.get_station_id(station)
@@ -362,16 +370,18 @@ class InstrumentDB(MasterDB):
             print 'must provide list of PVs for instrument %s' % (name)
             return None
         inst_id = insts[0]['id']
+        self.get_pvnames()
         for pvname in pvlist:
-            where = "inst=%i and pvname='%s'" % (inst_id,pvname)
+            pvn = normalize_pvname(pvname)
+
+            where = "inst=%i and pvname='%s'" % (inst_id,pvn)
             x = self.inst_pvs.select_one(where=where)
-            print x
             if x == {}:
-                print 'adding pvname %s to %s' % (pvname,inst_id)
-                x = self.inst_pvs.insert(pvname=pvname,inst=inst_id)
+                x = self.inst_pvs.insert(pvname=pvn,inst=inst_id)
+
+            if pvn not in self.pvnames:  self.add_pv(pvn)
 
     def save_instrument_position(self,name=None,ts=None,inst=None,station=None):
-        print 'save instrument position ', name, inst, ts
         inst_id = self.get_instrument_id(name=inst,station=station)
         if len(inst_id) == 0: warn = 'no'
         if len(inst_id)  > 1: warn = 'multiple'
@@ -385,7 +395,7 @@ class InstrumentDB(MasterDB):
         if name is None: name = time.ctime()
         self.inst_pos.insert(inst=inst_id,name=name,ts=ts)
 
-    def list_position(self,inst=None,station=None,name=None):
+    def get_positions(self,inst=None,station=None,name=None):
         """return a list of (id,name,ts) for instrument_positions
         (that is the position id, position name, timestamp for position)
         given an instrument name, and optionally a station name, and
@@ -408,19 +418,25 @@ class InstrumentDB(MasterDB):
         
     def get_position_values(self,position):
         """ given a position tuple (returned from list_positions)
-        return a list of (pvname,values) for all PVs in that position.
+        return a dictionary of (pvname,values) for all PVs in that position.
         """
         pos_id,name,ts = position
-
-        where = "inst=%i and pvname='%s'" % (inst_id,pvname)
-        x = self.inst_pvs.select_one(where=where)
-
+        
+        x = self.inst_pos.select_one(where="id=%i" % (pos_id))
+        pvs = [i['pvname'] for i in self.inst_pvs.select(where="inst=%i" % x['inst'])]
+        
         from Archiver import Archiver
         a = Archiver()
 
-        for arch_db in dbs_for_time(t0=ts,t1=ts):
-            print 'using arch_db: ', arch_db
+        data = {}
+        for arch_db in self.dbs_for_time(t0=ts,t1=ts):
+            self.db.use(self.arch_db)
             
+            for pvname in pvs:
+                for d in a.get_data(pvname,t0=ts,t1=ts)[0]:
+                    if d[0] <= ts:
+                        data[pvname] = d[1]
 
+            
         self.use_master()
-
+        return data

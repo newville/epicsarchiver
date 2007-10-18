@@ -15,8 +15,9 @@ def clean_input(x,maxlen=256):
     if not isinstance(x,str): x = str(x)
 
     if len(x)>maxlen:   x = x[:maxlen-1]
-
-    eol = max(x.find('#'),x.find(';'))
+    x.replace('#','\#')
+    
+    eol = x.find(';')
     if eol > 0: x = x[:eol]
     return x
                        

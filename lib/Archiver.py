@@ -200,9 +200,11 @@ class Archiver:
         table = "pvdat%3.3i" % ((hash(pvname) % 128) + 1)
         
         # determine descrption (don't try too hard!)
-        if (description == None):
+        if description is None:
             if pvname.endswith('.VAL'):
-                descpv  = pvname + '.DESC'
+                descpv  = pvname[:-4] + '.DESC'
+            else:
+                descpv  = pvname + '.DESC'                
             try:
                 dp = EpicsCA.PV(descpv,connect=True)
                 description = dp.char_value
