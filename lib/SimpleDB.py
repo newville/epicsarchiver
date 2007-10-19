@@ -80,9 +80,21 @@ class SimpleTable:
             if i.lower() not in self.fields: return False
         return True
     
+    def delete_where(self,**args):
+        """delete row: NOT """
+        if (self.check_args(**args)):
+            q = "delete from %s where 1=1" % (self._name)
+            for k,v in args.items():
+                k = clean_input(k)
+                v = string_literal(v)
+                q = "%s and %s=%s" % (q,k,v)
+            # print 'DELETE WHERE: ', q
+            # return self.db.exec_fetch(q)
+        return 0
+
     def select_all(self):
         return self.select_where()
-    
+
     def select_where(self,**args):
         """check for a table row, and return matches"""
         if (self.check_args(**args)):
@@ -94,6 +106,7 @@ class SimpleTable:
             # print 'S WHERE ', q
             return self.db.exec_fetch(q)
         return 0
+
 
     def select(self,vals='*', where='1=1'):
         """check for a table row, and return matches"""

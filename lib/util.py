@@ -92,3 +92,37 @@ def increment_pair_score(pv1,pv2):
     m.close()
     m = None
 
+def write_saverestore(pvvals,format='plain',header=None):
+    """ generate a save/restore file for a set of PV values
+
+    pvvals is a list or tuple of (pvname,value) pairs
+    format can be
+        plain   plain save/restore file
+        idl     idl script
+        python  python script       
+    header: list of additional header/comment lines
+    """
+    out = []
+    fmt = format.lower()
+
+    xfmt = "%s  %s"
+    cmt  = '#'
+    if format.startswith('idl'):
+        out.append("; IDL save restore script")
+        xfmt = "s = caput('%s', %s)"
+        cmt  = ';'
+    elif format.startswith('py'):
+        out.append("#!/usr/bin/env python")
+        out.append("#  Python save restore script")
+        out.append("from EpicsCA import caput")
+        xfmt = "caput('%s', %s)"        
+    else:
+        out.append("# Plain Save/Restore script")
+
+    if header is not None:
+        for h in header: out.append("%s %s" % (cmt,h))
+        
+    for pv,val in pvvals:
+        out.append(xfmt  % (pv,val))
+            
+    return '\n'.join(out)
