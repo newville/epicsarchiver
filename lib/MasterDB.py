@@ -290,7 +290,7 @@ class MasterDB:
             sta  = self.stations.select_one(where="id=%i" % inst['station'])
             inames.append((r['inst'],inst['name'],sta['name']))
         return inames
-        
+o        
 class InstrumentDB(MasterDB):
     """ interface to Instruments"""
 
