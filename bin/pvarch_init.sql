@@ -83,6 +83,11 @@ create table instrument_positions (
     id         int unsigned not null primary key auto_increment,
     inst       int unsigned not null,
     name       varchar(128) not null,
+    active     enum('yes','no') not null default 'yes',
     ts         double not null default 0);
+
+
+
+
 
 

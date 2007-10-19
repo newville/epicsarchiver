@@ -13,12 +13,9 @@ def __auth__(req,user,passwd):
     if is_valid(user,passwd): return 1
     return 0
 
-def index(req,pv='',**kw):
-    p = WebAdmin(**kw)
-    return p.show_adminpage(pv=pv)
 
 
-def pvinfo(req,pv=None,**kw):
+def dispatch(req,method,**kw):
     global arch
     try:
         arch is None
@@ -28,30 +25,10 @@ def pvinfo(req,pv=None,**kw):
     p = WebAdmin(arch=arch)
     arch = p.arch
 
-    return p.show_pvinfo(pv,**kw)
-
-def related_pvs(req,pv=None,**kw):
-    global arch
-    try:
-        arch is None
-    except NameError:
-        arch = None
-
-    p = WebAdmin(arch=arch)
-    arch = p.arch
-
-    return p.show_related_pvs(pv,**kw)
+    return getattr(p,method)(**kw)
 
 
-def instruments(req,station=None,instrument=None,pv=None,**kw):
-    global arch
-    try:
-        arch is None
-    except NameError:
-        arch = None
-
-    p = WebAdmin(arch=arch)
-    arch = p.arch
-
-    return p.show_instruments(station=station,instrument=instrument,pv=pv,**kw)
+def index(req,**kw):                return dispatch(req,'show_adminpage',**kw)
+def pvinfo(req,**kw):               return dispatch(req,'show_pvinfo',**kw)
+def related_pvs(req,**kw):          return dispatch(req,'show_related_pvs',**kw)    
 

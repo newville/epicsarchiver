@@ -2,7 +2,8 @@
 from mod_python import apache
 from EpicsArchiver import WebInstruments
 
-def index(req,station=None,instrument=None,pv=None,**kw):
+    
+def dispatch(req,method,**kw):
     global arch
     try:
         arch is None
@@ -12,55 +13,12 @@ def index(req,station=None,instrument=None,pv=None,**kw):
     p = WebInstruments(arch=arch)
     arch = p.arch
 
-    return p.show(station=station,instrument=instrument,pv=pv,**kw)
+    return getattr(p,method)(**kw)
 
 
-def add_instrument(req,station='',**kw):
-    global arch
-    try:
-        arch is None
-    except NameError:
-        arch = None
-
-    p = WebInstruments(arch=arch)
-    arch = p.arch
-
-    return p.add_instrument(station=station,**kw)
-
-
-def modify_instrument(req,station='',**kw):
-    global arch
-    try:
-        arch is None
-    except NameError:
-        arch = None
-
-    p = WebInstruments(arch=arch)
-    arch = p.arch
-
-    return p.modify_instrument(station=station,**kw)
-
-
-def add_station(req,**kw):
-    global arch
-    try:
-        arch is None
-    except NameError:
-        arch = None
-
-    p = WebInstruments(arch=arch)
-    arch = p.arch
-
-    return p.add_station(**kw)
-
-def view_position(req,**kw):
-    global arch
-    try:
-        arch is None
-    except NameError:
-        arch = None
-    p = WebInstruments(arch=arch)
-    arch = p.arch
-
-    return p.view_position(**kw)
-
+def index(req,**kw):                return dispatch(req,'show',**kw)
+def add_instrument(req,**kw):       return dispatch(req,'add_instrument',**kw)
+def modify_instrument(req,**kw):    return dispatch(req,'modify_instrument',**kw)    
+def manage_positions(req,**kw):     return dispatch(req,'manage_positions',**kw)    
+def add_station(req,**kw):          return dispatch(req,'add_station',**kw)
+def view_position(req,**kw):        return dispatch(req,'view_position',**kw)

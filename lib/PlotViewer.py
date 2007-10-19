@@ -206,7 +206,7 @@ set ytics nomirror
         return '\n'.join(out)
     
     def time_sec2str(self,sec=None):
-        return tformat(t=sec,format="%Y-%m-%d %H:%M")
+        return tformat(t=sec,format="%Y-%m-%d %H:%M:%S")
         
     def time_str2sec(self,str):
         xdat,xtim=str.split(' ')

@@ -68,11 +68,11 @@ jscal_get_2dates = """
             f2.value  = date2.print("%Y-%m-%d %H:%M");
           }
      }
-     Calendar.setup({inputField : "date1",   ifFormat   : "%Y-%m-%d %H:%M",
+     Calendar.setup({inputField : "date1",   ifFormat   : "%Y-%m-%d %H:%M:%S",
              showsTime  : true,              timeFormat : 24,
              singleClick: false,             button     : "date1_trig",
              weekNumbers: false,             onUpdate   : setdate2  });
-     Calendar.setup({inputField : "date2",   ifFormat   : "%Y-%m-%d %H:%M",
+     Calendar.setup({inputField : "date2",   ifFormat   : "%Y-%m-%d %H:%M:%S",
              showsTime  : true,              timeFormat : 24,
              singleClick: false,             button     : "date2_trig",
              weekNumbers: false,             });
@@ -81,7 +81,7 @@ jscal_get_2dates = """
 
 jscal_get_date = """
 <script type='text/javascript'>
-     Calendar.setup({inputField : "date",   ifFormat   : "%Y-%m-%d %H:%M",
+Calendar.setup({inputField : "date",   ifFormat   : "%Y-%m-%d %H:%M:%S",
              showsTime  : true,             timeFormat : 24,
              singleClick: false,            button     : "date_trig",
              weekNumbers: false,            });
@@ -114,6 +114,12 @@ class HTMLWriter:
 
     def end_table(self):
         self.write("</table><br>")
+
+    def show_dict(self,d):
+        self.write(' <p> Passed Parameters:</p>')
+        for k,v in d.items():
+            self.write("%s= '%s' <br> " % (k,v))                    
+        self.write(' <p> =============== </p>')            
 
     def starthtml(self,refresh=''):
         if self.html_title in (None,'',' '):  self.html_title = ' '

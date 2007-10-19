@@ -5,13 +5,16 @@ from EpicsArchiver import InstrumentDB, config
 
 from HTMLWriter import HTMLWriter, jscal_get_date
 
-from util import normalize_pvname, set_pair_scores, clean_input, tformat,write_saverestore
+from util import normalize_pvname, set_pair_scores, clean_input, \
+     tformat, time_str2sec, write_saverestore
+
 pagetitle  = config.pagetitle
 cgiroot    = config.cgi_url
 footer     = config.footer
 instpage   = "%s/instruments.py"  % cgiroot
 pvinfopage = "%s/admin.py/pvinfo" % cgiroot
 
+DEBUG = False
 class WebInstruments(HTMLWriter):
     table_def   = "<table width=90% cellpadding=1 border=0 cellspacing=2>"    
     hrule_row   = "<tr><td colspan=2> <hr>   </td></tr>"
@@ -20,10 +23,16 @@ class WebInstruments(HTMLWriter):
     colored_row = "<tr><td><b>%s</b></td><td><font color=%s> %s </font></td></tr>"
     title_row   = "<tr><th colspan=2><font color=%s>%s</font></tr>"
     
+    POS_DATE = '__(position_by_date)__'
+    
     def __init__(self,arch=None,**kw):
 
         HTMLWriter.__init__(self)
         self.arch   = arch or InstrumentDB()
+
+        self.html_title = 'Epics Instruments'
+
+    def show(self,**kw):
 
         self.kw  = {'station_sel':'', 'newstation':'',
                     'station':'', 'instrument':'','pv':'',
@@ -31,41 +40,40 @@ class WebInstruments(HTMLWriter):
                     'submit': 'Select Station'    }
 
         self.kw.update(kw)
-        self.html_title = 'Epics Instruments'
 
-    def show(self,station=None,instrument=None,pv=None,**kw):
-        self.kw.update(kw)
-
-        if pv is None:  pv = self.kw['pv'].strip()
-        if station is None:  station = self.kw['station'].strip()
-        if instrument is None:  instrument = self.kw['instrument'].strip()
-
-
-        self.kw['pv'] = pv
-        self.kw['station'] = station
-        self.kw['instrument'] = instrument
-
-        
-        self.starthtml()
-        self.show_links(pv=pv)
-
-        wr = self.write
-
-        self.show_dict(self.kw)
-            
-        # finally, draw the full page
-        self.draw_page()
-            
-        self.endhtml()
-        return self.get_buffer()
-        
-    def draw_page(self):
-        
         pv = self.kw['pv']
         station = self.kw['station']
         instrument = self.kw['instrument']
 
         wr = self.write                
+        
+        if (self.kw.has_key('search_position') and
+            self.kw.has_key('date') and
+            self.kw.has_key('inst_id')):
+            # look up position by date!
+            ds   = self.kw['date'].strip()
+            inst = self.kw['inst_id'].strip()
+            
+            if len(inst)>0 and len(ds)>8:
+                return self.view_position(position= self.POS_DATE,
+                                          inst= int(inst), date= time_str2sec(ds))
+            
+
+        elif (self.kw.has_key('save_position') and
+              self.kw.has_key('newpos_name') and
+              self.kw.has_key('inst_id')):
+
+            inst_id = int(self.kw['inst_id'])
+            position =clean_input(self.kw['newpos_name'].strip())
+
+            self.arch.save_instrument_position(inst_id = inst_id, name=position)            
+            instrument,station = self.arch.get_instrument_names_from_id(inst_id)
+
+
+        self.starthtml()
+        self.show_links(pv=pv)
+        
+        if DEBUG: self.show_dict(self.kw)
 
         wr(" <h4> Instruments </h4> ")
         wr('<form action ="%s" enctype="multipart/form-data"  method ="POST"><p>' % (instpage))
@@ -77,9 +85,10 @@ class WebInstruments(HTMLWriter):
             wr("Please select a station.")
         else:
             # a large outer 2 column table: 
-            wr("<table cellpadding=2 border=1><tr><td width=30% >")   # left side  : instrument list
-            wr("<table><tr><td>Instruments for %s:</td></tr>" % station)
-            wr("<tr><td><a href='%s/add_instrument?station=%s'> &lt;add instrument&gt; </a></td></tr>" % (instpage,station))
+            wr("""<table cellpadding=2 border=1><tr><td width=30%% >
+            <table><tr><td>Instruments for %s:</td></tr>
+            <tr><td><a href='%s/add_instrument?station=%s'>
+            &lt;add instrument&gt; </a></td></tr>""" % (station,instpage,station))
             
             self.instruments = {}
             for s in self.arch.list_instruments(station=station):
@@ -97,12 +106,13 @@ class WebInstruments(HTMLWriter):
             else:
                 inst_id = self.instruments[instrument][0]
                 
-                positions = self.arch.get_positions(inst=instrument,station=station)
+                positions = self.arch.get_positions(inst=instrument,station=station,
+                                                    get_hidden=False)
                 pvlist    = self.arch.get_instrument_pvs(name=instrument,station=station)
                 pvlist.sort()
 
                 wr("<input type='hidden' name='instrument_name'  value='%s'>" % instrument)
-                wr("<input type='hidden' name='instrument_id'  value=%i>" % inst_id)
+                wr("<input type='hidden' name='inst_id'  value=%i>" % inst_id)
                 wr("<tr><td align='center' colspan=2>%s: %s</td></tr>" % (station,instrument))
 
 
@@ -110,24 +120,26 @@ class WebInstruments(HTMLWriter):
                 <input type='text'   name='newpos_name' value='' size=35/>
                 <input type='submit' name='save_position' value='Save'/></td><tr>
                 <tr><td colspan=2> Look up position by date:
-                <input type='text' width=33 id='date' name='date' value=''/>
+                <input type='text' width=33 id='date' name='date' value='%s'/>
                 <button id='date_trig'>...</button>
                 <button id='date_search' name='search_position' value='Search'>Search</button> </td></tr>
-                <tr><td colspan=2>&nbsp;</td></tr>""")
+                <tr><td colspan=2>&nbsp;</td></tr>
+                """ % (tformat(time.time(),format="%Y-%m-%d %H:%M:%S")))
 
                 wr(jscal_get_date)
-                
 
                 if len(positions)==0:
                     wr("<tr><td colspan=2 align='center'> No saved positions </td></tr>")
                 else:
-                    wr("""<tr><td colspan=2>Saved Positions:</td></tr>
+                    wr("""<tr><td>Saved Positions:</td>
+                    <td><a href='%s/manage_positions?inst_id=%i'>Manage Positions</a></td>
+                    </tr>
                     <tr><td colspan=2><hr></td></tr>
-                    <tr><td> Name</td><td>Time Saved</td></tr>""")
+                    <tr><td> Name</td><td>Time Saved</td></tr>""" % (instpage,inst_id))
 
                     for p in positions:
                         plink = "<a href='%s/view_position?inst=%i&position=%s'>%s" % (instpage,inst_id,p[1],p[1])
-                        wr("<tr><td>%s </td><td>%s</td></tr>" % (plink,tformat(p[2],format="%Y-%b-%d %H:%M:%S")))
+                        wr("<tr><td>%s </td><td>%s</td></tr>" % (plink,tformat(p[2],format="%Y-%m-%d %H:%M:%S")))
 
 
                 wr("""<tr><td colspan=2><hr></td></tr><tr><td colspan=2>PVs in instrument:
@@ -142,35 +154,95 @@ class WebInstruments(HTMLWriter):
                     
 
             wr("</table>")
-           
-    def show_dict(self,d):
-        for k,v in d.items():
-            self.write("%s= '%s' <br> " % (k,v))                    
+        self.endhtml()
+        return self.get_buffer()
         
-    def view_position(self,**kw):
-        ' view details of a saved position '
-        mykw = {'inst':'','position':'_(by_date)_','desc':'','date':''}
-        mykw.update(kw)
+                
+    def manage_positions(self,**kw):
+        ' view details of positions saved for an instrument '
 
         wr = self.write
+
+        mykw = {'inst_id':'-1'}
+        mykw.update(kw)
+
+        
+        inst_id = int(mykw['inst_id'])
+        
+        if mykw.has_key('submit'):
+            for k,v in mykw.items():
+                hide = ('hidden' == v and k not in (None,''))
+                self.arch.hide_position(inst_id=inst_id,name=k,hide=hide)
+                if 'remove' == v and k not in (None,''):
+                    x = 1
+                    
+
+        positions = self.arch.get_positions(inst_id=inst_id,get_hidden=True)
+        instrument,station =  self.arch.get_instrument_names_from_id(inst_id)
+
+        self.starthtml()
+        self.show_links()
+        flink = "%s/manage_positions?inst_id=%i" % (instpage,inst_id)
+
+
+        if DEBUG: self.show_dict(mykw)
+
+        wr("""<form action ='%s' enctype='multipart/form-data'  method ='POST'>
+        <h4> Positions for Instrument  %s in Station %s </h4><table>
+        <tr><td align='center'> Position Name &nbsp; &nbsp; &nbsp; </td>
+        <td align='center'> &nbsp;  Time Saved &nbsp; &nbsp;</td>
+        <td align='center'> Status </td></tr>
+        <tr><td colspan =3 ><hr></td></tr>""" % (flink,instrument,station))
+
+        for p in positions:
+            pname = p[1]
+            ptime = tformat(p[2], format="%Y-%m-%d %H:%M:%S") + ' &nbsp; &nbsp; &nbsp; '
+
+            cshow,chide = ("checked='true'",'')
+            if p[3] =='no': cshow,chide = ('',"checked='true'")
+            
+            wr("""<tr><td>%s</td><td align='center'>%s</td><td>
+            <input type='radio' %s name='%s' value='active'>active 
+            <input type='radio' %s name='%s' value='hidden'>hidden
+            <input type='radio'    name='%s' value='remove'>delete forever
+            </td>
+            </tr>""" % (pname,ptime,cshow,pname,chide,pname,pname))
+        
+        wr("""<tr><td colspan =3 ><hr></td></tr>
+        <tr><td><input type='submit' name='submit' value='Update Positions'></td>
+        <td colspan=2>
+        <a href='%s?station=%s&instrument=%s'>View Positions for %s</a>
+        </td></tr></table>""" % (instpage,station,instrument,instrument))
+
+        
+        self.endhtml()
+        return self.get_buffer()    
+
+
+    def view_position(self,**kw):
+        ' view details of a saved position '
+
+        wr = self.write
+
+        mykw = {'inst':'','position':self.POS_DATE,'desc':'','date':'-1'}
+        mykw.update(kw)
 
         inst_id = mykw['inst']
         if inst_id == '': inst_id = '0'
         inst_id = int(inst_id)
 
+        date = int(mykw['date'])
+
         instrument,station = self.arch.get_instrument_names_from_id(inst_id)
         position = mykw['position']
-        if position == '_(by_date)_' and mykw['date'] != '':
-            pv_vals,save_time = self.arch.get_instrument_values(position=None,ts=int(date))
-            
-            
+        if position == self.POS_DATE and date > 0:
+            pv_vals,save_time = self.arch.get_instrument_values(inst_id=inst_id,ts=date)
+            pname = 'Position' 
         else:
-            positions = self.arch.get_positions(inst_id=inst_id, name=position)[0]
-            pv_vals = self.arch.get_position_values(positions)
-            save_time  = int(positions[2])
-
-        save_ctime = tformat(save_time,format="%Y-%b-%d %H:%M:%S")
-
+            pv_vals,save_time = self.arch.get_instrument_values(inst_id=inst_id,position=position)
+            pname = 'Position %s ' % position
+            
+        save_ctime = tformat(save_time,format="%Y-%m-%d %H:%M:%S")
 
         if mykw.has_key('submit'):
             form = 'plain'
@@ -179,21 +251,30 @@ class WebInstruments(HTMLWriter):
             elif mykw['submit'].startswith('Python'):
                 form = 'py'
             
-            if position == '_(by_date)_': position = '(not named : retrieved by date)'
+            if position == self.POS_DATE: position = '(not named : retrieved by date)'
             headers = ["restore position: %s " % position,
                        "for instrument: %s / station: %s" % (instrument,station),
                        "saved at time: %s " % save_time]
             wr(write_saverestore(pv_vals,format=form,header=headers))
             return self.get_buffer()
 
+        elif mykw.has_key('save_position') and mykw.has_key('newpos_name') and date>0:
+            try:
+                inst_id = int(mykw['inst'])
+            except:
+                inst_id = -1
+            position =clean_input(mykw['newpos_name'].strip())
+            self.arch.save_instrument_position(inst_id = inst_id, name=position, ts=date)
 
+            pname = 'Position %s ' % position
+            
         self.starthtml()
         self.show_links()
         flink = "%s/view_position?inst=%i&position=%s&date=%i" % (instpage,inst_id,position,save_time)
         wr("""<form action ='%s' enctype='multipart/form-data'  method ='POST'>
-        <h4> Position %s for Instrument %s / Station %s<p> Position Saved    %s </h4><table>
+        <h4> %s for Instrument %s / Station %s<p> Position Saved    %s </h4><table>
         <tr><td> PV Name</td> <td> Saved Value </td><td> Current Value </td></tr>
-        <tr><td colspan =3 ><hr></td></tr>""" % (flink,position,instrument,station,save_ctime))
+        <tr><td colspan =3 ><hr></td></tr>""" % (flink,pname,instrument,station,save_ctime))
         
         for pvname,val in pv_vals:
             curval  = 'Unknown'
@@ -202,6 +283,12 @@ class WebInstruments(HTMLWriter):
             wr("<tr><td width=20%% >%s</td><td width=30%% >%s</td><td width=30%% >%s</td></tr>" % (pvname,str(val),curval))
 
         wr("<tr><td colspan =3 ><hr></td></tr></table>")
+
+        if pname == 'Position':  #(this is an unsaved position!)
+            wr("""Save this position as:
+            <input type='text'   name='newpos_name' value='' size=35/>
+            <input type='submit' name='save_position' value='Save'/><p>""")
+
 
         wr("""To restore to these settings, select one of these output formats:<p>
         <input type='submit' name='submit' value='IDL script'>
@@ -222,7 +309,7 @@ class WebInstruments(HTMLWriter):
         self.show_links()
         wr = self.write
 
-        # self.show_dict(mykw)
+        if DEBUG: self.show_dict(mykw)
         
         if mykw['submit'] != '':
             sname = clean_input(mykw['name']).strip()
@@ -254,11 +341,12 @@ class WebInstruments(HTMLWriter):
         return self.get_buffer()    
 
 
-    def add_instrument(self,station='',**kw):
+    def add_instrument(self, **kw):
         ' form to add an instrument'
 
         mykw = {'name':'','submit':'','desc':'','pv1':'','pv2':'','pv3':'','station':'','form_station':''}
         mykw.update(kw)
+        station = mykw['station']
         
         formstation = mykw['form_station'].strip()
         if station == '' and formstation != '':  station = formstation
@@ -270,7 +358,7 @@ class WebInstruments(HTMLWriter):
 
         wr = self.write
 
-        self.show_dict(mykw)
+        if DEBUG: self.show_dict(mykw)
         
         if mykw['submit'] != '':
             sname = clean_input(mykw['name']).strip()

@@ -25,7 +25,12 @@ class MasterDB:
         self.cache   = self.db.tables['cache']
         self.runs    = self.db.tables['runs']
         self.pairs   = self.db.tables['pairs']
+        self.stations  = self.db.tables['stations']
+        self.instruments = self.db.tables['instruments']
+        self.inst_pvs  = self.db.tables['instrument_pvs']
+        
         self.arch_db = self._get_info('db',  process='archive')
+
         self.get_pvnames()
         
     def use_master(self):
@@ -275,21 +280,6 @@ class MasterDB:
     def get_all_scores(self,pv1,pv2,score):
         self.pairs.select()
 
-        
-class InstrumentDB(MasterDB):
-    """ interface to Instruments"""
-
-    def __init__(self,**kw):
-        MasterDB.__init__(self)
-
-        self.stations  = self.db.tables['stations']
-        self.stations  = self.db.tables['stations']         
-        self.instruments = self.db.tables['instruments']         
-        self.inst_pvs  = self.db.tables['instrument_pvs']
-        self.inst_pos  = self.db.tables['instrument_positions']
-
-    ##
-    ## Instruments
     def get_instruments_with_pv(self,pv):
         """ return a list of (instrument ids, inst name, station name) for
         instruments which  contain a named pv"""
@@ -300,6 +290,17 @@ class InstrumentDB(MasterDB):
             sta  = self.stations.select_one(where="id=%i" % inst['station'])
             inames.append((r['inst'],inst['name'],sta['name']))
         return inames
+        
+class InstrumentDB(MasterDB):
+    """ interface to Instruments"""
+
+    def __init__(self,**kw):
+        MasterDB.__init__(self)
+
+        self.inst_pos  = self.db.tables['instrument_positions']
+
+    ##
+    ## Instruments
 
     def create_station(self,name=None,notes=''):
         " create a station by name"
@@ -420,29 +421,41 @@ class InstrumentDB(MasterDB):
         
         return out
 
-    def save_instrument_position(self,name=None,ts=None,inst=None,station=None):
-        inst_id = self.get_instrument_id(name=inst,station=station)
-        if len(inst_id) == 0: warn = 'no'
-        if len(inst_id)  > 1: warn = 'multiple'
-        if len(inst_id) != 1:
-            print "warning: %s instruments found for name='%s', station='%s'" %(warn,inst,station)
-            if len(inst_id)==0:
-                return
+    def save_instrument_position(self,inst_id=None,name=None,ts=None,inst=None,station=None):
+        if inst_id is None:
+            inst_id = self.get_instrument_id(name=inst,station=station)
 
-        inst_id = inst_id[0]
+            if len(inst_id) == 0: warn = 'no'
+            if len(inst_id)  > 1: warn = 'multiple'
+            if len(inst_id) != 1:
+                print "warning: %s instruments found for name='%s', station='%s'" %(warn,inst,station)
+                if len(inst_id)==0:
+                    return
+            inst_id = inst_id[0]
+
+        if inst_id < 0: return
         if ts is None: ts = time.time()
         if name is None: name = time.ctime()
         self.inst_pos.insert(inst=inst_id,name=name,ts=ts)
 
-    def get_positions(self,inst_id=None,inst=None,station=None,name=None):
+    def hide_position(self,inst_id=None,name=None,hide=True):
+        """ hide or unhide namesd positions for an instrument id"""
+        if inst_id is None or name is None: return
+        active = 'yes'
+        if hide: active = 'no'
+        where = "inst=%i and name='%s'" % (inst_id,name)
+        self.inst_pos.update(active=active,where=where)
+
+    def get_positions(self,inst_id=None,inst=None,station=None,name=None,get_hidden=False):
         """return a list of (id,name,ts) for instrument_positions
         (that is the position id, position name, timestamp for position)
         given an instrument name, and optionally a station name, and
         optionally a position name """
-        
+
         out = []
         where = '1=1'
-
+        if not get_hidden:
+            where = "active='yes'"
         if inst_id is None:
             inst_id = self.get_instrument_id(name=inst,station=station)
 
@@ -451,87 +464,47 @@ class InstrumentDB(MasterDB):
                 for inst in inst_id:
                     ret = self.inst_pos.select(where="%s and inst=%i" % (where,inst))
                     for r in ret:
-                        out.append((r['id'],r['name'],r['ts']))
-        elif isinstance(inst_id,int):
+                        out.append((r['id'],r['name'],r['ts'],r['active']))
+        else:
+            inst_id = int(inst_id)
             if name is not None: where = "name='%s'" %  name
             ret = self.inst_pos.select(where="%s and inst=%i" % (where,inst_id))
             for r in ret:
-                out.append((r['id'],r['name'],r['ts']))
-            
+                out.append((r['id'],r['name'],r['ts'],r['active']))
         return out
 
     def get_instrument_values(self,inst_id=None,position=None,ts=None):
         """ given an instrument id and either a position name or timestamp
-        return a tuple of (pvname,values) for all PVs in that instrument. """
+        return a list of (pvname,values) tuples for all PVs in that instrument.
+        returns list_of_pv_values
+        where list_of_pv_values is a list of (pvname,values)
 
-        print 'GET INST VALS ' ,inst_id, type(inst_id), position,ts
-
+        Note that the values returned may be None, meaning 'unknown'
+        """
         if position is not None:
-            p = self.get_positions(inst_id=inst_id,name=position)
-            print ' get_position returned: ', p
-            # print 'POS:  ', ts
+            try:
+                pos_id,pos_name,ts,a = self.get_positions(inst_id=inst_id,name=position)[0]
+            except IndexError:
+                ts = None
 
-        out = []
         if ts is None:
-            print 'cannot find timestamp to look up settings'
-            return out
+            return ([], 0)
 
-
-        x =  self.inst_pvs.select(where="inst=%i" % inst_id)
-        print x
-        
         pvs = [i['pvname'] for i in self.inst_pvs.select(where="inst=%i" % inst_id)]
-        print 'PVS: '
-        print pvs
-        
+
+        data = dict.fromkeys(pvs,None)
+
         from Archiver import Archiver
         a = Archiver()
 
-        data = {}
-        for arch_db in self.dbs_for_time(t0=ts,t1=ts):
-            self.db.use(self.arch_db)
-            for pvname in pvs:
-                for d in a.get_data(pvname,t0=ts,t1=ts)[0]:
-                    if d[0] <= ts:
-                        data[pvname] = d[1]
+        for pvname in pvs:
+            for d in a.get_data(pvname,t0=ts,t1=ts)[0]:
+                if d[0] <= ts:
+                    data[pvname] = d[1]
 
-        self.use_master()
         a.db.close()
-
-
-        pvnames = data.keys() ; pvnames.sort()
-        for p in pvnames: out.append((p,data[p]))
-            
-        return out,ts
-
-    
-# 
-#             
-#         
-#     def get_position_values(self,position):
-#         """ given a position tuple (returned from list_positions)
-#         return a dictionary of (pvname,values) for all PVs in that position.
-#         """
-#         pos_id,name,ts = position
-#         
-#         x = self.inst_pos.select_one(where="id=%i" % (pos_id))
-#         pvs = [i['pvname'] for i in self.inst_pvs.select(where="inst=%i" % x['inst'])]
-#         
-#         from Archiver import Archiver
-#         a = Archiver()
-# 
-#         data = {}
-#         for arch_db in self.dbs_for_time(t0=ts,t1=ts):
-#             self.db.use(self.arch_db)
-#             for pvname in pvs:
-#                 for d in a.get_data(pvname,t0=ts,t1=ts)[0]:
-#                     if d[0] <= ts:
-#                         data[pvname] = d[1]
-# 
-#             
-#         self.use_master()
-#         out = []
-#         pvnames = data.keys() ; pvnames.sort()
-#         for p in pvnames: out.append((p,data[p]))
-#             
-#         return out
+        
+        pvnames = data.keys()
+        pvnames.sort()
+        vals = [(p,data[p]) for p in pvnames]
+        return vals,ts

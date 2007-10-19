@@ -21,32 +21,39 @@ class WebAdmin(HTMLWriter):
         self.arch    = arch or Archiver()
         self.master  = self.arch.master
 
-        self.kw  = {'form_pv':'', 'submit': '','description':'','deadtime':'','deadband':'','type':''}
+        self.kw  = {'form_pv':'', 'pv':'',
+                    'submit': '','description':'','deadtime':'','deadband':'','type':''}
         self.kw.update(kw)
 
-    def show_adminpage(self,pv=''):
-        pvname = self.kw['form_pv'].strip()
-        if pvname == '' and pv != '':
-            pvname = pv
-            self.kw['form_pv'] = pvname
-
+    def setup_keywords(self,**kw):
+        self.kw.update(kw)
+        pvname = self.kw['pv'].strip()
+        if pvname == '' and self.kw['form_pv'].strip() != '':
+             pvname = self.kw['form_pv']
+        self.kw['form_pv']  = pvname
+        pvn = normalize_pvname(pvname)
+        
         self.starthtml()
-        self.show_links(pv=pvname)
+        self.show_links(pv=pvn)
 
-        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.arch_report())
-        self.write("Archive Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)
+        if DEBUG: self.show_dict(self.kw)
+        return pvn,self.write
+        
+    def show_adminpage(self,**kw):
+        pvname, wr = self.setup_keywords(**kw)
 
-        stat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.cache_report(brief=True))
-        self.write("<p>Cache Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>" % stat)        
+        astat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.arch_report())
+        cstat = "<br>&nbsp;&nbsp;&nbsp; ".join(self.master.cache_report(brief=True))
 
-        self.write("<hr>")
-
+        wr("""Archive Status:<br>&nbsp;&nbsp;&nbsp;  %s<br>
+           <p>Cache Status:<br>&nbsp;&nbsp;&nbsp;  %s<br><hr>""" % (astat,cstat))
             
         submit = self.kw['submit'].strip()
 
         if submit.startswith('Add') and len(pvname)>1:
             sx = clean_input(pvname)
-            self.write("<p>Adding %s to archive!!<p><hr>" % (sx))
+
+            wr("<p>Adding %s to archive!!<p><hr>" % (sx))
             add_pv_to_cache(sx)
             self.kw['submit'] = ''
             self.kw['form_pv'] = ''
@@ -54,63 +61,46 @@ class WebAdmin(HTMLWriter):
             self.endhtml()
             return self.get_buffer()
         
-        self.write('<form action ="%s" enctype="multipart/form-data"  method ="POST"><p>' % (adminpage))
-        self.write('<p>Search for PV:&nbsp;&nbsp;&nbsp;')
-        self.write('<input type="text" name="form_pv" value="%s" size=40> &nbsp; (use \'*\' for wildcard searches)' % pvname)
-        self.write("<input type='submit' name='submit' value='Search Archive'><p>")
+        wr("""<form action ='%s' enctype='multipart/form-data' method='POST'><p>
+        <p>Search for PV:&nbsp;&nbsp;&nbsp;
+        <input type='text' name='form_pv' value='%s' size=40> &nbsp; (use \'*\' for wildcard searches)
+        <input type='submit' name='submit' value='Search Archive'><p>"""
+           % (adminpage,pvname))
+        
         if pvname != '':
             i = 0
             sx = clean_input(pvname.replace('*','%'))
-
             results = self.master.cache.select(where="pvname like '%s' order by pvname" % sx)
-
-            self.write("<p>Search results for '%s' (%i matches): </p>" % (pvname,len(results)))
-            self.write("<table><tr>")
+            
+            wr("<p>Search results for '%s' (%i matches): </p><table><tr>" % (pvname,len(results)))
 
             for r in results:
-                self.write('<td><a href="%s?pv=%s">%s</a>&nbsp;&nbsp;</td>'% (pvinfopage,r['pvname'],r['pvname']))
+                wr("<td><a href='%s?pv=%s'>%s</a>&nbsp;&nbsp;</td>"%(pvinfopage,r['pvname'],r['pvname']))
                 i  = i + 1
-                if i % 3 == 0: self.write("</tr><tr>")
+                if i % 4 == 0: wr("</tr><tr>")
 
-            self.write("</table>")
+            wr("</table>")
 
             if len(results)== 0 and sx.find('%')==-1:
-                self.write("<input type='submit' name='submit' value='Add %s to Archive'><p>" % pvname)
+                wr("<input type='submit' name='submit' value='Add %s to Archive'><p>" % pvname)
                    
         self.endhtml()
         return self.get_buffer()
 
-    def show_pvinfo(self,pv=None,**kw):
-        self.kw.update(kw)
-
-        pvname = self.kw['form_pv'].strip()
-        if pvname == '' and pv != '':
-            pvname = pv
-            self.kw['form_pv'] = pvname
-
-        self.starthtml()
-        self.show_links(pv=pvname)
-
-        if DEBUG:
-            self.write('<p> === Keys: === </p>')
-            for key,val in self.kw.items():
-                self.write(" %s :  %s <br>" % (key,val))
-
-        if pv is None:
-            fpv = self.kw['form_pv'].strip()
-            if fpv != '': pv = fpv
+    def show_pvinfo(self,**kw):
+        pvname, wr = self.setup_keywords(**kw)
 
         submit = self.kw['submit'].strip()
         es  = clean_string
 
         self.master.use_current_archive()
 
-        if submit.startswith('Update') and len(pv)>1:
+        if submit.startswith('Update') and len(pvname)>1:
             pv_update = self.arch.pv_table.update
-            pvn = clean_input(pv)
-            self.write("<p>Updating data for %s!!<p><hr>" % (pvn))
+
+            wr("<p>Updating data for %s!!<p><hr>" % (pvname))
             desc  = clean_input(self.kw['description'].strip())
-            where = "name='%s'" % (pvn)
+            where = "name='%s'" % (pvname)
             pv_update(where=where, description=desc)
                                                                                    
             kws = {}
@@ -128,114 +118,98 @@ class WebAdmin(HTMLWriter):
                             pass
 
             if len(kws)>0:
-                for k,v in kws.items():
-                    self.write('<p> update    %s :: %s </p>'  % (k,v))
+                for k,v in kws.items():  wr("<p> update    %s :: %s </p>"  % (k,v))
                 pv_update(where=where, **kws)
                 
-            self.write('<p> <a href="%s?pv=%s">Plot %s</a>&nbsp;&nbsp;</p>'% (thispage,pvn,pvn))
+            wr('<p> <a href="%s?pv=%s">Plot %s</a>&nbsp;&nbsp;</p>'% (thispage,pvname,pvname))
             self.endhtml()
             return self.get_buffer()
-        if pv in (None,''):
-            self.write("No PV given??")
-            self.write("No PV given???  Click <a href='%s'>here</a> for Main Admin Page" % adminpage)
-
+        if pvname in (None,''):
+            wr("No PV given???  Click <a href='%s'>here</a> for Main Admin Page" % adminpage)
             self.endhtml()
             return self.get_buffer()            
 
-        ret = self.arch.pv_table.select(where="name='%s'" % pv)
+        ret = self.arch.pv_table.select(where="name='%s'" % pvname)
         if len(ret)== 0:
-            self.write("PV not in archive??")
+            wr("PV not in archive??")
             self.endhtml()
             return self.get_buffer()            
 
-        pvn = clean_input(pv)
-        self.write('<p> <h4> %s    ' % (pvn))
-        self.write('  &nbsp;&nbsp;&nbsp;&nbsp; <a href="%s?pv=%s">Show Plot</a></h4></p>' % (thispage,pvn))
         d = ret[0]
-        self.write('<form action ="%s" enctype="multipart/form-data"  method ="POST"><p>' % (pvinfopage))
-        self.write('<input type="hidden" name="form_pv" value="%s">' % pvn)
         
-        self.write("<table><tr><td colspan=2><hr></td></tr><tr>")
+        wr("""<p> <h4> %s &nbsp;&nbsp;&nbsp;&nbsp;
+        <a href='%s?pv=%s'>Show Plot</a></h4></p>""" % (pvname,thispage,pvname))
 
-        self.write('<td>Data Type:</td><td>%s</td></tr>' % d['type'])
-        self.write("<td>Actively Archived:</td><td>")
+        wr("""<form action ='%s' enctype='multipart/form-data'  method='POST'><p>
+        <input type='hidden' name='form_pv' value='%s'>
+        <table><tr><td colspan=2><hr></td></tr><tr>
+        <td>Data Type:</td><td>%s</td></tr><td>Actively Archived:</td><td>
+        """ % (pvinfopage,pvname,d['type']))
+        
         for i in ('Yes','No'):
             sel = ''
             if i.lower() == d['active'].lower():  sel = "checked=\"true\""
-            self.write('<input type="radio" %s name="active" value="%s">&nbsp;%s' % (sel,i,i))
-        self.write("</td></tr>")
+            wr('<input type="radio" %s name="active" value="%s">&nbsp;%s' % (sel,i,i))
 
-        self.write("<td>")        
-        self.write('Description:</td><td><input type="text" name="desc" value="%s" size=30></td>' % d['description'])
-        self.write("</tr><tr><td>")
-        self.write('Deadtime (seconds):</td><td><input type="text" name="deadtime" value="%s" size=30></td>' % str(d['deadtime']))
-        self.write("</tr><tr><td>")
-        self.write('Deadband (fraction):</td><td><input type="text" name="deadband" value="%s" size=30></td>' % str(d['deadband']))
+        wr("""</td></tr><td> Description:</td><td><input type='text' name='desc' value='%s' size=30>
+        </td></tr><tr><td>   Deadtime (seconds):</td><td><input type='text' name='deadtime' value='%s' size=30>
+        </td></tr><tr><td>   Deadband (fraction):</td><td><input type='text' name='deadband' value='%s' size=30>
+        </td></tr><tr><td>   Graph Upper Limit:</td><td><input type='text' name='graph_hi' value='%s' size=30> 
+        </td></tr><tr><td>   Graph Lower Limit:</td><td><input type='text' name='graph_lo' value='%s' size=30>
+        </td></tr><tr><td>   Graph Type</td><td>
+        """ % (d['description'],str(d['deadtime']),str(d['deadband']),str(d['graph_hi']),str(d['graph_lo'])))
 
-        self.write("</tr><tr><td>")
-        self.write('Graph Upper Limit:</td><td><input type="text" name="graph_hi" value="%s" size=30></td>' % str(d['graph_hi']))
-        self.write("</tr><tr><td>")
-        self.write('Graph Lower Limit:</td><td><input type="text" name="graph_lo" value="%s" size=30></td>' % str(d['graph_lo']))
-
-        self.write("</tr><tr><td>Graph Type</td><td>")
         for i in ('normal','log','discrete'):
             sel = ''
-            if i.lower() == d['graph_type'].lower():  sel = "checked=\"true\""
-            self.write('<input type="radio" %s name="graph_type" value="%s">&nbsp;%s' % (sel,i,i))
-        self.write("</td></tr>")
+            if i.lower() == d['graph_type'].lower():  sel = "checked='true'"
+            wr("<input type='radio' %s name='graph_type' value='%s'>&nbsp;%s" % (sel,i,i))
 
-
-        self.write("<tr><td><input type='submit' name='submit' value='Update PV Settings'></td><td></td></tr>")
-
-        self.write("<tr><td colspan=2><hr></td></tr></table>")
-
+        wr("""</td></tr><tr><td><input type='submit' name='submit' value='Update PV Settings'></td><td></td></tr>
+        <tr><td colspan=2><hr></td></tr></table>""")
         
         self.master.use_master()
         #  Related PVs
-        r = self.master.get_related_pvs(pvn)
+        r = self.master.get_related_pvs(pvname)
         i = 0
         if len(r)==0:
-            self.write("<h4>No Related PVs:  <a href=%s?pv=%s>View and Change</a></h4> <table><tr>" % (relpv_page,pvn))
+            wr("<h4>No Related PVs:  <a href=%s?pv=%s>View and Change</a></h4> <table><tr>" % (relpv_page,pvname))
         else:
-            self.write("<h4>Related PVs: <a href=%s?pv=%s>View and Change</a></h4> <table><tr>" % (relpv_page,pvn))
+            wr("<h4>Related PVs: <a href=%s?pv=%s>View and Change</a></h4> <table><tr>" % (relpv_page,pvname))
             for pv2 in r:
-                self.write('<td><a href="%s?pv=%s">%s</a>&nbsp;&nbsp;</td>'% (pvinfopage,pv2,pv2))
+                wr('<td><a href="%s?pv=%s">%s</a>&nbsp;&nbsp;</td>'% (pvinfopage,pv2,pv2))
                 i  = i + 1
-                if i % 3 == 0: self.write("</tr><tr>")
+                if i % 5 == 0: wr("</tr><tr>")
                 
-            self.write("</tr></table>")
+            wr("</tr></table>")
         
             
         #  Instruments PVs
-        r = self.master.get_related_pvs(pvn)
-        i = 0
-        if len(r)==0:
-            self.write("<p>No Instruments for %s</p>" % pvn)
-        else:
-            self.write("<h4>Instruments: <a href=%s?pv=%s>View and Change</a></h4> <table><tr>" % (relpv_page,pvn))
-            for pv2 in r:
-                self.write('<td><a href="%s?pv=%s">%s</a>&nbsp;&nbsp;</td>'% (pvinfopage,pv2,pv2))
-                i  = i + 1
-                if i % 3 == 0: self.write("</tr><tr>")
-                
-            self.write("</tr></table>")
+        instpage   = "%s/instruments.py"  % cgiroot
         
+        r = self.master.get_instruments_with_pv(pvname)
+        if len(r)==0:
+            wr("<p>No Instruments contain %s</p>" % pvname)
+        else:
+            wr("<h4>Instruments containing %s:</h4><table><tr>" % pvname)
+            for inst_id,inst,station in r:
+                ilink = "<a href='%s?station=%s&instrument=%s'>%s</a>" % (instpage,station,inst,inst)
+                wr('<td>&nbsp; &nbsp; %s &nbsp;&nbsp;</td>'% (ilink))
+                i  = i + 1
+                if i % 3 == 0: wr("</tr><tr>")
+                
+            wr("</tr></table>")
+            
+        # Alerts:
+        wr("<h4>Alerts for %s:</h4><table><tr>" % pvname)
             
 
         self.endhtml()
         return self.get_buffer()
 
-    def show_related_pvs(self,pv=None,**kw):
-        self.kw.update(kw)
+    def show_related_pvs(self,**kw):
+        pvname, wr = self.setup_keywords(**kw)
+
         submit = self.kw['submit'].strip()
-
-        pvname = self.kw['form_pv'].strip()
-        if pvname == '' and pv != '':
-            pvname = pv
-            self.kw['form_pv'] = pvname
-
-        self.starthtml()
-        self.show_links(pv=pvname)
         
         get_score = self.master.get_pair_score
         set_score = self.master.set_pair_score
@@ -255,24 +229,22 @@ class WebAdmin(HTMLWriter):
                         score = int(action[7:])
                     if score is not None:   set_score(pv1,pv2,score)
 
-        if pv is not None:
-            pvn = normalize_pvname(clean_input(pv))
+        if pvname is not None:
+            wr('<form action ="%s?pv=%s" enctype="multipart/form-data"  method ="POST"><p>' % (relpv_page,pvname))
+            wr('<input type="hidden" name="form_pv" value="%s">' % pvname)
 
-            self.write('<form action ="%s?pv=%s" enctype="multipart/form-data"  method ="POST"><p>' % (relpv_page,pvn))
-            self.write('<input type="hidden" name="form_pv" value="%s">' % pvn)
-
-            r = self.master.get_related_pvs(pvn)
+            r = self.master.get_related_pvs(pvname)
             i = 0
-            self.write("<h4>Related PVs for &nbsp; &nbsp; %s:</h4> <table cellpadding=2 border=0> " % pvn)
+            wr("<h4>Related PVs for &nbsp; &nbsp; %s:</h4> <table cellpadding=2 border=0> " % pvname)
 
             if len(r)==0:
-                self.write("<tr><td colspan=4>no Related PVs for %s</td></tr>" % pvn)
+                wr("<tr><td colspan=4>no Related PVs for %s</td></tr>" % pvname)
             else:
-                self.write("""<tr><td>PV </td><td>Current Score</td><td></td><td colspan=2>Change Score</td></tr>
+                wr("""<tr><td>PV </td><td>Current Score</td><td></td><td colspan=2>Change Score</td></tr>
                 <td colspan=5><hr></td><td></td></tr>""")
                 for pv2 in r:
-                    score = get_score(pv2,pvn)                    
-                    self.write("""<tr><td>  %s &nbsp;</td><td>&nbsp; %i</td><td>
+                    score = get_score(pv2,pvname)                    
+                    wr("""<tr><td>  %s &nbsp;</td><td>&nbsp; %i</td><td>
                     <input type='radio' name='%s' value='setval_%i'>&nbsp;+5&nbsp;
                     <input type='radio' name='%s' value='setval_%i'>&nbsp;+2&nbsp;</td><td>
                     <input type='radio' name='%s' value='setval_%i'>&nbsp;-2&nbsp;                    
@@ -281,28 +253,16 @@ class WebAdmin(HTMLWriter):
                     <input type='radio' name='%s' value='setval_%i'>&nbsp;set to 0</td></tr>
                     """ % (pv2,score,pv2,score+5,pv2,score+2,pv2,score-2,pv2,score-5,pv2,score,pv2,0))
 
-                self.write("<tr><td colspan=5><hr></td></tr>")
+                wr("<tr><td colspan=5><hr></td></tr>")
             
             for i in range(3):
-                self.write("""<tr><td>Add related PV &nbsp;</td><td colspan=4>
+                wr("""<tr><td>Add related PV &nbsp;</td><td colspan=4>
                 <input type="text" name="pv%i" value="" size=30></td></tr>""" % i)
 
-            self.write("""<tr><td colspan=5><hr></td></tr><tr><td colspan=2>
+            wr("""<tr><td colspan=5><hr></td></tr><tr><td colspan=2>
             <input type='submit' name='submit' value='Update Relate PVs'></td></tr></table>""")
 
         self.endhtml()
         return self.get_buffer()
 
 
-    def show_instruments(self,station=None, instrument=None,pvname=None,**kw):
-        self.kw.update(kw)
-        submit = self.kw['submit'].strip()        
-        self.starthtml()
-        self.show_links()        
-
-        self.write("<h4>Instruments Page</hr>")
-
-        self.endhtml()
-        return self.get_buffer()
-
-            

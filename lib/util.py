@@ -34,7 +34,7 @@ def clean_string(x):
 def normalize_pvname(p):
     """ normalizes a PV name (so that it ends in .VAL if needed)."""
     x = clean_input(p.strip())
-    if x.find('.') < 1: return '%s.VAL' % x
+    if len(x) > 2 and x.find('.') < 1: return '%s.VAL' % x
     return x
 
 def get_force_update_time():
@@ -53,10 +53,17 @@ def timehash():
     cannot happen for 10^12 milliseconds (33 years). """ 
     return hex(int(1000*time.time()))[-10:]
 
-def tformat(t=None,format="%d-%b-%Y"):
+def tformat(t=None,format="%Y-%m-%d %H:%M:%S"):
     """ time formatting"""
     if t is None: t = time.time()
     return time.strftime(format, time.localtime(t))
+
+def time_str2sec(s):
+    xdate,xtime = s.split(' ')
+    hr,min,sec  = xtime.split(':')
+    yr,mon,day  = xdate.split('-')
+    dx = time.localtime()
+    return time.mktime((int(yr),int(mon),int(day),int(hr),int(min), 0,0,0,dx[8]))
 
     
 def set_pair_scores(pvlist):
