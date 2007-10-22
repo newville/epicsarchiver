@@ -12,14 +12,14 @@ motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS','.DIR','_able.VAL','.
 def clean_input(x,maxlen=256):
     """clean input, forcing it to be a string, with comments stripped,
     and guarding against extra sql statements"""
-    if not isinstance(x,str): x = str(x)
+    if not isinstance(x,(unicode,str)): x = str(x)
 
     if len(x)>maxlen:   x = x[:maxlen-1]
     x.replace('#','\#')
     
     eol = x.find(';')
-    if eol > 0: x = x[:eol]
-    return x
+    if eol > -1: x = x[:eol]
+    return x.strip()
                        
 def safe_string(x):
     x = clean_input(x)
