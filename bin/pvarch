@@ -114,16 +114,13 @@ def run_cache(action=None):
     sout    = os.path.join(dir, "cache.log")
     serr    = os.path.join(dir, "cache.err")
     pidfile = os.path.join(dir, "cache.pid")
-    
 
     if 'stop'==action:
         c = EpicsArchiver.MasterDB()
         c.set_cache_status('stopping')
         c.set_cache_pid(0)
         time.sleep(1.0)        
-
         c.close()
-
 
     EpicsArchiver.startstop(stdout =sout,stderr=serr, pidfile=pidfile,
                             process_name='pvcache', action=action,

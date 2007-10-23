@@ -45,6 +45,7 @@ drop table if exists alerts;
 create table alerts (
     id         int unsigned not null primary key auto_increment,
     pvname     varchar(64) not null,
+    name       varchar(256) not null, 
     mailto     varchar(256) default null,
     mailmsg    varchar(1024) default null,
     trippoint  tinyblob default null,

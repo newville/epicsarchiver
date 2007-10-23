@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import time
-from EpicsArchiver import InstrumentDB, config
+from EpicsArchiver import Instruments, config
 
 from HTMLWriter import HTMLWriter, jscal_get_date
 
@@ -16,28 +16,22 @@ pvinfopage = "%s/admin.py/pvinfo" % cgiroot
 
 DEBUG = False
 class WebInstruments(HTMLWriter):
-    table_def   = "<table width=90% cellpadding=1 border=0 cellspacing=2>"    
-    hrule_row   = "<tr><td colspan=2> <hr>   </td></tr>"
-    space_row   = "<tr><td colspan=2> &nbsp; </td></tr>"
-    normal_row  = "<tr><td><b>%s</b></td><td>%s</td></tr>"
-    colored_row = "<tr><td><b>%s</b></td><td><font color=%s> %s </font></td></tr>"
-    title_row   = "<tr><th colspan=2><font color=%s>%s</font></tr>"
-    
     POS_DATE = '__(position_by_date)__'
+    html_title = 'Epics Instruments'
     
     def __init__(self,arch=None,**kw):
 
         HTMLWriter.__init__(self)
-        self.arch   = arch or InstrumentDB()
-
-        self.html_title = 'Epics Instruments'
-
-    def show(self,**kw):
+        self.arch   = arch or Instruments()
 
         self.kw  = {'station_sel':'', 'newstation':'',
                     'station':'', 'instrument':'','pv':'',
-                    'station_add':'',
-                    'submit': 'Select Station'    }
+                    'station_add':'','inst_id':-1,
+                    'submit': '' }
+
+
+    def show(self,**kw):
+
 
         self.kw.update(kw)
 

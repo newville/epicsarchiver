@@ -131,7 +131,7 @@ class Cache(MasterDB):
         t0 = time.time()
         self.start_group()
         for i,pvname in enumerate(self.pvnames):
-            xx = self.cache.select_one(where='pvname=%s' % pvname)
+            xx = self.cache.select_one(where="pvname='%s'" % pvname)
             if xx.has_key('active'):
                 if 'no' == xx['active']:  continue                
             try:
@@ -174,23 +174,25 @@ class Cache(MasterDB):
 
         status_str = '%s: %i values cached since last notice\n'
         ncached = 0
+        mlast   = -1
         while True:
             try:
                 self.start_group()
-                EpicsCA.pend_event(0.5)
-                self.end_group()
-                ncachded = ncached + len(self.data)
+                EpicsCA.pend_event(0.1)
+                n = self.end_group()
+                ncached = ncached + n
                 self.set_date()
                 self.process_requests()
                 self.process_alerts()
                 if self.get_pid() != self.pid:
                     sys.stdout.write('no longer master.  Exiting !!\n')
                     self.exit()
-                if (time.time() - t0) >= 59.5:
+                tmin,tsec = time.localtime()[4:6]
+                if tsec == 0 and (tmin != mlast): # report once per minute
+                    mlast = tmin
                     sys.stdout.write(status_str % (time.ctime(),ncached))
                     sys.stdout.flush()
                     self.read_alert_settings()
-                    t0 = time.time()
                     ncached = 0
             except KeyboardInterrupt:
                 return
@@ -271,13 +273,14 @@ class Cache(MasterDB):
 
     def read_alert_settings(self):
         self.alert_data = {}
-        for i in self._table_alerts.select():
+        for i in self._table_alerts.select(where="active='yes'"):
             pvname = i.pop('pvname')
             self.alert_data[pvname] = i
         
     def process_alerts(self):
         for pv in self.data.keys():
             if self.alert_data.has_key(pv):
-                print 'see new value for pv with an alert: ',pv,pv
-                print self.alert_data[pv]
+                print 'see new value for pv with an alert: ',pv
+                al = self.alert_data[pv]
+                print 'current alarm status = ', al['status']
                 

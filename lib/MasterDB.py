@@ -291,7 +291,7 @@ class MasterDB:
             inames.append((r['inst'],inst['name'],sta['name']))
         return inames
         
-class InstrumentDB(MasterDB):
+class OLDInstrumentDB(MasterDB):
     """ interface to Instruments"""
 
     def __init__(self,**kw):
