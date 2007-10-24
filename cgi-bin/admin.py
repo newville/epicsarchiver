@@ -27,8 +27,8 @@ def dispatch(req,method,**kw):
 
     return getattr(p,method)(**kw)
 
-
-def index(req,**kw):                return dispatch(req,'show_adminpage',**kw)
-def pvinfo(req,**kw):               return dispatch(req,'show_pvinfo',**kw)
-def related_pvs(req,**kw):          return dispatch(req,'show_related_pvs',**kw)    
+def index(req,**kw):        return dispatch(req,'show_adminpage',**kw)
+def pvinfo(req,**kw):       return dispatch(req,'show_pvinfo',**kw)
+def related_pvs(req,**kw):  return dispatch(req,'show_related_pvs',**kw)    
+def alerts(req,**kw):       return dispatch(req,'show_alerts',**kw)    
 

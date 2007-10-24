@@ -240,8 +240,15 @@ class HTMLWriter:
         s.append("/>")
         return " ".join(s)
         
-    def textinput(self,name='text',value='',size=30,**kw):
-        return self._input(type='text',name=name,value=value,size=size,**kw)
+    def textinput(self,name='text',value='',size=30,nlines=1,**kw):
+        if nlines <= 1:
+            return self._input(type='text',name=name,value=value,size=size,**kw)
+        else:
+            s = ' '.join([self._make_keyval('name',name),
+                          self._make_keyval('rows',nlines),                            
+                          self._make_keyval('cols',size)])
+            
+            return '<textarea %s>%s</textarea>' % (s,value)
 
     def hiddeninput(self,name='text',value='',**kw):
         return self._input(type='hidden',name=name,value=value,**kw)

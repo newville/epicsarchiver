@@ -1,8 +1,12 @@
 import time
+import smtplib
+
 import EpicsCA
 from SimpleDB import SimpleDB, SimpleTable
-from config import dbuser, dbpass, dbhost, master_db, cgi_url
-from util import normalize_pvname, tformat, \
+from config import dbuser, dbpass, dbhost, master_db, \
+     mailserver, mailfrom, cgi_url
+
+from util import normalize_pvname, tformat, clean_input, \
      MAX_EPOCH, SEC_DAY, motor_fields
 
 class MasterDB:
@@ -19,6 +23,22 @@ class MasterDB:
     runs_title= '|  database         |         date range              | duration (days)|'
     runs_line = '|-------------------|---------------------------------|----------------|'
 
+    def_alert_msg ="""Hello,
+  An alarm labeled  %LABEL%
+  was detected for PV = '%PV%'
+  The current value = %VALUE%.
+  This is %COMP% the trip point value of %TRIP%
+  """
+
+    optokens = ('ne', 'eq', 'le', 'lt', 'ge', 'gt')
+    opstrings= ('not equal to', 'equal to',
+                'less than or equal to',    'less than',
+                'greater than or equal to', 'greater than')
+    
+    ops = {'eq':'__eq__', 'ne':'__ne__', 
+           'le':'__le__', 'lt':'__lt__', 
+           'ge':'__ge__', 'gt':'__gt__'}
+           
     def __init__(self,db=None, **kw):
         if db is None:
             self.db = SimpleDB(user=dbuser, passwd=dbpass,
@@ -273,7 +293,7 @@ class MasterDB:
             q = "insert into pairs set score=%i, pv1='%s', pv2='%s'"
         else:
             q = "update pairs set score=%i where pv1='%s' and pv2='%s'"
-        # print q % (score,p[0],p[1])        
+
         self.db.exec_fetch(q % (score,p[0],p[1]))
         
     def increment_pair_score(self,pv1,pv2):
@@ -283,7 +303,6 @@ class MasterDB:
     def set_allpairs(self,pvlist,score=10):
         """for a list/tuple of pvs, set all pair scores
         to be at least the provided score"""
-        # print 'This is set_allpairs ', pvlist, type(pvlist)
         if not isinstance(pvlist,(tuple,list)): return
         _tmp = list(pvlist[:])
         while _tmp:
@@ -309,6 +328,74 @@ class MasterDB:
 
     ##
     ## Alerts
+    def get_alerts(self,pvname=None,name=None):
+        """ return a list of alerts for a pvname"""
+        if pvname is None: return []
+        pvname = normalize_pvname(pvname)
+        where = "pvname='%s'" % pvname
+        
+        if name is not None:
+            where = "%s and name='%s'" % (where,clean_input(name))
+        return self.alerts.select(where=where)
+
+    def get_alert_with_id(self,id):
+        """ return a list of alerts for a pvname"""
+        return self.alerts.select_one(where="id=%i" % id)
+
+    ## Alerts
+    def remove_alert(self, id=None):
+        if id is None: return
+        q = "delete from alerts where id=%i" % int(id)
+        self.db.execute(q)
+
+   
+    def add_alert(self, pvname=None,name=None,
+                  mailto=None,  mailmsg=None,
+                  compare='ne', trippoint=None, **kw):
+        
+        if pvname is None: return
+        
+        pvname = normalize_pvname(pvname)        
+        if name is None: name = pvname
+           
+        if pvname not in self.pvnames: self.add_pv(pvname)
+
+        active = 'yes'
+        if mailto  is None:    active,mailto = ('no','')
+        if mailmsg  is None:   active,mailmsg= ('no','')
+        if trippoint is None:  active,trippoint = ('no',0.)
+
+        if compare not in self.optokens: compare = 'ne'
+        
+        self.alerts.insert(name=name,pvname=pvname,active=active,
+                           mailto=mailto,mailmsg=mailmsg,
+                           compare=compare, trippoint=trippoint)
+                  
+        for a in self.get_alerts(pvname=pvname,name=name):
+            val =EpicsCA.caget(pvname)
+            self.check_alert(a['id'],val)
+        
+    def update_alert(self,id=None,**kw):
+        if id is None: return
+        where = "id=%i"% id        
+        mykw = {}
+        for k,v in kw.items():
+            if k in ('pvname','name','mailto','mailmsg',
+                     'trippoint','compare','status','active'):
+                v = clean_input(v)
+                if 'compare' == k:
+                    if not v in self.optokens:  v = 'ne'
+                elif 'status' == k:
+                    if v != 'ok': v = 'alarm'
+                elif 'active' == k:
+                    if v != 'no': v = 'yes'
+                mykw[k]=v
+        self.alerts.update(where=where,**mykw)
+        a  = self.get_alert_with_id(id)
+        val =EpicsCA.caget(a['pvname'])
+        self.check_alert(id,val)
+                  
+
     def check_alert(self,id,value,sendmail=False):
         """returns alert state: True for Value is OK,
         False for Alarm
@@ -317,23 +404,24 @@ class MasterDB:
         where = "id=%i"% id
         alarm = self.alerts.select_one(where=where)
         
-        # if alarm is not active, return True / 'value is ok'
-        if 'no' == alarm['active']: return True
+        # if alarm is not active, return True / 'value is ok', No Mail Sent
+        if 'no' == alarm['active']: return (True,False)
 
         old_value_ok = alarm['status'] == 'ok'
 
         # coerce values to strings or floats for comparisons
         convert = str
-        if isinstance(value,(int,long,float,complex)):
-            convert = float
+        if isinstance(value,(int,long,float,complex)):  convert = float
+
         value     = convert(value)
         trippoint = convert(alarm['trippoint'])
-
-        cmp = self.ops[alarm['compare']]
+        cmp       = self.ops[alarm['compare']]
         
         # compute new alarm status, of the form
         #                value.__ne__(trippoint)
         value_ok = not getattr(value,cmp)(trippoint)
+
+        notify = sendmail and old_value_ok an (not value_ok)
 
         if old_value_ok != value_ok:
             # update the status filed in the alerts table
@@ -342,10 +430,9 @@ class MasterDB:
             self.alerts.update(status=status,where=where)
            
             # send mail if value is now not ok!
-            if sendmail and not value_ok:
-                self.sendmail(alarm,value)
+            if notify: self.sendmail(alarm,value)
 
-        return value_ok
+        return value_ok, notify
 
             
     def sendmail(self,alarm,value):
@@ -354,32 +441,29 @@ class MasterDB:
         """
         mailto = alarm['mailto']
         pvname = alarm['pvname']
+        label  = alarm['name']
         if mailto in ('', None) or pvname in ('', None): return
 
         compare   = alarm['compare']
         trippoint = str(alarm['trippoint'])
         mailto    = tuple(mailto.split(','))
-        subject   = "[Epics Alarm] %s " % pvname
+        subject   = "[Epics Alarm] PV=%s, %s " % (pvname,label)
 
         msg       = alarm['mailmsg']
-        if msg is None: msg = """Hello,
-  An alarm was detected for PV = '%PV%'
-  The current value = %VALUE%. This is
-  %COMP% the trip point value of %TRIP%
-  """
-        opnames = {'eq':'equal', 'ne':'not equal', 
-                   'le':'less than or equal to', 'lt':'less than', 
-                   'ge':'greater than or equal to', 'gt':'greater than'}
+        if msg is None:  msg = self.def_alert_msg
         
-        for k,v in {'PV': pvname, 'VALUE': str(value),
-                    'COMP': opnames[compare],
+        opstr = 'not equal to'
+        for tok,desc in zip(self.optokens, self.opstrings):
+            if tok == compare: opstr = desc
+            
+        for k,v in {'PV': pvname, 'LABEL':label,
+                    'VALUE': str(value),  'COMP': opstr,
                     'TRIP': str(trippoint)}.items():
             msg = msg.replace("%%%s%%" % k, v)
             
-        msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/status.py?pv=%s\n" % \
+        msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/viewer.py?pv=%s\n" % \
               (mailfrom,subject,msg,cgi_url,pvname)
 
         s  = smtplib.SMTP(mailserver)
-        print  mailfrom,mailto,msg
-        # s.sendmail(mailfrom,mailto,msg)
+        s.sendmail(mailfrom,mailto,msg)
         s.quit()

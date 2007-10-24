@@ -8,8 +8,9 @@ DEBUG = False
 cgiroot    = config.cgi_url
 thispage   = "%s/viewer.py" % cgiroot
 adminpage  = "%s/admin.py" % cgiroot
-pvinfopage = "%s/admin.py/pvinfo"       % cgiroot
-relpv_page = "%s/admin.py/related_pvs"  % cgiroot
+pvinfopage = "%s/admin.py/pvinfo"      % cgiroot
+relpv_page = "%s/admin.py/related_pvs" % cgiroot
+alerts_page = "%s/admin.py/alerts"   % cgiroot
 
 class WebAdmin(HTMLWriter):
     html_title = "PV Archive Admin Page"
@@ -138,7 +139,7 @@ class WebAdmin(HTMLWriter):
             radios.append( self.radio(checked=checked, name='active',value=i) )
             
         self.addrow("Actively Archived:",  " ".join(radios))
-        self.addrow("Description",         self.textinput(name='desc',    value=d['description']))
+        self.addrow("Description",         self.textinput(name='description',value=d['description']))
         self.addrow("Deadtime (seconds)",  self.textinput(name='deadtime',value=d['deadtime']))
         self.addrow("Deadband (fraction)", self.textinput(name='deadband',value=d['deadband']))
         self.addrow("Graph Upper Limit",   self.textinput(name='graph_hi',value=d['graph_hi']))
@@ -199,8 +200,165 @@ class WebAdmin(HTMLWriter):
             self.endtable()
 
         # Alerts:
-        wr("<h4>Alerts for %s:</h4>" % pvname)
+        alerts = self.master.get_alerts(pvname=pvname)
+        addlink = self.link(link="%s?pv=%s&new=1" % (alerts_page,pvname),
+                            text='Add an Alert')
+
+        if len(alerts)==0:
+            wr("<h4>No Alerts set for %s: &nbsp; %s " % (pvname,addlink))
+        else:
+            wr("<h4>Alerts for %s: %s" % (pvname,addlink))
+            self.make_alerttable(pvname,alerts)
+
+        self.endform()
+        self.endhtml()
+        return self.get_buffer()
+
+    def make_alerttable(self,pvname,alerts):
+        self.starttable(ncol=4,cellpadding=2)
+        self.addrow("Label &nbsp;",
+                    "&nbsp; Alarm Condition &nbsp;",
+                    "&nbsp; Current Status &nbsp;",                         
+                    "More Details &nbsp;")
+        self.addrow("<hr>", spans=(4,))
             
+        for a in alerts:
+            link = self.link(link="%s?id=%i" % (alerts_page,a['id']),
+                             text='View / Change Details')
+            self.addrow("&nbsp; %(name)s "%a,
+                        "&nbsp; %(compare)s  %(trippoint)s"%a,
+                        "&nbsp; %(status)s"%a, link)
+        self.addrow("<hr>", spans=(4,))
+        self.endtable()
+        
+    def show_alerts(self,**kw):
+        self.setup(formkeys=('pv','id'), **kw)
+
+        submit = self.kw.get('submit','').strip()
+        pvname = self.kw['pv']
+
+        isnew = self.kw.get('new','no') == '1'
+        self.kw['new'] = 'no'
+        id = int(self.kw.get('id',-1))
+
+        a = {'name':'','pvname':'','compare':'ne','active':'yes',
+             'trippoint':0,'id':id,
+             'mailto':'','mailmsg':self.master.def_alert_msg}
+            
+        if submit.startswith('Set'):
+            a.update(self.kw)
+            if isinstance(a['mailto'],(list,tuple)):
+                a['mailto'] = ''.join(a['mailto'])
+            if isinstance(a['mailmsg'],(list,tuple)):
+                a['mailmsg'] = '\n'.join(a['mailmsg'])
+
+            errors = []
+            if len(a['name'].strip())<1:      errors.append("Alert Name")
+            if len(a['pvname'].strip())<1:    errors.append("PV Name")
+            if len(a['mailto'].strip())<1:    errors.append("Mail To Address")
+            if len(a['trippoint'].strip())<1: errors.append("Trip Point")
+
+            if len(errors)>0:
+                self.write("<h3>Incomplete Information for Alert:</h3>")
+                for i in errors:
+                    self.write("&nbsp;&nbsp;<font size=+1 color='FF0000'>%s</font>" % i)
+            else:
+
+                for tok,desc in zip(self.master.optokens, self.master.opstrings):
+                    if desc == a['selection']: a['compare'] = tok
+
+                if int(a['id'])>0: # modify existing alert
+                    id = int(a['id'])
+                    self.master.update_alert(id=id,
+                                             name=a['name'],
+                                             pvname=a['pvname'],
+                                             active=a['active'].lower(),
+                                             mailto=a['mailto'],
+                                             mailmsg=a['mailmsg'],
+                                             compare=a['compare'],
+                                             trippoint=a['trippoint'])
+                else: # add new alert
+                    self.master.add_alert(name=a['name'],
+                                          pvname=a['pvname'],
+                                          active=a['active'].lower(),
+                                          mailto=a['mailto'],
+                                          mailmsg=a['mailmsg'],
+                                          compare=a['compare'],
+                                          trippoint=a['trippoint'])
+                    
+        elif submit.startswith('Remove') and id>0:
+            self.master.remove_alert(id=id)
+            a = {'name':'','pvname':'','compare':'ne','active':'yes',
+                 'trippoint':0,'id':id,
+                 'mailto':'','mailmsg':self.master.def_alert_msg}
+            
+        elif id > 0:
+            a = self.master.get_alert_with_id(id)
+        elif pvname not in ('',None):
+            if isnew:
+                a['pvname'] = pvname
+            else:
+                alerts = self.master.get_alerts(pvname=pvname)
+                if len(alerts)==1:
+                    a = alerts[0]
+                else: # show multiple choices
+                    self.make_alerttable(pvname,alerts)
+                    self.endhtml()
+                    return self.get_buffer()
+
+        if not self.kw.has_key('id'): self.kw['id'] = a['id']
+
+        # self.show_dict(self.kw)
+        # self.show_dict(a)        
+        
+        self.startform(action=alerts_page, hiddenkeys=('pv','id'))            
+
+        # normal, show 1 alert....
+        if a['mailmsg'] is None:  a['mailmsg'] = self.master.def_alert_msg
+
+        opstr = 'not equal to'
+        for tok,desc in zip(self.master.optokens, self.master.opstrings):
+            if tok == a['compare']: opstr = desc
+
+        self.starttable(ncol=2)
+        title ='Add / Modify Alert'
+        if a['pvname'] not in ('',None):
+            title = "%s &nbsp; %s" % (title,
+                                self.link(link="%s?pv=%s" % (pvinfopage,a['pvname']),
+                                          text='Info for %s'% a['pvname']))
+
+        self.addrow(title, spans=(2,0))
+            
+        self.addrow('<hr>',spans=(2,0))            
+        radios =[]
+        for i in ('Yes','No'):
+            checked = i.lower() == a['active'].lower()
+            radios.append( self.radio(checked=checked, name='active',value=i) )
+            
+        self.addrow("Alert is Active:",  " ".join(radios))
+
+        self.addrow("Alert Label",      self.textinput(name='name',size=65,
+                                                      value=a['name']))
+        self.addrow("PV Name",         self.textinput(name='pvname', size=65,
+                                                      value=a['pvname']))
+        self.addrow("Alert Condition", self.select(name='selection',default=opstr,
+                                                   choices=self.master.opstrings))
+
+        self.addrow("Trip Point",     self.textinput(name='trippoint', size=65,
+                                                     value=a['trippoint']))
+
+        self.addrow("Send Mail To", self.textinput(name='mailto',
+                                                   size=65, nlines=3,
+                                                   value=a['mailto']))
+        self.addrow("Mail Message", self.textinput(name='mailmsg',
+                                                   size=65, nlines=5,
+                                                   value=a['mailmsg']))
+
+        self.addrow('&nbsp;')
+        self.addrow(self.button(text='Set Alert'),
+                    self.button(text='Remove This Alert'))
+        self.addrow('<hr>',spans=(2,0))                    
+        self.endtable()
         self.endform()
         self.endhtml()
         return self.get_buffer()
@@ -232,8 +390,7 @@ class WebAdmin(HTMLWriter):
                     if score is not None:   set_score(pv1,pv2,score)
 
         if pvname is not None:
-            action = "%s?pv=%s" % (relpv_page,pvname)
-            self.startform(action=relpv_page, hiddenkeys=('pv',))
+            self.startform(action=action, hiddenkeys=('pv',))
 
             related_pvs = self.master.get_related_pvs(pvname)
             i = 0

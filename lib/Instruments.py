@@ -222,27 +222,8 @@ class Instruments(MasterDB):
 class Alerts(MasterDB):
     """ interface to alerts"""
 
-    comps = {'==':'eq', 'eq':'eq', '!=':'ne', 'ne':'ne',
-             '<=':'le', 'le':'le', '<' :'lt', 'lt':'lt',
-             '>=':'ge', 'ge':'ge', '>' :'gt', 'gt':'gt'}
-    
-    ops = {'eq':'__eq__', 'ne':'__ne__', 
-           'le':'__le__', 'lt':'__lt__', 
-           'ge':'__ge__', 'gt':'__gt__'}
+    comps = ('ne', 'eq', 'le', 'lt', 'gt', 'ge')
 
-    opnames = {'eq':'equal', 'ne':'not equal', 
-               'le':'less than or equal to', 'lt':'less than', 
-               'ge':'greater than or equal to', 'gt':'greater than'}
-
-    statusmap  = {False:'alarm',True:'ok'}
-    mail_fmt   = "From: %s\r\nSubject: %s\r\n%s\n%s\n"
-    url_link   = "See %s/status.py?pv=%s"
-    default_msg="""Hello,
-  An alarm was detected for PV = '%PV%'
-  The current value = %VALUE%. This is
-  %COMP% the trip point value of %TRIP%
-"""
-   
     def __init__(self,**kw):
         MasterDB.__init__(self)
         self.alerts = self.db.tables['alerts']
@@ -265,7 +246,6 @@ class Alerts(MasterDB):
             return
         
         pvname = normalize_pvname(pvname)        
-
         if name is None: name = pvname
            
         if pvname not in self.pvnames: self.add_pv(pvname)
@@ -280,7 +260,7 @@ class Alerts(MasterDB):
         if trippoint is None:
             trippoint = 0.
             active = 'no'
-        if compare in self.comps.keys(): compare = self.comps[compare]
+        if compare in self.comps: compare = 'ne'
         
         self.alerts.update(name=name,pvname=pvname,active=active,
                            mailto=mailto,mailmsg=mailmsg,
@@ -318,7 +298,8 @@ class Alerts(MasterDB):
                      'trippoint','compare','status','active'):
                 v = clean_input(v)
                 if 'compare' == k:
-                    if not self.ops.has_key(v):  v = 'ne'
+                    if not v in self.comps:  v = 'ne'
+
                 elif 'status' == k:
                     if v != 'ok': v = 'alarm'
                 elif 'active' == k:

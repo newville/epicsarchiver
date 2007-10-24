@@ -289,13 +289,21 @@ class Cache(MasterDB):
     def read_alert_settings(self):
         self.alert_data = {}
         for i in self._table_alerts.select(where="active='yes'"):
+            i['last_notice'] =time.time()
             pvname = i.pop('pvname')
             self.alert_data[pvname] = i
         
     def process_alerts(self):
-        for pv in self.data.keys():
-            if self.alert_data.has_key(pv):
-                print 'see new value for pv with an alert: ',pv
-                alarm = self.alert_data[pv]
-                print 'current alarm status = ', al['status']
+        for pvname,pvdata in self.data.items():
+            ## self.data[pv.pvname] = (pv.value,pv.char_value,time.time())
+            if self.alert_data.has_key(pvname):
+                print 'see change in pv with active alert: ', pvname
+                alarm = self.alert_data[pvname]
+                notified = self.check_alert(alarm['id'],pvdata[0],sendmail=True)
+                if notified:
+                    self.alert_data[pvname]['last_notice'] = time.time()
+                    
+                    
+                
+
                 
