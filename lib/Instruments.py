@@ -222,14 +222,10 @@ class Instruments(MasterDB):
 class Alerts(MasterDB):
     """ interface to alerts"""
 
-    comps = {'==':'eq', 'eq':'eq',
-             '!=':'ne', 'ne':'ne',
-             '<=':'le', 'le':'le',
-             '<' :'lt', 'lt':'lt',
-             '>=':'ge', 'ge':'ge',
-             '>' :'gt', 'gt':'gt'}
+    comps = {'==':'eq', 'eq':'eq', '!=':'ne', 'ne':'ne',
+             '<=':'le', 'le':'le', '<' :'lt', 'lt':'lt',
+             '>=':'ge', 'ge':'ge', '>' :'gt', 'gt':'gt'}
     
-
     ops = {'eq':'__eq__', 'ne':'__ne__', 
            'le':'__le__', 'lt':'__lt__', 
            'ge':'__ge__', 'gt':'__gt__'}
@@ -238,15 +234,13 @@ class Alerts(MasterDB):
                'le':'less than or equal to', 'lt':'less than', 
                'ge':'greater than or equal to', 'gt':'greater than'}
 
-
+    statusmap = {False:'alarm',True:'ok'}
+    
     mail_fmt = "From: %s\r\nSubject: %s\r\n%s\n"
-
     default_mail="""
-An alarm condition was detected for PV='%s'
-The current value = %s.
-This is %s the trippoint value of %s
-
-See %s/status.py?pv=%s
+An alarm condition was detected for PV='%PV%'
+The current value = %VALUE%.
+This is %COMP% the trip point value of %TRIP%
 """
 
     
@@ -332,22 +326,34 @@ See %s/status.py?pv=%s
         print 'check alarm id ',id , ' for value ', value
         where = "id=%i"% id
         alarm = self.alerts.select_one(where=where)
-
+        
+        # if alarm is not active, return True / 'value is ok'
         if 'no' == alarm['active']: return True
 
-        if isinstance(value,(int,long)):
+        # coerce values to strings or floats for comparisons
+        if isinstance(value,(int,long,complex)):
             value      = float(value)
-
+        elif not isinstance(value,str):
+            value   = str(value)
+            
         if isinstance(value,float):
             trippoint  = float(alarm['trippoint'])
+        else:
+            trippoint  = str(alarm['trippoint'])
 
-        compare = alarm['compare']
+        old_value_ok = alarm['status'] == 'ok'
         
-        comp = self.ops.get(compare,'__ne__')
-        value_ok = not getattr(value,comp)(trippoint)
+        compare = alarm['compare']
+        if not self.ops.has_key(compare):  compare = 'ne'
+        
+        value_ok = not getattr(value,self.ops[compare])(trippoint)
 
-        status = 'alarm'
-        if value_ok: status = 'ok'
+        # no change in status?? return.
+        if old_value_ok == value_ok:
+            print 'NO CHANGE:::: would return value_ok = ', value_ok
+        
+        status = self.statusmap[value_ok]
+
         self.alerts.update(status=status,where=where)
         print 'Alarm status = ', status
 
@@ -356,31 +362,33 @@ See %s/status.py?pv=%s
         if sendmail and not value_ok and mailto is not None:
             print 'sending mail'
 
-            mailto    = tuple(mailto.split(','))
-            subject   = "[Epics Alarm] %s " % pvname
+            mailto  = tuple(mailto.split(','))
+            subject = "[Epics Alarm] %s " % pvname
+            content = alarm['mailmsg']
+            if content is None:  content = self.default_mail
 
-            content   = alarm['mailmsg']
-            if content is None:
-                content = self.default_mail % (pvname,str(value),
-                                              self.opnames.get(compare,'not equal'),
-                                              str(trippoint),
-                                              cgi_url, pvname)
+            # here, we template-ize the stored content!
+            params = {'PV': pvname, 'VALUE': str(value),
+                      'COMP': self.opnames.get(compare),
+                      'TRIP': str(trippoint)}
+            for k,v in params.items():
+                compare = compare.replace("%%%s%%" % k, v)
+                    
+            compare = "%s\nSee %s/status.py?pv=%s" % (compare,cgi_url,pvname)
 
-
-            else:
-                # here, we should template-ize the stored content!
-                pass
             print 'Mail content==='
             msg       = self.mail_fmt  % (mailfrom, subject, content)
 
             print mailfrom
             print mailto
             print msg
-                
 
             # s  = smtplib.SMTP(mailserver)
             # s.sendmail(mailfrom,mailto,msg)
             # s.quit()
             
-            
         return value_ok
+
+
+        
+        
