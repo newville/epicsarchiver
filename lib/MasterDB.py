@@ -7,9 +7,14 @@ from util import normalize_pvname, tformat, \
 
 class MasterDB:
     """ general interface to Master Database of Epics Archiver.
-    This is used by both Cache and ArchiveMaster classes, which
-    point to the same Master database but generally have different
-    functionality
+    This is used by both by itself, and is sublcassed by
+    Cache, ArchiveMaster, Instruments, and Alerts.
+
+    Because of the multiple uses and especially because it is used
+    as the sole interface by some Web processes, the API here may
+    seem a bit disjointed, with a partial interface for Pairs and
+    Alerts, but this allows many processes to have exactly one
+    database connection.    
     """
     runs_title= '|  database         |         date range              | duration (days)|'
     runs_line = '|-------------------|---------------------------------|----------------|'
@@ -35,9 +40,11 @@ class MasterDB:
         self.get_pvnames()
         
     def use_master(self):
+        "point db cursor to use master database"
         self.db.use(master_db)
 
     def use_current_archive(self):
+        "point db cursor to use current archive database"
         self.arch_db = self._get_info('db',  process='archive')        
         self.db.use(self.arch_db)
 
@@ -49,7 +56,6 @@ class MasterDB:
             if i['pvname'] not in self.pvnames:
                 self.pvnames.append(i['pvname'])
 
-
     def request_pv_cache(self,pvname):
         """request a PV to be included in caching.
         will take effect once a 'process_requests' is executed."""
@@ -58,34 +64,6 @@ class MasterDB:
 
         cmd = "insert into requests (pvname,action) values ('%s','add')" % npv
         self.db.execute(cmd)
-
-    def add_epics_pv(self,pv):
-        """ add an epics PV to the cache"""
-        if not pv.connected:  return
-
-        self.get_pvnames()
-        if pv.pvname in self.pvnames: return
-
-        EpicsCA.pend_io(0.1)
-
-        self.cache.insert(pvname=pv.pvname,type=pv.type)
-
-        where = "pvname='%s'" % pv.pvname
-        o = self.cache.select_one(where=where)
-        if o['pvname'] not in self.pvnames:
-            self.pvnames.append(o['pvname'])
-
-
-
-    def drop_pv(self,pvname):
-        """drop a PV from the caching process -- really this 'suspends updates'
-        will take effect once a 'process_requests' is executed."""
-        npv = normalize_pvname(pvname)
-
-        if not npv in self.pvnames: return
-
-        cmd = "insert into requests (pvname,action) values ('%s','suspend')" % npv
-        self.sql_exec(cmd)
 
     def add_pv(self,pvname):
         """adds a PV to the cache: actually requests the addition, which will
@@ -114,7 +92,18 @@ class MasterDB:
         EpicsCA.pend_io(1.0)
 
 
+    def drop_pv(self,pvname):
+        """drop a PV from the caching process -- really this 'suspends updates'
+        will take effect once a 'process_requests' is executed."""
+        npv = normalize_pvname(pvname)
+        if not npv in self.pvnames: return
+
+        cmd = "insert into requests (pvname,action) values ('%s','suspend')" % npv
+        self.sql_exec(cmd)
+
     def get_recent(self,dt=60):
+        """get recent additions to the cache, those
+        inserted in the last  dt  seconds."""
         where = "ts>%f order by ts" % (time.time() - dt)
         return self.cache.select(where=where)
         
@@ -127,42 +116,59 @@ class MasterDB:
             if i['db'] not in r: r.append(i['db'])
         return r
 
-    def close(self): self.db.close()
+    def close(self):
+        "close db connection"
+        self.db.close()
     
     def _get_info(self,name='db',process='archive'):
+        " get value from info table"
         try:
             return self.info.select_one(where="process='%s'" % process)[name]
         except:
             return None
 
     def _set_info(self,process='archive',**kw):
+        " set value(s) in the info table"        
         self.info.update("process='%s'" % process, **kw)
 
     def get_cache_status(self):
+        " get status of caching process"
         return self._get_info('status', process='cache')
 
     def get_arch_status(self):
+        " get status of archiving process"
         return self._get_info('status', process='archive')
 
-    def get_cache_pid(self):
-        return self._get_info('pid',    process='cache')
-
-    def get_arch_pid(self):
-        return self._get_info('pid',    process='archive')
-
-    def set_cache_pid(self,pid):
-        return self._set_info(pid=pid,  process='cache')
-
-    def set_arch_pid(self,pid):
-        return self._set_info(pid=pid,  process='archive')
-
     def set_cache_status(self,status):
+        " set status of caching process"                
         return self._set_info(status=status,  process='cache')
 
     def set_arch_status(self,status):
+        " set status of archiving process"        
         return self._set_info(status=status,  process='archive')
 
+    def get_cache_pid(self):
+        " get pid of caching process"
+        return self._get_info('pid',    process='cache')
+
+    def get_arch_pid(self):
+        " get pid of archiving process"        
+        return self._get_info('pid',    process='archive')
+
+    def set_cache_pid(self,pid):
+        " set pid of caching process"
+        return self._set_info(pid=pid,  process='cache')
+
+    def set_arch_pid(self,pid):
+        " set pid of archiving process"        
+        return self._set_info(pid=pid,  process='archive')
+
+    ##
+    ## Status/Activity Reports 
     def arch_report(self,minutes=10):
+        """return a report (list of text lines) for archiving process,
+        giving the number of values archived in the past minutes.
+        """
         self.db.use(self.arch_db)
         n = 0
         dt = (time.time()-minutes*60.)
@@ -179,6 +185,10 @@ class MasterDB:
         return o
 
     def cache_report(self,brief=False,dt=60):
+        """return a report (list of text lines) for caching process,
+        giving number of values cached in the past dt seconds.
+        Use 'brief=False' to show which PVs have been cached.
+        """
         out = []
         pid = self.get_cache_pid()
         ret = self.cache.select(where="ts> %i order by ts" % (time.time()-dt))
@@ -193,6 +203,9 @@ class MasterDB:
         return out
         
     def runs_report(self):
+        """return a report (list of text lines) for the archiving runs
+        showing the time ranges for the (at most) 10 most recent runs.
+        """
         r = []
         for i in self.runs.select(where='1=1 order by start_time desc limit 10'):
             timefmt = "%6.2f "
@@ -212,7 +225,7 @@ class MasterDB:
     def get_related_pvs(self,pv,minscore=1):
         """return a list of related pvs to the provided pv
         with a minumum pair score"""
-        
+       
         out = []
         tmp = []
         npv = normalize_pvname(pv)
@@ -229,12 +242,14 @@ class MasterDB:
         return out
 
     def __get_pvpairs(self,pv1,pv2):
+        "fix and sort 2 pvs for use in the pairs tables"
         p = [normalize_pvname(pv1),normalize_pvname(pv2)]
         p.sort()
         return tuple(p)
     
         
     def get_pair_score(self,pv1,pv2):
+        "set pair score for 2 pvs"        
         p = self.__get_pvpairs(pv1,pv2)
         if not ((p[0] in self.pvnames) and (p[1] in self.pvnames)):
             return 0
@@ -245,6 +260,7 @@ class MasterDB:
         return score
 
     def set_pair_score(self,pv1,pv2,score=None):
+        "set pair score for 2 pvs"
         p = self.__get_pvpairs(pv1,pv2)
         for i in p:
             if i not in self.pvnames:
@@ -278,9 +294,8 @@ class MasterDB:
                     
         self.pairs.select()
 
-    def get_all_scores(self,pv1,pv2,score):
-        self.pairs.select()
-
+    ##
+    ## Instruments
     def get_instruments_with_pv(self,pv):
         """ return a list of (instrument ids, inst name, station name) for
         instruments which  contain a named pv"""
@@ -291,229 +306,12 @@ class MasterDB:
             sta  = self.stations.select_one(where="id=%i" % inst['station'])
             inames.append((r['inst'],inst['name'],sta['name']))
         return inames
-        
-class OLDInstrumentDB(MasterDB):
-    """ interface to Instruments"""
-
-    def __init__(self,**kw):
-        MasterDB.__init__(self)
-
-        self.inst_pos  = self.db.tables['instrument_positions']
 
     ##
-    ## Instruments
-
-    def create_station(self,name=None,notes=''):
-        " create a station by name"
-        if name is not None:
-            self.stations.insert(name=name,notes=notes)
-
-    def list_stations(self):
-        " return a list of dictionaries for current stations"
-        return  self.stations.select()
-
-    def list_instruments(self,station=None):
-        """ return a list of dictionaries for all defined instruments
-        providing an optional station name will return all defined
-        instruments in that station
-        """                
-        where = '1=1'
-        if station is not None:
-            s_id = self.get_station_id(name=station)
-            if s_id is not None:  where="station=%i" % s_id
-
-        return  self.instruments.select(where=where)
-
-    def get_station_id(self,name=None):
-        "return station id from station name"
-        ret = None
-        if name is not None:
-            o = self.stations.select_one(where="name='%s'" % name)
-            ret = o['id']
-        return ret
-
-    def get_instrument_names_from_id(self,id=0):
-        for j in self.list_instruments():
-            if id == j['id']:
-                name = j['name']
-                o = self.stations.select_one(where="id=%i" % j['station'])
-                station = o['name']
-                return name,station
-        return (None,None)
-
-    def get_instrument_id(self,name=None,station=None):
-        """return list of instrument ids from name -- note
-        that there may be more than one instrument with the
-        same name!!  Use optional station argument to
-        limit instrument choices"""
-
-        ilist = self.list_instruments(station=station)
-        if name is None: [i['id'] for i in ilist]            
-        out = []
-        for i in ilist:
-            if i['name'] == name: out.append(i['id'])
-        return out
-
-    def create_instrument(self,name=None,station=None,notes=''):
-        station_id = self.get_station_id(station)
-        if station_id is None or name is None: return
-        self.instruments.insert(name=name,station=station_id,notes=notes)
-
-    def get_instruments(self,name=None,station=None):
-        where = '1=1'
-        if name is not None:
-            where = "name='%s'" % name
-        if station is not None:
-            sta = self.get_station_id(station)
-            if sta is not None:
-                where = "%s and station=%i" % (where,sta)
-
-        return self.instruments.select(where=where)
-
-    def remove_instrument_pvs(self,pvlist,name=None,station=None,notes=''):
-        insts = self.get_instruments(name=name,station=station)
-        if len(insts)> 1:
-            print 'multiple instruments matched name/station=%s/%s' % (name,station)
-            return None
-        if not isinstance(pvlist,(tuple,list)):
-            print 'must provide list of PVs for instrument %s' % (name)
-            return None
-        inst_id = insts[0]['id']
-        q = "delete from instrument_pvs where inst=%i and pvname='%s'"
-        for pvname in pvlist:
-            pvn = normalize_pvname(pvname)
-            self.inst_pvs.db.execute(q % (inst_id, pvn))
-        
-
-    def set_instrument_pvs(self,pvlist,name=None,station=None,notes=''):
-        insts = self.get_instruments(name=name,station=station)
-        if len(insts)> 1:
-            print 'multiple instruments matched name/station=%s/%s' % (name,station)
-            return None
-        if not isinstance(pvlist,(tuple,list)):
-            print 'must provide list of PVs for instrument %s' % (name)
-            return None
-        inst_id = insts[0]['id']
-        self.get_pvnames()
-        for pvname in pvlist:
-            pvn = normalize_pvname(pvname)
-
-            where = "inst=%i and pvname='%s'" % (inst_id,pvn)
-            x = self.inst_pvs.select_one(where=where)
-            if x == {}:
-                x = self.inst_pvs.insert(pvname=pvn,inst=inst_id)
-            if pvn not in self.pvnames:  self.add_pv(pvn)
-
-        # set pair scores
-        allpvs = self.get_instrument_pvs(name=name,station=station)
-        if len(allpvs) > 1:
-            self.set_allpairs(allpvs)
-
-
-    def get_instrument_pvs(self,name=None,station=None,**kw):
-        insts = self.get_instruments(name=name,station=station)
-        out = []
-        if len(insts)> 1:
-            print 'multiple instruments matched name/station=%s/%s' % (name,station)
-        else:
-            where = "inst=%i" % insts[0]['id']
-            x = self.inst_pvs.select(where=where)
-            for i in x: out.append(i['pvname'])
-        
-        return out
-
-    def save_instrument_position(self,inst_id=None,name=None,ts=None,inst=None,station=None):
-        if inst_id is None:
-            inst_id = self.get_instrument_id(name=inst,station=station)
-
-            if len(inst_id) == 0: warn = 'no'
-            if len(inst_id)  > 1: warn = 'multiple'
-            if len(inst_id) != 1:
-                print "warning: %s instruments found for name='%s', station='%s'" %(warn,inst,station)
-                if len(inst_id)==0:
-                    return
-            inst_id = inst_id[0]
-
-        if inst_id < 0: return
-        if ts is None: ts = time.time()
-        if name is None: name = time.ctime()
-        self.inst_pos.insert(inst=inst_id,name=name,ts=ts)
-
-    def hide_position(self,inst_id=None,name=None,hide=True):
-        """ hide or unhide namesd positions for an instrument id"""
-        if inst_id is None or name is None: return
-        active = 'yes'
-        if hide: active = 'no'
-        where = "inst=%i and name='%s'" % (inst_id,name)
-        self.inst_pos.update(active=active,where=where)
-
-    def get_positions(self,inst_id=None,inst=None,station=None,name=None,get_hidden=False):
-        """return a list of (id,name,ts) for instrument_positions
-        (that is the position id, position name, timestamp for position)
-        given an instrument name, and optionally a station name, and
-        optionally a position name """
-
-        out = []
-        where = '1=1'
-        if not get_hidden:
-            where = "active='yes'"
-        if inst_id is None:
-            inst_id = self.get_instrument_id(name=inst,station=station)
-
-            if len(inst_id) > 0:
-                if name is not None: where = "name='%s'" %  name
-                for inst in inst_id:
-                    ret = self.inst_pos.select(where="%s and inst=%i" % (where,inst))
-                    for r in ret:
-                        out.append((r['id'],r['name'],r['ts'],r['active']))
-        else:
-            inst_id = int(inst_id)
-            if name is not None: where = "name='%s'" %  name
-            ret = self.inst_pos.select(where="%s and inst=%i" % (where,inst_id))
-            for r in ret:
-                out.append((r['id'],r['name'],r['ts'],r['active']))
-        return out
-
-    def get_instrument_values(self,inst_id=None,position=None,ts=None):
-        """ given an instrument id and either a position name or timestamp
-        return a list of (pvname,values) tuples for all PVs in that instrument.
-        returns list_of_pv_values
-        where list_of_pv_values is a list of (pvname,values)
-
-        Note that the values returned may be None, meaning 'unknown'
-        """
-        if position is not None:
-            try:
-                pos_id,pos_name,ts,a = self.get_positions(inst_id=inst_id,name=position)[0]
-            except IndexError:
-                ts = None
-
-        if ts is None:
-            return ([], 0)
-
-        pvs = [i['pvname'] for i in self.inst_pvs.select(where="inst=%i" % inst_id)]
-
-        data = dict.fromkeys(pvs,None)
-
-        from Archiver import Archiver
-        a = Archiver()
-
-        for pvname in pvs:
-            for d in a.get_data(pvname,t0=ts,t1=ts)[0]:
-                if d[0] <= ts:
-                    data[pvname] = d[1]
-
-        a.db.close()
-        
-        pvnames = data.keys()
-        pvnames.sort()
-        vals = [(p,data[p]) for p in pvnames]
-        return vals,ts
-
-    ## alerts
+    ## Alerts
     def check_alert(self,id,value,sendmail=False):
-        """
-        returns alert state: True for OK, False for Alarm
+        """returns alert state: True for Value is OK,
+        False for Alarm
         may send email alert if necessary
         """
         where = "id=%i"% id
@@ -585,7 +383,3 @@ class OLDInstrumentDB(MasterDB):
         print  mailfrom,mailto,msg
         # s.sendmail(mailfrom,mailto,msg)
         s.quit()
-
-
-
-    

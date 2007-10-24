@@ -271,6 +271,21 @@ class Cache(MasterDB):
             self.sql_exec("delete from requests where pvname='%s'" % nam)
         self.get_pvnames()
 
+    def add_epics_pv(self,pv):
+        """ add an epics PV to the cache"""
+        if not pv.connected:  return
+
+        self.get_pvnames()
+        if pv.pvname in self.pvnames: return
+
+        self.cache.insert(pvname=pv.pvname,type=pv.type)
+
+        where = "pvname='%s'" % pv.pvname
+        o = self.cache.select_one(where=where)
+        if o['pvname'] not in self.pvnames:
+            self.pvnames.append(o['pvname'])
+
+
     def read_alert_settings(self):
         self.alert_data = {}
         for i in self._table_alerts.select(where="active='yes'"):
