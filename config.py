@@ -90,4 +90,4 @@ template_dir  = '/usr/local/share/pvarch/templates/'
 ## Email setup for email alerts
 ##
 mailserver = 'localhost'
-mailfrom   = 'pvarchiver' 
+mailfrom   = 'pvarchiver@aps.anl.gov' 

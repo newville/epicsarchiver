@@ -1,7 +1,7 @@
 import time
 import EpicsCA
 from SimpleDB import SimpleDB, SimpleTable
-from config import dbuser, dbpass, dbhost, master_db
+from config import dbuser, dbpass, dbhost, master_db, cgi_url
 from util import normalize_pvname, tformat, \
      MAX_EPOCH, SEC_DAY, motor_fields
 
@@ -28,6 +28,7 @@ class MasterDB:
         self.stations  = self.db.tables['stations']
         self.instruments = self.db.tables['instruments']
         self.inst_pvs  = self.db.tables['instrument_pvs']
+        self.alerts = self.db.tables['alerts']
         
         self.arch_db = self._get_info('db',  process='archive')
 
@@ -508,3 +509,83 @@ class OLDInstrumentDB(MasterDB):
         pvnames.sort()
         vals = [(p,data[p]) for p in pvnames]
         return vals,ts
+
+    ## alerts
+    def check_alert(self,id,value,sendmail=False):
+        """
+        returns alert state: True for OK, False for Alarm
+        may send email alert if necessary
+        """
+        where = "id=%i"% id
+        alarm = self.alerts.select_one(where=where)
+        
+        # if alarm is not active, return True / 'value is ok'
+        if 'no' == alarm['active']: return True
+
+        old_value_ok = alarm['status'] == 'ok'
+
+        # coerce values to strings or floats for comparisons
+        convert = str
+        if isinstance(value,(int,long,float,complex)):
+            convert = float
+        value     = convert(value)
+        trippoint = convert(alarm['trippoint'])
+
+        cmp = self.ops[alarm['compare']]
+        
+        # compute new alarm status, of the form
+        #                value.__ne__(trippoint)
+        value_ok = not getattr(value,cmp)(trippoint)
+
+        if old_value_ok != value_ok:
+            # update the status filed in the alerts table
+            status = 'alarm'
+            if value_ok: status = 'ok'
+            self.alerts.update(status=status,where=where)
+           
+            # send mail if value is now not ok!
+            if sendmail and not value_ok:
+                self.sendmail(alarm,value)
+
+        return value_ok
+
+            
+    def sendmail(self,alarm,value):
+        """ send an alert email from an alarm dict holding
+        the appropriate row of the alert table.        
+        """
+        mailto = alarm['mailto']
+        pvname = alarm['pvname']
+        if mailto in ('', None) or pvname in ('', None): return
+
+        compare   = alarm['compare']
+        trippoint = str(alarm['trippoint'])
+        mailto    = tuple(mailto.split(','))
+        subject   = "[Epics Alarm] %s " % pvname
+
+        msg       = alarm['mailmsg']
+        if msg is None: msg = """Hello,
+  An alarm was detected for PV = '%PV%'
+  The current value = %VALUE%. This is
+  %COMP% the trip point value of %TRIP%
+  """
+        opnames = {'eq':'equal', 'ne':'not equal', 
+                   'le':'less than or equal to', 'lt':'less than', 
+                   'ge':'greater than or equal to', 'gt':'greater than'}
+        
+        for k,v in {'PV': pvname, 'VALUE': str(value),
+                    'COMP': opnames[compare],
+                    'TRIP': str(trippoint)}.items():
+            msg = msg.replace("%%%s%%" % k, v)
+            
+        msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/status.py?pv=%s\n" % \
+              (mailfrom,subject,msg,cgi_url,pvname)
+
+        s  = smtplib.SMTP(mailserver)
+        print  mailfrom,mailto,msg
+        # s.sendmail(mailfrom,mailto,msg)
+        s.quit()
+
+
+
+    

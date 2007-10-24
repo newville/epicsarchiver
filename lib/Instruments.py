@@ -234,16 +234,15 @@ class Alerts(MasterDB):
                'le':'less than or equal to', 'lt':'less than', 
                'ge':'greater than or equal to', 'gt':'greater than'}
 
-    statusmap = {False:'alarm',True:'ok'}
-    
-    mail_fmt = "From: %s\r\nSubject: %s\r\n%s\n"
-    default_mail="""
-An alarm condition was detected for PV='%PV%'
-The current value = %VALUE%.
-This is %COMP% the trip point value of %TRIP%
+    statusmap  = {False:'alarm',True:'ok'}
+    mail_fmt   = "From: %s\r\nSubject: %s\r\n%s\n%s\n"
+    url_link   = "See %s/status.py?pv=%s"
+    default_msg="""Hello,
+  An alarm was detected for PV = '%PV%'
+  The current value = %VALUE%. This is
+  %COMP% the trip point value of %TRIP%
 """
-
-    
+   
     def __init__(self,**kw):
         MasterDB.__init__(self)
         self.alerts = self.db.tables['alerts']
@@ -298,8 +297,7 @@ This is %COMP% the trip point value of %TRIP%
         if pvname is not None:
             where = "%s and pvname='%s'" % (where, normalize_pvname(pvname))
         return where
-    
-        
+            
     def get_id(self,name=None,pvname=None,get_one=True):
         """ return id for alert given a name or pvname:
         if more than one match is found, either the first
@@ -310,85 +308,31 @@ This is %COMP% the trip point value of %TRIP%
         ret = self.alerts.select(where=where)
         if get_one: ret = ret[0]
         return ret
-        
+
+    def update(self,id=None,**kw):
+        if id is None: return
+        where = "id=%i"% id        
+        mykw = {}
+        for k,v in kw.items():
+            if k in ('pvname','name','mailto','mailmsg',
+                     'trippoint','compare','status','active'):
+                v = clean_input(v)
+                if 'compare' == k:
+                    if not self.ops.has_key(v):  v = 'ne'
+                elif 'status' == k:
+                    if v != 'ok': v = 'alarm'
+                elif 'active' == k:
+                    if v != 'no': v = 'yes'
+
+                mykw[k]=v
+        self.alerts.update(where=where,**mykw)
+       
     def suspend(self,id=None,name=None,pvname=None):
         "disable alert"
-        where = self.__make_where(id=id, name=name, pvname=pvname)
-        self.alerts.update(active='no',where=where)
+        if id is None: id = self.get_id(name=name, pvname=pvname)
+        self.update(id=id,active='no')
 
     def activate(self,id=None,name=None,pvname=None):
         "enable alert"
-        where = self.__make_where(id=id, name=name, pvname=pvname)
-        self.alerts.update(active='yes',where=where)
-    
-    def check(self,id,value,sendmail=False):
-        "returns alert state: True for OK, False for Alarm"
-        print 'check alarm id ',id , ' for value ', value
-        where = "id=%i"% id
-        alarm = self.alerts.select_one(where=where)
-        
-        # if alarm is not active, return True / 'value is ok'
-        if 'no' == alarm['active']: return True
-
-        # coerce values to strings or floats for comparisons
-        if isinstance(value,(int,long,complex)):
-            value      = float(value)
-        elif not isinstance(value,str):
-            value   = str(value)
-            
-        if isinstance(value,float):
-            trippoint  = float(alarm['trippoint'])
-        else:
-            trippoint  = str(alarm['trippoint'])
-
-        old_value_ok = alarm['status'] == 'ok'
-        
-        compare = alarm['compare']
-        if not self.ops.has_key(compare):  compare = 'ne'
-        
-        value_ok = not getattr(value,self.ops[compare])(trippoint)
-
-        # no change in status?? return.
-        if old_value_ok == value_ok:
-            print 'NO CHANGE:::: would return value_ok = ', value_ok
-        
-        status = self.statusmap[value_ok]
-
-        self.alerts.update(status=status,where=where)
-        print 'Alarm status = ', status
-
-        mailto = alarm['mailto']
-        pvname = alarm['pvname']
-        if sendmail and not value_ok and mailto is not None:
-            print 'sending mail'
-
-            mailto  = tuple(mailto.split(','))
-            subject = "[Epics Alarm] %s " % pvname
-            content = alarm['mailmsg']
-            if content is None:  content = self.default_mail
-
-            # here, we template-ize the stored content!
-            params = {'PV': pvname, 'VALUE': str(value),
-                      'COMP': self.opnames.get(compare),
-                      'TRIP': str(trippoint)}
-            for k,v in params.items():
-                compare = compare.replace("%%%s%%" % k, v)
-                    
-            compare = "%s\nSee %s/status.py?pv=%s" % (compare,cgi_url,pvname)
-
-            print 'Mail content==='
-            msg       = self.mail_fmt  % (mailfrom, subject, content)
-
-            print mailfrom
-            print mailto
-            print msg
-
-            # s  = smtplib.SMTP(mailserver)
-            # s.sendmail(mailfrom,mailto,msg)
-            # s.quit()
-            
-        return value_ok
-
-
-        
-        
+        if id is None: id = self.get_id(name=name, pvname=pvname)
+        self.update(id=id,active='yes')

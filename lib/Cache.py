@@ -281,6 +281,7 @@ class Cache(MasterDB):
         for pv in self.data.keys():
             if self.alert_data.has_key(pv):
                 print 'see new value for pv with an alert: ',pv
-                al = self.alert_data[pv]
+                alarm = self.alert_data[pv]
+                self.
                 print 'current alarm status = ', al['status']
                 
