@@ -50,7 +50,7 @@ class SimpleTable:
             sys.stdout.write("Warning SimpleTable needs a database\n")
             return None
 
-        self.fields = []
+        self.fieldtypes = {}
         self._name  = None
         if table in self.db.table_list:
             self._name = table
@@ -64,8 +64,13 @@ class SimpleTable:
 
         # print "done: describe %s" % self._name
         for j in self.db.exec_fetch("describe %s" % self._name):
-            self.fields.append(j['field'].lower())
-            
+            field = j['field'].lower()
+            vtype = 'str'
+            ftype = j['type'].lower()
+            if ftype.startswith('int'):   vtype = 'int'
+            if ftype.startswith('double'): vtype = 'double'            
+            self.fieldtypes[field] = vtype
+
     def check_args(self,**args):
         """ check that the keys of the passed args are all available
         as table columns.
@@ -77,7 +82,7 @@ class SimpleTable:
         returns 0 on failure, 1 on success
         """
         for i in l:
-            if i.lower() not in self.fields: return False
+            if not self.fieldtypes.has_key(i.lower()): return False
         return True
     
     def delete_where(self,**args):
@@ -128,16 +133,24 @@ class SimpleTable:
         if where==None or set==None:
             self.db.write("update must give 'where' and 'set' arguments")
             return
-        try:
+        if True: # try:
             s = []
             if self.check_columns(kw.keys()):
                 for k,v in kw.items():
-                    s.append("%s=%s" % (clean_input(k),safe_string(v)))
+                    k = clean_input(k)
+                    v = clean_input(v)
+                    print k, v, self.fieldtypes[k]
+                    
+                    if 'str' == self.fieldtypes[k]:
+                        s.append("%s=%s" % (k,safe_string(v)))
+                    elif 'double' == self.fieldtypes[k]:
+                        s.append("%s=%f" % (k,float(v)))
+                    elif 'int' == self.fieldtypes[k]:
+                        s.append("%s=%i" % (k,int(v)))
             s = ','.join(s)
             q = "update %s set %s where %s" % (self._name,s,where)
-
             self.db.execute(q)
-        except:
+        else: # except:
             self.db.write('update failed ')
             self.db.write("##q = %s" % q)
         return self.db.affected_rows()

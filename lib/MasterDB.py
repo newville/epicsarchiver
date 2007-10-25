@@ -1,3 +1,4 @@
+import sys
 import time
 import smtplib
 
@@ -20,8 +21,8 @@ class MasterDB:
     Alerts, but this allows many processes to have exactly one
     database connection.    
     """
-    runs_title= '|  database         |         date range              | duration (days)|'
-    runs_line = '|-------------------|---------------------------------|----------------|'
+    runs_title= '|  database         |       date range          | duration (days)|'
+    runs_line = '|-------------------|---------------------------|----------------|'
 
     def_alert_msg ="""Hello,
   An alarm labeled  %LABEL%
@@ -68,6 +69,12 @@ class MasterDB:
         self.arch_db = self._get_info('db',  process='archive')        
         self.db.use(self.arch_db)
 
+    def save_db(self,dbname=None):
+        if dbname is None: dbname = self.arch_db
+        sys.stdout.write('saving %s\n' % dbname)
+        self.db.use(dbname)
+        self.db.safe_dump(compress=True)
+        self.db.use(master_db)
         
     def get_pvnames(self):
         """ generate self.pvnames: a list of pvnames in the cache"""
@@ -232,8 +239,11 @@ class MasterDB:
             if  i['db'] == self.arch_db:
                 timefmt = "%6.2f*"
                 i['stop_time'] = time.time()
-            i['days'] = timefmt % ((i['stop_time'] - i['start_time'])/(24*3600.0))
-            r.append("| %(db)16s  | %(notes)30s  |   %(days)10s   |" % i)
+            days = timefmt % ((i['stop_time'] - i['start_time'])/(24*3600.0))
+            drange = "%s to %s" %(tformat(i['start_time'],format="%Y-%m-%d"),
+                                  tformat(i['stop_time'],format="%Y-%m-%d"))
+            
+            r.append("| %16s  | %24s  |   %10s   |" % (i['db'],drange,days))
         r.reverse()
         out = [self.runs_title,self.runs_line]
         for i in r: out.append(i)

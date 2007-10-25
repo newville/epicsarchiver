@@ -1,10 +1,11 @@
 #!/usr/bin/python
 
+import sys
 import time
 from MasterDB import MasterDB
 from SimpleDB import SimpleDB, SimpleTable
 from config   import dbuser, dbpass, dbhost, master_db, dat_prefix, dat_format
-from util     import normalize_pvname, clean_string, tformat, MAX_EPOCH
+from util     import normalize_pvname, tformat, MAX_EPOCH
 
 
 def nextname(current=None,dbname=None):
@@ -48,26 +49,20 @@ class ArchiveMaster(MasterDB):
         MasterDB.__init__(self)
 
     def stop_archiver(self):
-        self.set_arch_status('stopping')
-
-    def save_db(self,dbname=None):
-        if dbname is None: dbname = self.arch_db
-        sys.stdout.write('saving %s\n' % dbname)
-        self.db.use(dbname)
-        self.db.safe_dump(compress=True)
-        self.db.use(master_db)
+        return self.set_arch_status('stopping')
 
     def __setrun(self,dbname,t0=None,t1=None):
+        # print 'Set Run for ', dbname, t0, t1
         if t0 is None: t0 = time.time()
         if t1 is None: t1 = MAX_EPOCH
-        dbstr = clean_string(dbname)
-        r = self.runs.select_one(where = "db=%s" % dbstr)['db']
+        where = "db='%s'" % dbname
+        r = self.runs.select_one(where = where)
         if r == {}:
-            self.runs.insert(db=dbstr)
+            self.runs.insert(db=dbname)
 
-        notes = clean_string("%s to %s" % (tformat(t0), tformat(t1)))
-
-        where = "db=%s" % (dbstr)
+        notes = "%s to %s" % (tformat(t0), tformat(t1))
+        where = "db='%s'" % (dbname)
+        # print 'update runs: ', where, t0, t1, notes
         self.runs.update(start_time=t0,  where=where)
         self.runs.update(stop_time=t1,   where=where)
         self.runs.update(notes=notes,    where=where)
@@ -88,13 +83,12 @@ class ArchiveMaster(MasterDB):
                 pass
         
         if dbname == self.arch_db:  max_time = MAX_EPOCH
-        self.__setrun(dbname,min_time,max_time)
         self.db.use(master_db)
+        self.__setrun(dbname,min_time,max_time)
     
     def set_currentDB(self,dbname):
-        dbstr = clean_string(dbname)        
         self.__setrun(dbname)
-        self.info.update(db=dbstr,where="process='archive'")
+        self.info.update(db=dbname, where="process='archive'")
 
     def create_emptydb(self,dbname):
         self.db.execute("drop database if exists %s" % dbname)
@@ -108,7 +102,7 @@ class ArchiveMaster(MasterDB):
 
     def make_nextdb(self,dbname=None):
         "create a new pvarch database, copying pvs to save from an old database"
-
+        # print ' This is make_next ', dbname
         olddb  = SimpleDB(user=dbuser, passwd=dbpass,dbname=self.arch_db, host=dbhost,debug=0)
         olddb.use(self.arch_db)
         old_data = olddb.tables['pv'].select()

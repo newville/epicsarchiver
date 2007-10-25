@@ -406,7 +406,6 @@ class Archiver:
             self.write(" setting pid to %i\n" % pid)
             self.master.set_arch_pid(pid)
         
-
     def get_pidstatus(self):
         pid = self.master.get_arch_pid()
         status = self.master.get_arch_status()        
