@@ -289,7 +289,7 @@ class Cache(MasterDB):
     def read_alert_settings(self):
         self.alert_data = {}
         for i in self._table_alerts.select(where="active='yes'"):
-            i['last_notice'] =time.time()
+            i['last_notice'] = -1.
             pvname = i.pop('pvname')
             self.alert_data[pvname] = i
         
@@ -299,7 +299,11 @@ class Cache(MasterDB):
             if self.alert_data.has_key(pvname):
                 print 'see change in pv with active alert: ', pvname
                 alarm = self.alert_data[pvname]
-                notified = self.check_alert(alarm['id'],pvdata[0],sendmail=True)
+                sendmail = (time.time() - alarm['last_notice']) > alarm['timeout']
+                            
+                value_ok, notified = self.check_alert(alarm['id'],
+                                                      pvdata[0],
+                                                      sendmail=sendmail)
                 if notified:
                     self.alert_data[pvname]['last_notice'] = time.time()
                     

@@ -49,6 +49,7 @@ create table alerts (
     mailto     varchar(256) default null,
     mailmsg    varchar(1024) default null,
     trippoint  tinyblob default null,
+    timeout    float default 30,
     compare    enum('eq','ne','le','lt','ge','gt') not null default 'eq',
     status     enum('alarm','ok') not null default 'ok',
     active     enum('yes','no') not null default 'yes' );

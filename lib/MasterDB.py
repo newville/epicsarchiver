@@ -344,6 +344,7 @@ class MasterDB:
 
     ## Alerts
     def remove_alert(self, id=None):
+        """remove an alert"""
         if id is None: return
         q = "delete from alerts where id=%i" % int(id)
         self.db.execute(q)
@@ -352,12 +353,11 @@ class MasterDB:
     def add_alert(self, pvname=None,name=None,
                   mailto=None,  mailmsg=None,
                   compare='ne', trippoint=None, **kw):
-        
+        """add  a new alert"""
         if pvname is None: return
         
         pvname = normalize_pvname(pvname)        
         if name is None: name = pvname
-           
         if pvname not in self.pvnames: self.add_pv(pvname)
 
         active = 'yes'
@@ -376,6 +376,10 @@ class MasterDB:
             self.check_alert(a['id'],val)
         
     def update_alert(self,id=None,**kw):
+        """modify an existing alert, index with id, and passing in
+        keyword args for ('pvname','name','mailto','mailmsg',
+        'trippoint','compare','status','active')
+        """
         if id is None: return
         where = "id=%i"% id        
         mykw = {}
@@ -391,23 +395,20 @@ class MasterDB:
                     if v != 'no': v = 'yes'
                 mykw[k]=v
         self.alerts.update(where=where,**mykw)
-        a  = self.get_alert_with_id(id)
-        val =EpicsCA.caget(a['pvname'])
+        a   = self.get_alert_with_id(id)
+        val = EpicsCA.caget(a['pvname'])
         self.check_alert(id,val)
-                  
 
     def check_alert(self,id,value,sendmail=False):
-        """returns alert state: True for Value is OK,
-        False for Alarm
-        may send email alert if necessary
+        """
+        check alert status, sending mail if necessary.
+        returns two boolean values: (Value_OK, Mail_Was_Sent)
         """
         where = "id=%i"% id
         alarm = self.alerts.select_one(where=where)
         
-        # if alarm is not active, return True / 'value is ok', No Mail Sent
-        if 'no' == alarm['active']: return (True,False)
-
-        old_value_ok = alarm['status'] == 'ok'
+        # if alarm is not active, return now
+        if 'no' == alarm['active']: return True,False
 
         # coerce values to strings or floats for comparisons
         convert = str
@@ -417,23 +418,22 @@ class MasterDB:
         trippoint = convert(alarm['trippoint'])
         cmp       = self.ops[alarm['compare']]
         
-        # compute new alarm status, of the form
-        #                value.__ne__(trippoint)
+        # compute new alarm status: note form  'value.__ne__(trippoint)'
         value_ok = not getattr(value,cmp)(trippoint)
 
-        notify = sendmail and old_value_ok an (not value_ok)
-
+        old_value_ok = (alarm['status'] == 'ok')
+        notify = sendmail and old_value_ok and (not value_ok)
         if old_value_ok != value_ok:
             # update the status filed in the alerts table
             status = 'alarm'
             if value_ok: status = 'ok'
             self.alerts.update(status=status,where=where)
-           
+
             # send mail if value is now not ok!
-            if notify: self.sendmail(alarm,value)
+            if notify:
+                nself.sendmail(alarm,value)
 
         return value_ok, notify
-
             
     def sendmail(self,alarm,value):
         """ send an alert email from an alarm dict holding
@@ -442,28 +442,31 @@ class MasterDB:
         mailto = alarm['mailto']
         pvname = alarm['pvname']
         label  = alarm['name']
+        compare= alarm['compare']
+
         if mailto in ('', None) or pvname in ('', None): return
 
-        compare   = alarm['compare']
         trippoint = str(alarm['trippoint'])
         mailto    = tuple(mailto.split(','))
         subject   = "[Epics Alarm] PV=%s, %s " % (pvname,label)
 
-        msg       = alarm['mailmsg']
-        if msg is None:  msg = self.def_alert_msg
+        msg       = alarm['mailmsg'].strip()
+        if msg in ('', None):  msg = self.def_alert_msg
         
         opstr = 'not equal to'
         for tok,desc in zip(self.optokens, self.opstrings):
             if tok == compare: opstr = desc
-            
-        for k,v in {'PV': pvname, 'LABEL':label,
-                    'VALUE': str(value),  'COMP': opstr,
+
+        # fill in 'template' values in mail message
+        for k,v in {'PV': pvname,  'LABEL':label,
+                    'COMP': opstr, 'VALUE': str(value),  
                     'TRIP': str(trippoint)}.items():
             msg = msg.replace("%%%s%%" % k, v)
             
         msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/viewer.py?pv=%s\n" % \
               (mailfrom,subject,msg,cgi_url,pvname)
 
-        s  = smtplib.SMTP(mailserver)
+        s = smtplib.SMTP(mailserver)
         s.sendmail(mailfrom,mailto,msg)
         s.quit()
+        
