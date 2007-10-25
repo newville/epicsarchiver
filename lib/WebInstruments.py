@@ -31,8 +31,6 @@ class WebInstruments(HTMLWriter):
 
 
     def show(self,**kw):
-
-
         self.kw.update(kw)
 
         pv = self.kw['pv']
@@ -70,8 +68,7 @@ class WebInstruments(HTMLWriter):
         if DEBUG: self.show_dict(self.kw)
 
         wr(" <h4> Instruments </h4> ")
-        wr('<form action ="%s" enctype="multipart/form-data"  method ="POST"><p>' % (instpage))
-        wr('<input type="hidden" name="form_pv"   value="%s">' % pv)
+        self.startform(action=instpage,hiddenkeys=('pv',))
 
         self.show_station_choices()
 
@@ -79,8 +76,9 @@ class WebInstruments(HTMLWriter):
             wr("Please select a station.")
         else:
             # a large outer 2 column table: 
-            wr("""<table cellpadding=2 border=1><tr><td width=30%% >
-            <table><tr><td>Instruments for %s:</td></tr>
+            ## self.starttable
+            wr("""<table cellpadding=2 border=0 rules='cols'><tr valign='top'><td width=30%% align='top'>
+            <table bgcolor='#FCFCEA' border=0 frame='box'><tr><td>Instruments for %s:</td></tr>
             <tr><td><a href='%s/add_instrument?station=%s'>
             &lt;add instrument&gt; </a></td></tr>""" % (station,instpage,station))
             
@@ -94,7 +92,7 @@ class WebInstruments(HTMLWriter):
                 ilink = "<a href='%s?station=%s&instrument=%s'>%s</a>" % (instpage,station,inst,inst)
                 wr("<tr><td>%s</td></tr>" % ilink)
 
-            wr("</table></td><td><table align='center'>")   # right side : positions for this instrument
+            wr("</table></td><td><table align='center' valign='top' frame='border'>")   # right side : positions for this instrument
             if instrument == '':
                 wr("<tr><td colspan=2>Please select an instrument</td></tr>")
             else:
@@ -125,11 +123,11 @@ class WebInstruments(HTMLWriter):
                 if len(positions)==0:
                     wr("<tr><td colspan=2 align='center'> No saved positions </td></tr>")
                 else:
-                    wr("""<tr><td>Saved Positions:</td>
-                    <td><a href='%s/manage_positions?inst_id=%i'>Manage Positions</a></td>
-                    </tr>
+                    wr("""
                     <tr><td colspan=2><hr></td></tr>
-                    <tr><td> Name</td><td>Time Saved</td></tr>""" % (instpage,inst_id))
+                    <tr><td colspan=2>Saved Positions:
+                    (<a href='%s/manage_positions?inst_id=%i'>Manage Positions</a>)</td></tr>
+                    <tr><td>Name</td><td>Time Saved</td></tr>""" % (instpage,inst_id))
 
                     for p in positions:
                         plink = "<a href='%s/view_position?inst=%i&position=%s'>%s" % (instpage,inst_id,p[1],p[1])
@@ -137,7 +135,7 @@ class WebInstruments(HTMLWriter):
 
 
                 wr("""<tr><td colspan=2><hr></td></tr><tr><td colspan=2>PVs in instrument:
-                <a href='%s/modify_instrument?inst_id=%i'>View/Change </td></tr>"""
+                (<a href='%s/modify_instrument?inst_id=%i'>View/Change)</td></tr>"""
                    % (instpage,inst_id))
 
                 ix = 0
@@ -164,12 +162,13 @@ class WebInstruments(HTMLWriter):
         inst_id = int(mykw['inst_id'])
         
         if mykw.has_key('submit'):
+            self.show_dict(mykw)
             for k,v in mykw.items():
                 hide = ('hidden' == v and k not in (None,''))
                 self.arch.hide_position(inst_id=inst_id,name=k,hide=hide)
                 if 'remove' == v and k not in (None,''):
-                    x = 1
                     
+                    self.arch.delete_position(inst_id=inst_id,name=k)                    
 
         positions = self.arch.get_positions(inst_id=inst_id,get_hidden=True)
         instrument,station =  self.arch.get_instrument_names_from_id(inst_id)
@@ -221,6 +220,7 @@ class WebInstruments(HTMLWriter):
         mykw = {'inst':'','position':self.POS_DATE,'desc':'','date':'-1'}
         mykw.update(kw)
 
+        
         inst_id = mykw['inst']
         if inst_id == '': inst_id = '0'
         inst_id = int(inst_id)
@@ -246,9 +246,9 @@ class WebInstruments(HTMLWriter):
                 form = 'py'
             
             if position == self.POS_DATE: position = '(not named : retrieved by date)'
-            headers = ["restore position: %s " % position,
-                       "for instrument: %s / station: %s" % (instrument,station),
-                       "saved at time: %s " % save_time]
+            headers = ["station / instrument: %s / %s" % (station,instrument),
+                       "position name: %s " % position,
+                       "saved: %s " % save_ctime]
             wr(write_saverestore(pv_vals,format=form,header=headers))
             return self.get_buffer()
 
@@ -263,7 +263,11 @@ class WebInstruments(HTMLWriter):
             pname = 'Position %s ' % position
             
         self.starthtml()
+
+        
         self.show_links()
+        self.show_dict(mykw)
+        
         flink = "%s/view_position?inst=%i&position=%s&date=%i" % (instpage,inst_id,position,save_time)
         wr("""<form action ='%s' enctype='multipart/form-data'  method ='POST'>
         <h4> %s for Instrument %s / Station %s<p> Position Saved    %s </h4><table>
@@ -282,7 +286,6 @@ class WebInstruments(HTMLWriter):
             wr("""Save this position as:
             <input type='text'   name='newpos_name' value='' size=35/>
             <input type='submit' name='save_position' value='Save'/><p>""")
-
 
         wr("""To restore to these settings, select one of these output formats:<p>
         <input type='submit' name='submit' value='IDL script'>

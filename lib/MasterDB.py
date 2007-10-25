@@ -340,12 +340,14 @@ class MasterDB:
     ## Alerts
     def get_alerts(self,pvname=None,name=None):
         """ return a list of alerts for a pvname"""
-        if pvname is None: return []
-        pvname = normalize_pvname(pvname)
-        where = "pvname='%s'" % pvname
+        where = '1=1'
+        if pvname is not None: 
+            pvname = normalize_pvname(pvname)
+            where = "pvname='%s'" % pvname
         
         if name is not None:
             where = "%s and name='%s'" % (where,clean_input(name))
+
         return self.alerts.select(where=where)
 
     def get_alert_with_id(self,id):

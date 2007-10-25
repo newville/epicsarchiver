@@ -148,12 +148,20 @@ class Instruments(MasterDB):
         self.inst_pos.insert(inst=inst_id,name=name,ts=ts)
 
     def hide_position(self,inst_id=None,name=None,hide=True):
-        """ hide or unhide namesd positions for an instrument id"""
+        """ hide or unhide named positions for an instrument id"""
         if inst_id is None or name is None: return
         active = 'yes'
         if hide: active = 'no'
         where = "inst=%i and name='%s'" % (inst_id,name)
         self.inst_pos.update(active=active,where=where)
+
+    def delete_position(self,inst_id=None,name=None):
+        """ delete named positions for an instrument id"""
+        if inst_id is None or name is None: return
+        active = 'yes'
+        where = "inst=%i and name='%s'" % (inst_id,name)
+        self.db.execute('delete from instrument_positions where %s' % where)
+
 
     def get_positions(self,inst_id=None,inst=None,station=None,name=None,get_hidden=False):
         """return a list of (id,name,ts) for instrument_positions
@@ -207,9 +215,8 @@ class Instruments(MasterDB):
         a = Archiver()
 
         for pvname in pvs:
-            for d in a.get_data(pvname,t0=ts,t1=ts)[0]:
-                if d[0] <= ts:
-                    data[pvname] = d[1]
+            for d in a.get_data(pvname,ts-3600.0,ts)[0]:
+                if d[0] <= ts:  data[pvname] = d[1]
 
         a.db.close()
         

@@ -60,10 +60,11 @@ jscal_get_2dates = """
         var tarr  = new Array();
         tarr      = tago.value.split(' ');
         if (f1 == cal.params.inputField) {
-            var tunit = Date.DAY;
+            var tunit = Date.MINUTE;
             var tstr = tarr[1].substring(0,2);
             if      (tstr == 'ho'){ tunit= Date.HOUR;   }
             else if (tstr == 'we'){ tunit= Date.WEEK;   }
+            else if (tstr == 'da'){ tunit= Date.DAY;   }
             else if (tstr == 'mo'){ tunit= Date.DAY*31; }
             time     += tarr[0] * tunit; 
             var date2 = new Date(time);
@@ -193,19 +194,27 @@ class HTMLWriter:
         except IndexError:
             ncol = 1
 
-        spans = tuple((1,)*ncol)
-        if kw.has_key('spans'): spans = kw['spans']
-
         nargs = len(args)
+        
+        spans = [1]*ncol
+        if kw.has_key('spans'): spans = list(kw['spans'])
+        if len(spans)< ncol:
+            spans.extend(['']*(ncol-len(spans)+2))
+
+        opts = ['']*ncol
+        if kw.has_key('options'): opts = list(kw['options'] )
+        if len(opts)< ncol:
+            opts.extend(['']*(ncol-len(opts)+2))
+
         self.write("<tr>")
         wr = self.write
         mcol = 0
         for iarg in range(min(nargs,ncol)):
             if spans[iarg] == 1:
-                wr("<td>%s</td>" % args[iarg])
+                wr("<td %s>%s</td>" % (opts[iarg],args[iarg]))
                 mcol = mcol + 1
             else:
-                wr("<td colspan=%i>%s</td>" % (spans[iarg],args[iarg]))
+                wr("<td %s colspan=%i>%s</td>" % (opts[iarg],spans[iarg],args[iarg]))
                 mcol = mcol + spans[iarg]
                 
         if ncol > mcol:

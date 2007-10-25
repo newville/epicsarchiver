@@ -37,13 +37,15 @@ class WebAdmin(HTMLWriter):
         submit = self.kw['submit'].strip()
         if submit.startswith('Add') and len(pvname)>1:
             pvn = clean_input(pvname)
-            wr("<p>Adding %s to archive!!<p><hr>" % (pvn))
+            wr("<p>Added %s to archive!!<p><hr>" % (pvn))
             add_pv_to_cache(pvn)
-            self.endhtml()
-            return self.get_buffer()
+            #             self.endhtml()
+            #             return self.get_buffer()
         
         self.startform(action=adminpage)
 
+        alertlink = self.link(link="%s/list_alerts" % (adminpage), text='Show Alerts')
+        wr("<p>%s</p>" % alertlink)
         wr("""<p>Search for PV:&nbsp;&nbsp;&nbsp;
         %s &nbsp; (use \'*\' for wildcard searches) %s
         """ % (self.textinput(name='form_pv',value=pvname,size=40),
@@ -160,9 +162,11 @@ class WebAdmin(HTMLWriter):
         related_pvs = self.master.get_related_pvs(pvname)
 
         if len(related_pvs)==0:
-            wr("<h4>No Related PVs: %s" % self.link(link="%s?pv=%s" % (relpv_page,pvname), text='View and Change'))
+            wr("<hr><h4>No Related PVs: (%s)" % self.link(link="%s?pv=%s" % (relpv_page,pvname),
+                                                        text='View and Change'))
         else:
-            wr("<h4>Related PVs: %s" % self.link(link="%s?pv=%s" % (relpv_page,pvname), text='View and Change'))
+            wr("<hr><h4>Related PVs: (%s)" % self.link(link="%s?pv=%s" % (relpv_page,pvname),
+                                                     text='View and Change'))
             self.starttable(ncol=4)
 
             o = [self.link(link="%s?pv=%s" % (pvinfopage,p),text=p) for p in related_pvs]
@@ -181,9 +185,9 @@ class WebAdmin(HTMLWriter):
         
         insts  = self.master.get_instruments_with_pv(pvname)
         if len(insts)==0:
-            wr("<p>No Instruments contain %s</p>" % pvname)
+            wr("<hr><h4>No Instruments contain %s</h4>" % pvname)
         else:
-            wr("<h4>Instruments containing %s:</h4>" % pvname)
+            wr("<hr><h4>Instruments containing %s:</h4>" % pvname)
             self.starttable(ncol=4)
 
             o = []
@@ -205,11 +209,12 @@ class WebAdmin(HTMLWriter):
                             text='Add an Alert')
 
         if len(alerts)==0:
-            wr("<h4>No Alerts set for %s: &nbsp; %s " % (pvname,addlink))
+            wr("<hr><h4>No Alerts set for %s: &nbsp; %s " % (pvname,addlink))
         else:
-            wr("<h4>Alerts for %s: %s" % (pvname,addlink))
+            wr("<hr><h4>Alerts for %s: %s" % (pvname,addlink))
             self.make_alerttable(pvname,alerts)
 
+        wr("<hr>")
         self.endform()
         self.endhtml()
         return self.get_buffer()
@@ -231,6 +236,39 @@ class WebAdmin(HTMLWriter):
         self.addrow("<hr>", spans=(4,))
         self.endtable()
         
+    def show_all_alerts(self,**kw):
+        self.setup(formkeys=('pv','id'), **kw)        
+        self.starttable(ncol=6,cellpadding=2)
+        alerts = self.master.get_alerts()
+
+        addlink = self.link(link="%s?new=1" % (alerts_page),text='Add an Alert')
+
+        self.addrow("<h4>All Alerts &nbsp;&nbsp; %s</h4>" % addlink, spans=(5,))
+        if len(alerts)== 0:
+            self.addrow("<h4>No Alerts Defined &nbsp;&nbsp;&nbsp; %s </h4>"% addlink, spans=(5,))
+
+        self.addrow("<hr>", spans=(6,))
+
+        self.addrow("PV Name &nbsp;","Label &nbsp;",
+                    "&nbsp; Alarm Condition &nbsp;",
+                    "&nbsp; Status &nbsp;",
+                    "&nbsp; Active &nbsp;",
+                    "More Details &nbsp;")
+        self.addrow("<hr>", spans=(6,))
+            
+        for a in alerts:
+            link = self.link(link="%s?id=%i" % (alerts_page,a['id']),
+                             text='View / Change Details')
+            self.addrow("&nbsp; %(pvname)s "%a, "&nbsp; %(name)s "%a,
+                        "&nbsp; %(compare)s  %(trippoint)s"%a,
+                        "&nbsp; %(status)s"%a,
+                        "&nbsp; %(active)s"%a,                        
+                        link)
+        self.addrow("<hr>", spans=(6,))
+        self.endtable()
+        self.endhtml()
+        return self.get_buffer()
+
     def show_alerts(self,**kw):
         self.setup(formkeys=('pv','id'), **kw)
 
@@ -308,9 +346,6 @@ class WebAdmin(HTMLWriter):
 
         if not self.kw.has_key('id'): self.kw['id'] = a['id']
 
-        # self.show_dict(self.kw)
-        # self.show_dict(a)        
-        
         self.startform(action=alerts_page, hiddenkeys=('pv','id'))            
 
         # normal, show 1 alert....
@@ -324,7 +359,7 @@ class WebAdmin(HTMLWriter):
         title ='Add / Modify Alert'
         if a['pvname'] not in ('',None):
             title = "%s &nbsp; %s" % (title,
-                                self.link(link="%s?pv=%s" % (pvinfopage,a['pvname']),
+                                      self.link(link="%s?pv=%s" % (pvinfopage,a['pvname']),
                                           text='Info for %s'% a['pvname']))
 
         self.addrow(title, spans=(2,0))
@@ -368,29 +403,26 @@ class WebAdmin(HTMLWriter):
 
         wr = self.write
         pvname = self.kw['pv']
-        
         submit = self.kw['submit'].strip()
         
         get_score = self.master.get_pair_score
         set_score = self.master.set_pair_score
-
         if submit.startswith('Update'):
             if len(kw)>0:
                 x   = kw.pop('submit')
                 pv1 = kw.pop('form_pv')
                 for i in ('pv0','pv1','pv2'):
                     pv2 = kw.get(i,'').strip()
-                    if pv2 != '':  set_score(pv1,pv2,10)
+                    if pv2 != '':    set_score(pv1,pv2,10)
                     kw[i] = ''
-                for i in ('pv0','pv1','pv2'): kw.pop(i)
+                for i in ('pv0','pv1','pv2'):
+                    kw.pop(i)
                 for pv2,action in kw.items():
-                    score = None
                     if action.startswith('setval'):
-                        score = int(action[7:])
-                    if score is not None:   set_score(pv1,pv2,score)
-
+                        set_score(pv1,pv2,int(action[7:]))
+                       
         if pvname is not None:
-            self.startform(action=action, hiddenkeys=('pv',))
+            self.startform(action=relpv_page, hiddenkeys=('pv',))
 
             related_pvs = self.master.get_related_pvs(pvname)
             i = 0

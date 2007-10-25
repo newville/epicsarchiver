@@ -7,6 +7,7 @@ pagetitle  = config.pagetitle
 cgiroot    = config.cgi_url
 footer     = config.footer
 thispage   = "%s/status.py" % cgiroot
+instpage   = "%s/instruments.py"  % cgiroot
 adminpage  = "%s/admin.py"  % cgiroot
 dblink     = "%s/viewer.py?pv=" % cgiroot
 
@@ -232,7 +233,8 @@ class WebStatus:
             if i == page: s = 'class="active"'
             self.write("""<li><a %s href='%s/show_page?page=%s'>%s</a></li>"""
                      % (s,thispage,i,i))
-        self.write("<li><a href='%s'>Archiver Admin Page</a></li>" % (adminpage))
+        self.write("<li><a href='%s'>Instruments</a></li>" % (instpage))
+        self.write("<li><a href='%s'>Settings / Admin</a></li>" % (adminpage))
 
         self.write("</ul><br>")
         self.start_table()
