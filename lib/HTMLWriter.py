@@ -11,8 +11,10 @@ thispage   = "%s/viewer.py" % cgiroot
 adminpage  = "%s/admin.py" % cgiroot
 pvinfopage = "%s/admin.py/pvinfo"       % cgiroot
 relpv_page = "%s/admin.py/related_pvs"  % cgiroot
-instspage  = "%s/instruments.py"  % cgiroot
+instpage   = "%s/instruments.py"  % cgiroot
+alertspage = "%s/admin.py/list_alerts"   % cgiroot
 statuspage = "%s/status.py" % cgiroot
+helppage   = "%s/help.py" % cgiroot
 
 REFRESH_TIME = "%i" % (SEC_DAY * 7)
 
@@ -93,8 +95,11 @@ Calendar.setup({inputField : "date",   ifFormat   : "%Y-%m-%d %H:%M:%S",
 
 class HTMLWriter:
     top_links  = ((statuspage, "PV Status"),
-                  (instspage,  "Instruments"),                  
-                  (adminpage,  "Settings / Admin"))
+                  (instpage,   "Instruments"),                  
+                  (alertspage, "Alerts"), 
+                  (adminpage,  "Settings / Admin"),
+                  (helppage,   "Help") )
+
                   
     tabledef  ="<table width=90% cellpadding=0 cellspacing=1>"
     form_start = "<form action='%s' enctype='multipart/form-data' method='POST'>"
@@ -119,7 +124,7 @@ class HTMLWriter:
             self.write("%s= '%s' <br> " % (k,v))                    
         self.write(' <p> =============== </p>')            
 
-    def setup(self,formkeys=None,debug=False, **kw):
+    def setup(self,formkeys=None,debug=False, helpsection='main', **kw):
         """ update self.kw with passed keywords, using
         'web form' versions as defaults (see below). Also
         starts the html and shows starting links
@@ -145,7 +150,7 @@ class HTMLWriter:
         pv = self.kw.get('pv','')
         pv = normalize_pvname(pv)
             
-        self.show_links(pv=pv,inst=inst)
+        self.show_links(pv=pv,inst=inst,help=helpsection)
         if debug: self.show_dict(self.kw)
         return 
 
@@ -162,6 +167,9 @@ class HTMLWriter:
                 link = "%s?pv=%s" % (link,pv)
             if inst_id not in (-1,None):
                 link = "%s?inst_id=%i" % (link,inst_id)
+            if link == helppage and kw.has_key('help'):
+                link = "%s?section=%s" % (link,kw['help'])
+            
             self.write("<li><a  href='%s'>%s</a></li>" % (link,title))
         self.write("</ul><br>")
 

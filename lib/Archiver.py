@@ -123,7 +123,7 @@ class Archiver:
 
         # make sure t0 and t1 are ordered
         if t0 > t1:   t0,t1 = t1,t0
-        if t0-t1 < 10.0: t0 = t1 - 3600.0 # look back at least an hour
+        if t1-t0 < 1800.0: t0 = t1 - 1800.0 # look back at least an hour
 
         # determine if we should append the current (cached) value
         if with_current is None:

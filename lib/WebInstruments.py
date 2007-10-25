@@ -13,6 +13,7 @@ cgiroot    = config.cgi_url
 footer     = config.footer
 instpage   = "%s/instruments.py"  % cgiroot
 pvinfopage = "%s/admin.py/pvinfo" % cgiroot
+helppage   = "%s/help.py" % cgiroot
 
 DEBUG = False
 class WebInstruments(HTMLWriter):
@@ -63,11 +64,12 @@ class WebInstruments(HTMLWriter):
 
 
         self.starthtml()
-        self.show_links(pv=pv)
+        self.show_links(pv=pv,help='instruments')
         
         if DEBUG: self.show_dict(self.kw)
 
-        wr(" <h4> Instruments </h4> ")
+        wr(" <h4> Instruments  </h4> ")
+        
         self.startform(action=instpage,hiddenkeys=('pv',))
 
         self.show_station_choices()
@@ -162,7 +164,6 @@ class WebInstruments(HTMLWriter):
         inst_id = int(mykw['inst_id'])
         
         if mykw.has_key('submit'):
-            self.show_dict(mykw)
             for k,v in mykw.items():
                 hide = ('hidden' == v and k not in (None,''))
                 self.arch.hide_position(inst_id=inst_id,name=k,hide=hide)
@@ -263,10 +264,8 @@ class WebInstruments(HTMLWriter):
             pname = 'Position %s ' % position
             
         self.starthtml()
-
-        
         self.show_links()
-        self.show_dict(mykw)
+        # self.show_dict(mykw)
         
         flink = "%s/view_position?inst=%i&position=%s&date=%i" % (instpage,inst_id,position,save_time)
         wr("""<form action ='%s' enctype='multipart/form-data'  method ='POST'>

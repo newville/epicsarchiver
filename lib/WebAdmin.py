@@ -25,7 +25,7 @@ class WebAdmin(HTMLWriter):
         self.kw.update(kw)
 
     def show_adminpage(self,**kw):
-        self.setup(formkeys=('pv',), **kw)
+        self.setup(formkeys=('pv',), helpsection='main', **kw)
         wr = self.write
 
         pvname = self.kw['pv']
@@ -44,8 +44,8 @@ class WebAdmin(HTMLWriter):
         
         self.startform(action=adminpage)
 
-        alertlink = self.link(link="%s/list_alerts" % (adminpage), text='Show Alerts')
-        wr("<p>%s</p>" % alertlink)
+        # alertlink = self.link(link="%s/list_alerts" % (adminpage), text='Show All Alerts')
+        # wr("<p><b>%s</b></p>" % alertlink)
         wr("""<p>Search for PV:&nbsp;&nbsp;&nbsp;
         %s &nbsp; (use \'*\' for wildcard searches) %s
         """ % (self.textinput(name='form_pv',value=pvname,size=40),
@@ -77,7 +77,7 @@ class WebAdmin(HTMLWriter):
         return self.get_buffer()
 
     def show_pvinfo(self,**kw):
-        self.setup(formkeys=('pv',), **kw)
+        self.setup(formkeys=('pv',), helpsection='main', **kw)
 
         wr = self.write
         pvname = self.kw['pv']
@@ -230,14 +230,17 @@ class WebAdmin(HTMLWriter):
         for a in alerts:
             link = self.link(link="%s?id=%i" % (alerts_page,a['id']),
                              text='View / Change Details')
-            self.addrow("&nbsp; %(name)s "%a,
-                        "&nbsp; %(compare)s  %(trippoint)s"%a,
+
+            for tok,desc in zip(self.master.optokens, self.master.opstrings):
+                if tok == a['compare']: comp = desc
+            compstr = "&nbsp; %s %s" % (comp,a['trippoint'])
+            self.addrow("&nbsp; %(name)s "%a, compstr,
                         "&nbsp; %(status)s"%a, link)
         self.addrow("<hr>", spans=(4,))
         self.endtable()
         
     def show_all_alerts(self,**kw):
-        self.setup(formkeys=('pv','id'), **kw)        
+        self.setup(formkeys=('pv','id'), helpsection='alerts', **kw)        
         self.starttable(ncol=6,cellpadding=2)
         alerts = self.master.get_alerts()
 
@@ -259,18 +262,20 @@ class WebAdmin(HTMLWriter):
         for a in alerts:
             link = self.link(link="%s?id=%i" % (alerts_page,a['id']),
                              text='View / Change Details')
+            for tok,desc in zip(self.master.optokens, self.master.opstrings):
+                if tok == a['compare']: comp = desc
+            compstr = "&nbsp; %s %s" % (comp,a['trippoint'])
+
             self.addrow("&nbsp; %(pvname)s "%a, "&nbsp; %(name)s "%a,
-                        "&nbsp; %(compare)s  %(trippoint)s"%a,
-                        "&nbsp; %(status)s"%a,
-                        "&nbsp; %(active)s"%a,                        
-                        link)
+                        compstr, "&nbsp; %(status)s"%a,
+                        "&nbsp; %(active)s"%a,  link)
         self.addrow("<hr>", spans=(6,))
         self.endtable()
         self.endhtml()
         return self.get_buffer()
 
     def show_alerts(self,**kw):
-        self.setup(formkeys=('pv','id'), **kw)
+        self.setup(formkeys=('pv','id'), helpsection='alerts', **kw)
 
         submit = self.kw.get('submit','').strip()
         pvname = self.kw['pv']
@@ -399,7 +404,7 @@ class WebAdmin(HTMLWriter):
         return self.get_buffer()
 
     def show_related_pvs(self,**kw):
-        self.setup(formkeys=('pv',), **kw)
+        self.setup(formkeys=('pv',), helpsection='main', **kw)
 
         wr = self.write
         pvname = self.kw['pv']

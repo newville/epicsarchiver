@@ -8,7 +8,9 @@ cgiroot    = config.cgi_url
 footer     = config.footer
 thispage   = "%s/status.py" % cgiroot
 instpage   = "%s/instruments.py"  % cgiroot
+alertspage = "%s/admin.py/list_alerts"   % cgiroot
 adminpage  = "%s/admin.py"  % cgiroot
+helppage   = "%s/help.py?section=templates"  % cgiroot
 dblink     = "%s/viewer.py?pv=" % cgiroot
 
 
@@ -234,7 +236,9 @@ class WebStatus:
             self.write("""<li><a %s href='%s/show_page?page=%s'>%s</a></li>"""
                      % (s,thispage,i,i))
         self.write("<li><a href='%s'>Instruments</a></li>" % (instpage))
+        self.write("<li><a href='%s'>Alerts</a></li>" % (alertspage))
         self.write("<li><a href='%s'>Settings / Admin</a></li>" % (adminpage))
+        self.write("<li><a href='%s'>Help</a></li>" % (helppage))
 
         self.write("</ul><br>")
         self.start_table()

@@ -460,7 +460,7 @@ class MasterDB:
 
         trippoint = str(alarm['trippoint'])
         mailto    = tuple(mailto.split(','))
-        subject   = "[Epics Alarm] PV=%s, %s " % (pvname,label)
+        subject   = "[Epics Alert] PV=%s, %s " % (pvname,label)
 
         msg       = alarm['mailmsg'].strip()
         if msg in ('', None):  msg = self.def_alert_msg

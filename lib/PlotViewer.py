@@ -104,8 +104,9 @@ set ytics nomirror
 
         pvname1 = arg_pv1 or ''
         pvname2 = arg_pv2 or ''
-        self.write("""<table><tr><td><form action ="%s" enctype="multipart/form-data"  method ="POST">
-        <p>""" % (thispage))
+        self.write("""<table><tr valign='top'>
+                   <td><form action ="%s" enctype="multipart/form-data"  method ="POST">
+                   """ % (thispage))
 
 
         tx = "Epics PV Archive: %s" % (time.ctime())
@@ -210,10 +211,10 @@ set ytics nomirror
         
     def time_str2sec(self,str):
         xdat,xtim=str.split(' ')
-        hr,min = xtim.split(':')
+        hr,min,sec = xtim.split(':')
         yr,mon,day = xdat.split('-')
         dx = time.localtime()
-        return time.mktime((int(yr),int(mon),int(day),int(hr),int(min), 0,0,0,dx[8]))
+        return time.mktime((int(yr),int(mon),int(day),int(hr),int(min), int(sec),0,0,dx[8]))
 
     def draw_graph(self,arg_pv1=None,arg_pv2=None):
         if DEBUG:
