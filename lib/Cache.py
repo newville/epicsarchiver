@@ -8,7 +8,8 @@ import EpicsCA
 
 from MasterDB import MasterDB
 
-from util import clean_input, clean_string, motor_fields, normalize_pvname, tformat
+from util import clean_input, clean_string, motor_fields, \
+     normalize_pvname, tformat, valid_pvname
 
 def add_pv_to_cache(pvname=None,cache=None,**kw):
     """ add a PV to the Cache and Archiver
@@ -244,31 +245,43 @@ class Cache(MasterDB):
     
     def process_requests(self):
         " process requests for new PV's to be cached"
-        req   = self.sql_exec_fetch("select pvname,action from requests")
+        req   = self.sql_exec_fetch("select * from requests")
         if len(req) == 0: return
         sys.stdout.write('processing %i requests\n' %  len(req))
-        cmd = 'insert into cache(ts,pvname,value,cvalue) values'
-        es = clean_string
-        for n, r in enumerate(req):
-            nam= str(r['pvname'])
-            if 'suspend' == r['action']:
-                if self.pvs.has_key(nam):
-                    self.pvs[nam].clear_callbacks()
-                    self.cache.update(active='no',
-                                      where="pvname='%s'" % nam)
-                    
-            elif 'drop' == r['action']:
-                if nam in self.pvnames:
-                    self.sql_exec("delete from cache where pvname='%s'" % nam)
+        del_cache= "delete from cache where %s"
+        del_req  = "delete from requests where %s"
+        # note: if a requested PV does not connect,
+        #       wait a few minutes before dropping from
+        #       the request table.
+        drop_req = True
 
-            elif 'add' == r['action']:
-                if nam not in self.pvnames:
-                    pv = self.epics_connect(nam)
-                    if pv.connected:
-                        self.add_epics_pv(pv) 
-                        self.set_value(pv=pv) 
-                        self.pvs[nam].set_callback(self.onChanges)                    
-            self.sql_exec("delete from requests where pvname='%s'" % nam)
+        es = clean_string
+        now = time.time()
+        for r in req:
+            nam,action,ts = r['pvname'],r['action'],r['ts']
+            drop_req = True
+            where = "pvname='%s'" % nam
+            if valid_pvname(nam) and (now-ts < 60.0):
+                if 'suspend' == action:
+                    if self.pvs.has_key(nam):
+                        self.pvs[nam].clear_callbacks()
+                        self.cache.update(active='no',where=where)
+                elif 'drop' == action:
+                    if nam in self.pvnames:
+                        self.sql_exec(del_cache % where)
+
+                elif 'add' == action:
+                    if nam not in self.pvnames:
+                        pv = self.epics_connect(nam)
+                        if pv.connected:         
+                            self.add_epics_pv(pv) 
+                            self.set_value(pv=pv) 
+                            self.pvs[nam].set_callback(self.onChanges)                    
+                        else:
+                            drop_req = False
+                            print 'could not connect to ', nam
+
+            if drop_req: self.sql_exec(del_req % where)
         self.get_pvnames()
 
     def add_epics_pv(self,pv):
@@ -294,19 +307,17 @@ class Cache(MasterDB):
             self.alert_data[pvname] = i
         
     def process_alerts(self):
+        msg = 'Alert sent for PV=%s / Label=%s at %s\n'
         for pvname,pvdata in self.data.items():
-            ## self.data[pv.pvname] = (pv.value,pv.char_value,time.time())
             if self.alert_data.has_key(pvname):
-                print 'see change in pv with active alert: ', pvname
                 alarm = self.alert_data[pvname]
                 sendmail = (time.time() - alarm['last_notice']) > alarm['timeout']
-                            
-                value_ok, notified = self.check_alert(alarm['id'],
-                                                      pvdata[0],
-                                                      sendmail=sendmail)
+                ok, notified = self.check_alert(alarm['id'],
+                                                pvdata[0],
+                                                sendmail=sendmail)
                 if notified:
                     self.alert_data[pvname]['last_notice'] = time.time()
-                    
+                    sys.stdout.write(msg % (pvname, alarm['name'],time.ctime()))
                     
                 
 

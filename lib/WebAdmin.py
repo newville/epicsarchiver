@@ -163,10 +163,10 @@ class WebAdmin(HTMLWriter):
 
         if len(related_pvs)==0:
             wr("<hr><h4>No Related PVs: (%s)" % self.link(link="%s?pv=%s" % (relpv_page,pvname),
-                                                        text='View and Change'))
+                                                        text='View/Change'))
         else:
             wr("<hr><h4>Related PVs: (%s)" % self.link(link="%s?pv=%s" % (relpv_page,pvname),
-                                                     text='View and Change'))
+                                                     text='View/Change'))
             self.starttable(ncol=4)
 
             o = [self.link(link="%s?pv=%s" % (pvinfopage,p),text=p) for p in related_pvs]
@@ -229,7 +229,7 @@ class WebAdmin(HTMLWriter):
             
         for a in alerts:
             link = self.link(link="%s?id=%i" % (alerts_page,a['id']),
-                             text='View / Change Details')
+                             text='View/Change')
 
             for tok,desc in zip(self.master.optokens, self.master.opstrings):
                 if tok == a['compare']: comp = desc
@@ -261,7 +261,7 @@ class WebAdmin(HTMLWriter):
             
         for a in alerts:
             link = self.link(link="%s?id=%i" % (alerts_page,a['id']),
-                             text='View / Change Details')
+                             text='View/Change')
             for tok,desc in zip(self.master.optokens, self.master.opstrings):
                 if tok == a['compare']: comp = desc
             compstr = "&nbsp; %s %s" % (comp,a['trippoint'])
@@ -285,7 +285,7 @@ class WebAdmin(HTMLWriter):
         id = int(self.kw.get('id',-1))
 
         a = {'name':'','pvname':'','compare':'ne','active':'yes',
-             'trippoint':0,'id':id,
+             'trippoint':0,'id':id,'timeout':'30',
              'mailto':'','mailmsg':self.master.def_alert_msg}
             
         if submit.startswith('Set'):
@@ -319,6 +319,7 @@ class WebAdmin(HTMLWriter):
                                              mailto=a['mailto'],
                                              mailmsg=a['mailmsg'],
                                              compare=a['compare'],
+                                             timeout=a['timeout'],                                             
                                              trippoint=a['trippoint'])
                 else: # add new alert
                     self.master.add_alert(name=a['name'],
@@ -327,12 +328,13 @@ class WebAdmin(HTMLWriter):
                                           mailto=a['mailto'],
                                           mailmsg=a['mailmsg'],
                                           compare=a['compare'],
+                                          timeout=a['timeout'],
                                           trippoint=a['trippoint'])
                     
         elif submit.startswith('Remove') and id>0:
             self.master.remove_alert(id=id)
             a = {'name':'','pvname':'','compare':'ne','active':'yes',
-                 'trippoint':0,'id':id,
+                 'trippoint':0,'id':id, 'timeout':'30',
                  'mailto':'','mailmsg':self.master.def_alert_msg}
             
         elif id > 0:
@@ -387,11 +389,14 @@ class WebAdmin(HTMLWriter):
         self.addrow("Trip Point",     self.textinput(name='trippoint', size=65,
                                                      value=a['trippoint']))
 
+        self.addrow("Time Out (s)",     self.textinput(name='timeout', size=20,
+                                                       value=a['timeout']))
+
         self.addrow("Send Mail To", self.textinput(name='mailto',
-                                                   size=65, nlines=3,
+                                                   size=65, nlines=4,
                                                    value=a['mailto']))
         self.addrow("Mail Message", self.textinput(name='mailmsg',
-                                                   size=65, nlines=5,
+                                                   size=65, nlines=8,
                                                    value=a['mailmsg']))
 
         self.addrow('&nbsp;')

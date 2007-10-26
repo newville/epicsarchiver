@@ -109,81 +109,67 @@ set ytics nomirror
                    """ % (thispage))
 
 
-        tx = "Epics PV Archive: %s" % (time.ctime())
-
-        self.write("<table border=0 cellpadding=1>")
-        #
-        self.write("<tr><td colspan=5>")
         pv1 = self.argclean(pvname1,  self.kw['form_pv'])
-       
-        self.show_links(pv=pv1)
-        self.write("</td></tr>")
-        self.write("<tr><td colspan=5 class='xtitle'>&nbsp;&nbsp;&nbsp;&nbsp; %s</td></tr>" % tx)
-        #
-        many_spaces= "<tr class='xx'><td colspan=5> %s</td></tr> " % ('&nbsp;'*5)
-        self.write(many_spaces)
 
+        self.write("<h4>Epics PV Archive: %s</h4>" % (time.ctime()))
 
-        self.write("""<tr><td>PV 1:</td>
-        <td><input type="text" name="form_pv"  value="%s" size=30></td>
-        <td></td><td>PV 2:</td>
-        <td><input type="text" name="form_pv2" value="%s" size=30></td>
-        </tr>""" % (pvname1,pvname2))
+        self.starttable(ncol=6, border=0, cellpadding=2)
         #
-        self.write("""<tr><td>PV (Y) range:</td>  <td>
-        <input type="text" name="ymin"  value="%(ymin)s"  size=12> :
-        <input type="text" name="ymax"  value="%(ymax)s"  size=12> </td><td colspan=2></td> <td>
-        <input type="text" name="y2min" value="%(y2min)s" size=12> :
-        <input type="text" name="y2max" value="%(y2max)s" size=12> </td>
-        </tr>"""   % (self.kw))
-            
-        #
-        self.write("<tr><td>Log Scale?</td><td>")
-        if self.kw['use_ylog'] == '': self.kw['use_ylog'] = 'Auto'
-        for i in ('Yes','No','Auto'):
-            sel = ''
-            if i == self.kw['use_ylog']:
-                sel = "checked=\"true\""
-            self.write('<input type="radio" %s name="use_ylog" value="%s">&nbsp;%s' % (sel,i,i))
-        self.write("</td><td></td><td></td><td>")
+        inptext = self.textinput
 
-        if self.kw['use_y2log'] == '': self.kw['use_y2log'] = 'Auto'
-        for i in ('Yes','No','Auto'):
-            sel = ''
-            if i == self.kw['use_y2log']:
-                sel = "checked=\"true\""
-            self.write('<input type="radio" %s name="use_y2log" value="%s">&nbsp;%s' % (sel,i,i))
-        self.write("</td></tr>")
+        self.addrow("PV 1", inptext(name='form_pv', value=pvname1),"",
+                    "PV 2", inptext(name='form_pv2',value=pvname2),"")
+                    
+        self.addrow("PV (Y) range:",
+                    "%s:%s" % (inptext(name='ymin',value=self.kw['ymin'],size=12),
+                               inptext(name='ymax',value=self.kw['ymax'],size=12)),
+                    "",
+                    "%s:%s" % (inptext(name='y2min',value=self.kw['y2min'],size=12),
+                               inptext(name='y2max',value=self.kw['y2max'],size=12))
+                    , spans=(1,2,1,2))
+        #
+        s = []
+        for y in ('use_ylog','use_y2log'):
+            t = []
+            for i in ('Yes','No','Auto'):
+                checked = (i == self.kw[y])
+                t.append(self.radio(name=y, value=i, checked=checked, text=i))
+            s.append(' '.join(t))
+        self.addrow("Log Scale?",s[0],s[1],spans=(1,2,2))
 
         #
-        self.write(many_spaces)
-        self.write("<tr><td><input type='submit' name='submit'  value='Time From Present'></td><td colspan=2>")
-        self.write("<select id='time_ago' name='time_ago'>")
-        for i in self.ago_times:
-            extra = ' '
-            if i == self.kw['time_ago']: extra = 'selected'
-            self.write("<option %s value='%s'>%s" % (extra, i, i))
-        self.write( "</select>" )
-        self.write("</td><td></td><td>")
-        self.write("</td></tr>")
+        self.addrow('','')
+        self.addrow(self.button(text='Time From Present'),
+                    self.select(id='time_ago',name='time_ago',
+                                default=self.kw['time_ago'],
+                                choices=self.ago_times), spans=(1,5))
         # 
-        self.write(many_spaces)
-        self.write("<tr><td><input type='submit' name='submit'  value='Date Range'></td>")
+        self.addrow('','')
+        dval = [self.kw.get('date1',''),self.kw.get('date2','')]
 
-        d1val = self.kw.get('date1','')
-        d2val = self.kw.get('date2','')
-        if d1val in (None,'None', ''): d1val = self.time_sec2str( time.time()-SEC_DAY)
-        if d2val in (None,'None', ''): d2val = self.time_sec2str( time.time() )
+        if dval[0] in (None,'None', ''): dval[0] = self.time_sec2str( time.time()-SEC_DAY)
+        if dval[1] in (None,'None', ''): dval[1] = self.time_sec2str( time.time() )
+# 
+#         self.write("<tr><td><input type='submit' name='submit'  value='Date Range'></td>")
+#         self.write("<td colspan=2> From:")
+#         dform = "<input type='text' width=22 id='%(d)s' name='%(d)s' value='%(v)s'/><button id='%(d)s_trig'>...</button>"
+#         self.write(dform % ({'d':'date1','v':d1val}))
+#         self.write("</td><td colspan=2> &nbsp;&nbsp; To:")
+#         self.write(dform % ({'d':'date2','v':d2val}))
+#         self.write("</td></tr>")
 
 
-        self.write("<td colspan=2> From:")
-        dform = "<input type='text' width=22 id='%(d)s' name='%(d)s' value='%(v)s'/><button id='%(d)s_trig'>...</button>"
-        self.write(dform % ({'d':'date1','v':d1val}))
-        self.write("</td><td colspan=2> &nbsp;&nbsp; To:")
-        self.write(dform % ({'d':'date2','v':d2val}))
-
-
-        self.write("</td></tr><tr><td></td></tr><tr><td colspan=5><hr></td></tr></table>")
+        dates =[]
+        for i in (1,2):
+            dates.append("%s %s " % (inptext(size=22,name='date%i'%i,value=dval[i-1]),
+                                     "<button id='date%i_trig'>...</button>" % i))
+                                    
+        self.addrow(self.button(text='Date Range'),
+                    "From: %s" % dates[0],
+                    "To: %s" % dates[1], spans=(1,2,3))
+                                         
+        self.addrow("<hr>", spans=(6,0))
+        self.endtable()
         self.write(jscal_get_2dates)
 
         # main (lefthand side) of page done, 
@@ -209,12 +195,22 @@ set ytics nomirror
     def time_sec2str(self,sec=None):
         return tformat(t=sec,format="%Y-%m-%d %H:%M:%S")
         
-    def time_str2sec(self,str):
-        xdat,xtim=str.split(' ')
-        hr,min,sec = xtim.split(':')
-        yr,mon,day = xdat.split('-')
-        dx = time.localtime()
-        return time.mktime((int(yr),int(mon),int(day),int(hr),int(min), int(sec),0,0,dx[8]))
+    def time_str2sec(self,s):
+        xdat,xtim=s.split(' ')
+        dates = xdat.split('-')
+        times = xtim.split(':')
+
+        (yr,mon,day,hr,min,sec,x,y,tz) = time.localtime()
+        if   len(dates)>=3:  yr,mon,day = dates
+        elif len(dates)==2:  mon,day = dates
+        elif len(dates)==1:  day = dates[0]        
+
+        min,sec = 0,0
+        if   len(times)>=3:  hr,min,sec = times
+        elif len(times)==2:  hr,min  = times
+        elif len(times)==1:  hr  = times[0]
+
+        return time.mktime((int(yr),int(mon),int(day),int(hr),int(min), int(sec),0,0,tz))
 
     def draw_graph(self,arg_pv1=None,arg_pv2=None):
         if DEBUG:
@@ -481,7 +477,7 @@ set ytics nomirror
         f.write("#-------------------------------\n")
         f.write("#  date      time          value\n")
         for j in dat:
-            f.write("%s %i %s\n" % (dstr(j[0]), j[0], j[1]))
+            f.write("%s %.3f %s\n" % (dstr(j[0]), j[0], j[1]))
         f.close()
         return (tlo, thi, npts)
     
@@ -512,6 +508,7 @@ set ytics nomirror
             if not self.in_database(arg_pv2):  self.arch.add_pv(arg_pv2)            
 # 
         self.starthtml()
+        self.show_links(pv=arg_pv1,help='plotting')
         self.draw_form(arg_pv1,arg_pv2)
         
         self.endhtml()

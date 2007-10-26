@@ -1,4 +1,5 @@
 import sys
+import re
 import time
 import smtplib
 
@@ -8,7 +9,9 @@ from config import dbuser, dbpass, dbhost, master_db, \
      mailserver, mailfrom, cgi_url
 
 from util import normalize_pvname, tformat, clean_input, \
-     MAX_EPOCH, SEC_DAY, motor_fields
+     MAX_EPOCH, SEC_DAY, motor_fields, valid_pvname
+
+re_showpv = re.compile(r".*%PV\((.*)\)%.*").match
 
 class MasterDB:
     """ general interface to Master Database of Epics Archiver.
@@ -89,7 +92,8 @@ class MasterDB:
         npv = normalize_pvname(pvname)
         if npv in self.pvnames: return
 
-        cmd = "insert into requests (pvname,action) values ('%s','add')" % npv
+        cmd = "insert into requests (pvname,action,ts) values ('%s','add',%f)" % (npv,time.time())
+        
         self.db.execute(cmd)
 
     def add_pv(self,pvname):
@@ -101,7 +105,10 @@ class MasterDB:
         a pair_score = 10.                
         """
         pvname = normalize_pvname(pvname.strip())
-
+        if not valid_pvname(pvname):
+            sys.stdout.write("## MasterDB add_pv invalid pvname = '%s'" % pvname)
+            return
+        
         prefix = pvname
         if pvname.endswith('.VAL'): prefix = pvname[:-4]
 
@@ -110,6 +117,7 @@ class MasterDB:
             for pvname in fields:
                 if EpicsCA.PV(pvname, connect=True) is not None:
                     self.request_pv_cache(pvname)
+            time.sleep(1.0)
             self.set_allpairs(fields)
             EpicsCA.pend_event(0.01)
         else:
@@ -192,7 +200,7 @@ class MasterDB:
 
     ##
     ## Status/Activity Reports 
-    def arch_report(self,minutes=10):
+    def arch_nchanged(self,minutes=10):
         """return a report (list of text lines) for archiving process,
         giving the number of values archived in the past minutes.
         """
@@ -203,6 +211,13 @@ class MasterDB:
         for i in range(1,129):
             r = self.db.exec_fetch(q % (i,dt))
             n = n + len(r)
+        return n
+
+    def arch_report(self,minutes=10):
+        """return a report (list of text lines) for archiving process,
+        giving the number of values archived in the past minutes.
+        """
+        n = self.arch_nchanged(minutes=minutes)
 
         self.db.use(master_db)
         o = ["Current Database=%s, status=%s, PID=%i" %(self.arch_db,
@@ -294,7 +309,12 @@ class MasterDB:
         p = self.__get_pvpairs(pv1,pv2)
         for i in p:
             if i not in self.pvnames:
-                self.request_pv_cache(i)
+                # look for this pvname in requests -- it may have been just added
+                r = self.db.exec_fetchone("select * from requests where pvname='%s'" % i)
+                print 'set pair score: req pv? ',i, r
+                if not r.has_key('pvname'):
+                    self.request_pv_cache(i)
+                
         
         current_score  = self.get_pair_score(p[0],p[1])
         if score is None: score = 1 + current_score
@@ -315,6 +335,15 @@ class MasterDB:
         to be at least the provided score"""
         if not isinstance(pvlist,(tuple,list)): return
         _tmp = list(pvlist[:])
+        # these may be newly added names, so may not yet be
+        # in pvnames.  If not, let's give them a chance!
+        newnames = False
+        for i in _tmp:
+            newnames = newnames or (i not in self.pvnames)
+        if newnames:
+            time.sleep(0.25)
+            self.get_pvnames()
+        
         while _tmp:
             a = _tmp.pop()
             for b in _tmp:
@@ -363,7 +392,7 @@ class MasterDB:
 
    
     def add_alert(self, pvname=None,name=None,
-                  mailto=None,  mailmsg=None,
+                  mailto=None,  mailmsg=None, timeout=30,
                   compare='ne', trippoint=None, **kw):
         """add  a new alert"""
         if pvname is None: return
@@ -380,7 +409,7 @@ class MasterDB:
         if compare not in self.optokens: compare = 'ne'
         
         self.alerts.insert(name=name,pvname=pvname,active=active,
-                           mailto=mailto,mailmsg=mailmsg,
+                           mailto=mailto,mailmsg=mailmsg, timeout=30,
                            compare=compare, trippoint=trippoint)
                   
         for a in self.get_alerts(pvname=pvname,name=name):
@@ -396,7 +425,7 @@ class MasterDB:
         where = "id=%i"% id        
         mykw = {}
         for k,v in kw.items():
-            if k in ('pvname','name','mailto','mailmsg',
+            if k in ('pvname','name','mailto','mailmsg','timeout',
                      'trippoint','compare','status','active'):
                 v = clean_input(v)
                 if 'compare' == k:
@@ -443,7 +472,7 @@ class MasterDB:
 
             # send mail if value is now not ok!
             if notify:
-                nself.sendmail(alarm,value)
+                self.sendmail(alarm,value)
 
         return value_ok, notify
             
@@ -474,9 +503,25 @@ class MasterDB:
                     'COMP': opstr, 'VALUE': str(value),  
                     'TRIP': str(trippoint)}.items():
             msg = msg.replace("%%%s%%" % k, v)
-            
+
+        # do %PV(XX)% replacements
+        mlines = msg.split('\n')
+        for i,line in enumerate(mlines):
+            nmatch = 0
+            match = re_showpv(line)
+            while match is not None and nmatch<25:
+                try:
+                    pvn = match.groups()[0]
+                    rep = "%(cvalue)s" % self.cache.select_one(where="pvname='%s'" % pvn)
+                    line = line.replace('%%PV(%s)%%' % pvn,rep)
+                except:
+                    line = line.replace('%%PV(%s)%%' % pvn, 'Unknown_PV(%s)' % pvn)
+                match = re_showpv(line)
+                nmatch = nmatch + 1
+            mlines[i] = line
+        
         msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/viewer.py?pv=%s\n" % \
-              (mailfrom,subject,msg,cgi_url,pvname)
+              (mailfrom,subject,'\n'.join(mlines),cgi_url,pvname)
 
         s = smtplib.SMTP(mailserver)
         s.sendmail(mailfrom,mailto,msg)

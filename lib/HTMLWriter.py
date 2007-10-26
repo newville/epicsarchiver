@@ -163,9 +163,9 @@ class HTMLWriter:
         self.write("<ul id='tabmenu'>")
         for s in self.top_links:
             link,title  = s
-            if pv not in ('',None):
+            if link == adminpage and pv not in ('',None):
                 link = "%s?pv=%s" % (link,pv)
-            if inst_id not in (-1,None):
+            if link == instpage and inst_id not in (-1,None):
                 link = "%s?inst_id=%i" % (link,inst_id)
             if link == helppage and kw.has_key('help'):
                 link = "%s?section=%s" % (link,kw['help'])
@@ -257,12 +257,14 @@ class HTMLWriter:
         s.append("/>")
         return " ".join(s)
         
-    def textinput(self,name='text',value='',size=30,nlines=1,**kw):
+    def textinput(self,name='text',value='',size=30,nlines=1,id=None,**kw):
+        if id is None: id=name
         if nlines <= 1:
-            return self._input(type='text',name=name,value=value,size=size,**kw)
+            return self._input(type='text',id=id,name=name,value=value,size=size,**kw)
         else:
             s = ' '.join([self._make_keyval('name',name),
-                          self._make_keyval('rows',nlines),                            
+                          self._make_keyval('id',  id),
+                          self._make_keyval('rows',nlines),                          
                           self._make_keyval('cols',size)])
             
             return '<textarea %s>%s</textarea>' % (s,value)

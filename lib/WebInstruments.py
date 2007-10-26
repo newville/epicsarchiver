@@ -350,7 +350,7 @@ class WebInstruments(HTMLWriter):
         mykw['station'] = station
        
         self.starthtml()
-        self.show_links()
+        self.show_links(help='instruments')
 
         wr = self.write
 
@@ -407,7 +407,7 @@ class WebInstruments(HTMLWriter):
         instrument,station = self.arch.get_instrument_names_from_id(inst_id)
 
         self.starthtml()
-        self.show_links()
+        self.show_links(help='instruments')
 
         wr = self.write
         

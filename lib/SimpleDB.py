@@ -139,8 +139,6 @@ class SimpleTable:
                 for k,v in kw.items():
                     k = clean_input(k)
                     v = clean_input(v)
-                    print k, v, self.fieldtypes[k]
-                    
                     if 'str' == self.fieldtypes[k]:
                         s.append("%s=%s" % (k,safe_string(v)))
                     elif 'double' == self.fieldtypes[k]:

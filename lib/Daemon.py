@@ -93,7 +93,7 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
         pf  = file(pidfile,'r')
         pid = int(pf.read().strip())
         pf.close()
-    except IOError:
+    except:
         pid = None
     #
     # see if pid is live (from /proc/PID/io)

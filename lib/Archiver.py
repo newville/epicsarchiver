@@ -13,7 +13,7 @@ from Cache    import add_pv_to_cache
 
 import config
 from util import normalize_pvname, get_force_update_time, tformat, \
-     escape_string, clean_string, SEC_DAY, MAX_EPOCH
+     escape_string, clean_string, SEC_DAY, MAX_EPOCH, valid_pvname
 
 class Archiver:
     MIN_TIME = 1000000
@@ -172,9 +172,14 @@ class Archiver:
     def drop_pv(self,name):
         self.db.execute("update pv set active='no' where name=%s" % clean_string(name))
 
+
     def add_pv(self,name,description=None,graph={},deadtime=None,deadband=None):
         """add PV to the database"""
         pvname = normalize_pvname(name)
+        if not valid_pvname(pvname):
+            sys.stdout.write("## Archiver add_pv invalid pvname = '%s'" % pvname)
+            return
+        
         if self.pvinfo.has_key(pvname):
             if 'yes' == self.pvinfo[pvname]['active']:
                 self.write("PV %s is already in database.\n" % pvname)

@@ -91,6 +91,10 @@ def run_archive(action='start'):
         master.set_arch_status('stopping')
         master.set_arch_pid(0)
         time.sleep(1.0)
+    if 'start'==action:
+        n = master.arch_nchanged(minutes=5)
+        if n < 2:  pidfile='/dev/null'
+
     master.close()
     
     startstop(stdout =sout,stderr=serr, pidfile=pidfile,
@@ -98,7 +102,6 @@ def run_archive(action='start'):
               func = archive_loop)
 
 def run_cache(action=None):
-
     def cache_loop():
         Cache().mainloop()
         
@@ -108,13 +111,18 @@ def run_cache(action=None):
     serr    = os.path.join(dir, "cache.err")
     pidfile = os.path.join(dir, "cache.pid")
 
+    c = MasterDB()
+        
     if 'stop'==action:
-        c = MasterDB()
         c.set_cache_status('stopping')
         c.set_cache_pid(0)
         time.sleep(1.0)        
-        c.close()
 
+    if 'start'==action:
+        ret = c.cache.select(where="ts> %i order by ts" % (time.time()-30.0))
+        if len(ret)< 2: pidfile='/dev/null'
+    c.close()
+    
     startstop(stdout =sout,stderr=serr, pidfile=pidfile,
               process_name='pvcache', action=action,
               func = cache_loop)
@@ -206,8 +214,7 @@ def main():
         
     elif 'add_pv' == cmd:
         c    = Cache()
-        for pv in args:
-            c.add_pv(pv)
+        for pv in args: c.add_pv(pv)
         if len(args)>1:
             c.set_allpairs(args)
         c.close()

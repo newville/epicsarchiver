@@ -6,8 +6,9 @@ from MySQLdb import string_literal, escape_string
 MAX_EPOCH = 2147483647.0   # =  2**31 - 1.0 (max unix timestamp)
 SEC_DAY   = 86400.0
 
-motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS','.DIR','_able.VAL','.SPMG')
+motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS','.DIR','_able.VAL','.SPMG','.DESC')
 
+valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._'
 
 def clean_input(x,maxlen=256):
     """clean input, forcing it to be a string, with comments stripped,
@@ -65,6 +66,11 @@ def time_str2sec(s):
     dx = time.localtime()
     return time.mktime((int(yr),int(mon),int(day),int(hr),int(min), 0,0,0,dx[8]))
 
+
+def valid_pvname(pvname):
+    for c in pvname:
+        if c not in valid_pvstr: return False
+    return True
     
 def set_pair_scores(pvlist):
     """ set (or check) that all pairs of pvs in list pvlist have a 'pair score'"""
