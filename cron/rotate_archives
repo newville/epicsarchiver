@@ -1,0 +1,2 @@
+# rotate to next archive at 02:02am on the 2rd of each month
+02 02 02 * * /usr/bin/pvarch next

@@ -1,0 +1,2 @@
+# make sure caching is running every 5 minutes
+05,15,25,35,45,55 * * * * /usr/bin/pvarch cache start > /dev/null 2>&1
