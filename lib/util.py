@@ -48,11 +48,11 @@ def get_force_update_time():
     return 10800.0*(6 + random())
 
 def timehash():
-    """ genearte a simple, 10 character hash of the timestamp:
+    """ generate a simple, 10 character hash of the timestamp:
     Number of possibilites = 16^10 ~= 10^12,
     the hash is a linear-in-milliseconds timestamp, so collisions
-    cannot happen for 10^12 milliseconds (33 years). """ 
-    return hex(int(1000*time.time()))[-10:]
+    cannot happen for 10^10 milliseconds (33 years). """ 
+    return hex(long(1000*time.time()))[-10:]
 
 def tformat(t=None,format="%Y-%m-%d %H:%M:%S"):
     """ time formatting"""

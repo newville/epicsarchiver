@@ -13,7 +13,8 @@ except:
 from EpicsArchiver import MasterDB, Cache, ArchiveMaster, Archiver, \
      tformat, add_pvfile, startstop
 
-from EpicsArchiver.config import logdir, master_db
+from EpicsArchiver.config import logdir, master_db, data_dir
+from EpicsArchiver.util import SEC_DAY
 
 def show_usage():
     print """    pvarch:   run and interact with Epics PV Archiver and MySQL process
@@ -21,6 +22,7 @@ def show_usage():
     pvarch -h            shows this message.
     pvarch status        shows cache and archiving status, some recent statistics.
     pvarch check         print # of archivedsin past 10 minutes. Should be >1!
+    
 
     pvarch start         start the archiving process
     pvarch stop          stop the archiving process
@@ -34,6 +36,7 @@ def show_usage():
 
     pvarch list          prints a list of recent data archives
     pvarch save          save a list of recent data archives
+    pvarch clean         clean up temporary data files used for web plotting.
 
     pvarch cache start        start cache process (if it's not already running)
            cache stop         stop  cache process
@@ -66,6 +69,17 @@ def save_archives(args):
     for db in args:
         m.save_db(dbname=db)
     m.close()
+
+def clean_webfiles():
+    """clean old files from web data / plot directory:
+    files older than 2 days will be deleted"""
+    now = time.time()
+    for i in os.listdir(data_dir):
+        fname = os.path.abspath(os.path.join(data_dir,i))
+        if not os.path.isfile(fname): continue
+        mtime = os.stat(fname)[8]
+        if (now - mtime) > 2*SEC_DAY:
+            os.unlink(fname)
 
 def list_archives():
     master  = MasterDB()
@@ -208,6 +222,9 @@ def main():
 
     elif 'save' == cmd:
         save_archives(args)
+
+    elif 'clean' == cmd:
+        clean_webfiles()
 
     elif 'list' == cmd:
         list_archives()
