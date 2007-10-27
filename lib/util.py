@@ -49,10 +49,10 @@ def get_force_update_time():
 
 def timehash():
     """ generate a simple, 10 character hash of the timestamp:
-    Number of possibilites = 16^10 ~= 10^12,
+    Number of possibilites = 16^11 >~ 10^13
     the hash is a linear-in-milliseconds timestamp, so collisions
-    cannot happen for 10^10 milliseconds (33 years). """ 
-    return hex(long(1000*time.time()))[-10:]
+    cannot happen for 10^12 milliseconds (33 years). """ 
+    return hex(long(10000.*time.time()))[2:-1]
 
 def tformat(t=None,format="%Y-%m-%d %H:%M:%S"):
     """ time formatting"""
@@ -60,12 +60,21 @@ def tformat(t=None,format="%Y-%m-%d %H:%M:%S"):
     return time.strftime(format, time.localtime(t))
 
 def time_str2sec(s):
-    xdate,xtime = s.split(' ')
-    hr,min,sec  = xtime.split(':')
-    yr,mon,day  = xdate.split('-')
-    dx = time.localtime()
-    return time.mktime((int(yr),int(mon),int(day),int(hr),int(min), 0,0,0,dx[8]))
+    xdat,xtim=s.split(' ')
+    dates = xdat.split('-')
+    times = xtim.split(':')
 
+    (yr,mon,day,hr,min,sec,x,y,tz) = time.localtime()
+    if   len(dates)>=3:  yr,mon,day = dates
+    elif len(dates)==2:  mon,day = dates
+    elif len(dates)==1:  day = dates[0]        
+
+    minu,sec = 0,0
+    if   len(times)>=3:  hr,minu,sec = times
+    elif len(times)==2:  hr,minu  = times
+    elif len(times)==1:  hr  = times[0]
+
+    return time.mktime((int(yr),int(mon),int(day),int(hr),int(minu),int(sec),0,0,tz))
 
 def valid_pvname(pvname):
     for c in pvname:
