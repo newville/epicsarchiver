@@ -1,33 +1,63 @@
 #!/usr/bin/env python
+import config
 
-from  config import template_dir, cgi_url
+xdbname1 = config.dat_format % (config.dat_prefix,1)
+xdbname2 = config.dat_format % (config.dat_prefix,2)
+xdbname128 = config.dat_format % (config.dat_prefix,128)
 
-conf = {'template_dir':template_dir, 'cgi_url': cgi_url }
+conf = {'template_dir':config.template_dir,
+        'cgi_url': config.cgi_url,
+        'logdir':  config.logdir,
+        'data_dir':config.data_dir,
+        'master_db': config.master_db,
+        'pvdat1': xdbname1,
+        'pvdat2': xdbname2,
+        'pvdat128': xdbname128,
+        'pv_deadtime_dble': str(config.pv_deadtime_dble),
+        'pv_deadtime_enum': str(config.pv_deadtime_enum)  }
 
-conf['adminpage']   = "%s/admin.py"  % cgi_url
-conf['plotpage']    = "%s/viewer.py" % cgi_url
-conf['instpage']    = "%s/instruments.py" % cgi_url
-conf['pvinfopage']  = "%s/admin.py/pvinfo"      % cgi_url
-conf['relpv_page']  = "%s/admin.py/related_pvs" % cgi_url
-conf['alertpage']   = "%s/admin.py/list_alerts"   % cgi_url
-conf['helppage']    = "%s/help.py" % cgi_url
+conf['adminpage']  = "%s/admin.py"  % config.cgi_url
+conf['plotpage']   = "%s/viewer.py" % config.cgi_url
+conf['instpage']   = "%s/instruments.py" % config.cgi_url
+conf['pvinfopage'] = "%s/admin.py/pvinfo"      % config.cgi_url
+conf['relpv_page'] = "%s/admin.py/related_pvs" % config.cgi_url
+conf['alertpage']  = "%s/admin.py/list_alerts"   % config.cgi_url
+conf['helppage']   = "%s/help.py" % config.cgi_url
 helppage = conf['helppage']
-
-
 
 
 setup = """
 <font size=+1>Epics PV Archiver Setup and Management</font></p>
 
-
 This page gives a few details for setting up and managing the Epics PV
 Archiver system.   Installation instructions are in the source kit.
 
+<p>As described in the Overview, the Epics PV Archiver has two main data
+stores for PV data, each controlled by a separate running process on the
+server:
+
+<ul>
+<li>The <b>Caching Process</b> maintains a <i>cache table</i> of current
+values for all all Epics PVs.  This manages all Epics connections, and runs
+as fast as possible, but stores only the most recent value for any PV.
+This cache is used by all other processes, including dynamic web pages and
+the archiving process.  The caching process is also responsible for sending
+emails for Alerts.  The main point of the cache is to allow different
+processes to get current values of Epics PVs without having to make an
+actual Channel Access connection.
+
+<li> The <b>Archiving Process</b> stores data for PVs into archives for
+later retrieval.  This works by reading recent changes from the cache, and
+storing these changes into data tables.  Since many PVs change by a small amount
+rather frequently, parameters  can be set to limit the number of changes recorded.
+</ul>
+
+Both processes will write log files to %(logdir)s.
 
 <h4>The command-line pvarch process</h4>
 
-From the linux command line, the main interface to the PV Archiver is the
-<tt>pvarch</tt> process.  Typical usages of this command are:
+The main administrative interface to the PV Archiver is the command line
+program <tt>pvarch</tt>.  Typical usages of this progrma are:
 
 <table align='center'>
 <tr><td width=30%%>Command</td><td width=70%%> Meaning</td></tr>
@@ -37,7 +67,8 @@ From the linux command line, the main interface to the PV Archiver is the
 <tr><td><tt>pvarch status   </tt></td><td>  shows cache and archiving status, some recent statistics. </td></tr>
 <tr><td><tt>pvarch check    </tt></td><td>  print # of archived PVs in past 10 minutes. Should be >1! </td></tr>
 <tr><td><tt>pvarch list     </tt></td><td>  prints a list of recent data archives </td></tr>
-<tr><td><tt>pvarch save     </tt></td><td>  save a list of recent data archives </td></tr>
+<tr><td><tt>pvarch save     </tt></td><td>  create backup files of recent data archives </td></tr>
+<tr><td><tt>pvarch clean    </tt></td><td>  clean out old files in the web data directory</td></tr>
 
 <tr><td colspan=2></td></tr><tr><td colspan=2> <font color='#440099'>The Archiving Process</font> </td></tr>
 <tr><td><tt>pvarch start    </tt></td><td>    start the archiving process </td></tr>
@@ -60,6 +91,45 @@ From the linux command line, the main interface to the PV Archiver is the
 </table>
 
 
+<h4>Deadtime and Deadbandss: setting how often a PV is recorded</h4>
+
+While the caching process saves current values for all PVs as fast as it
+can, it is not necessary to store <i>all</i> changes to PVs.  Two
+parameters set how often values are archived: the <i>deadtime</i>, and the
+<i>deadband</i>.  Both of these can be set for each PV.
+
+<p>
+The <i>deadtime</i> for a PV sets how long to wait after archiving a PVs
+value before archiving another value for this PV.  Let's take as an example
+a deadtime of 10 seconds.  If the PV hasn't changed in longer than 10
+seconds, then a change to the value will be archived as quickly as
+possible.  But if the value changes again within 10 seconds, the change
+will not be recorded immediately.  Instead, the change will be seen and the
+archiver will wait until 10 seconds has elapsed since the last time the
+value was recorded.  This way, if multiple changes happen during that 10
+seconds, the only value recorded will be the one held after 10 seconds has
+elapsed -- all intermediate changes will be forgotten.
+
+<p> One thing to note, though, is that the time of the last change will be
+recorded properly.  Thus, if a value changes, changes again 1 second later,
+and then stays fixed, the archiver will record the changes as taking place
+1 second apart.
+
+<p>
+
+The <i>deadband<i> for a PV sets how big a fractional change must be in
+order to be archived.
+
+<p>
+
+When PVs are added to the database, typical deadtimes are one or a few
+seconds, depending on whether the PV has a type 'double' -- which can
+easily change trivial amounts -- or a type of 'int','enum', or 'string',
+which change less often.  For this setup, the default deadtime for PVs of
+type 'double' or 'float' is %(pv_deadtime_dble)s seconds, while the default
+deadtime for all other PVs is %(pv_deadtime_enum)s seconds.  Typical
+deadbands are set small enough to be not actually effective.
+
 
 <h4>Rotating databases, cron jobs</h4>
 
@@ -77,33 +147,152 @@ of the most recent 'runs'.
 
 <p> Looking up a PV's value for plotting or data retrieval will seemlessly
 span multiple databases, so you don't have to worry about how often you
-start a new run.
-
-<p> Because of this, putting <tt>pvarch next</tt> in a cron table to run
-once a week or once a month, or at some other frequency, is recommended.  I
-would not recommend using a new database more often than once a day, and
-once a month seems about right.
+start a new run.  Because of this, putting <tt>pvarch next</tt> in a cron
+table to run once a week or once a month, or at some other frequency, is
+recommended.  I would not recommend using a new database more often than
+once a day -- once a month or every few weeks seems about right.
 
 <p> Also, because both <tt>pvarch start</tt> and <tt>pvarch cache
 start</tt> will do nothing if there is a successfully running archiving and
 caching process, you can also put these two commands in cron tables,
 running more often to ensure that the caching and archiving are running.
 
+<p>Another potential use of a cron job can be to clean out the data files
+created for the data plotting and viewing.  These are temporary files
+stored in %(data_dir)s.  To clean old files in this directory, you can use
+the command
 
-<p> To save the database tables to simple mysql dump files, use <tt>pvarch
-save PVDATA_00001</tt>
+<pre>
 
+pvarch clean
 
+</pre>
 
-<h4>Deadtimes: setting how often a PV is recorded</h4>
+<p> Finally, to backup the databases with simple mysql dump files, use
+<tt>pvarch save</tt>.  This will save the two principle databases: the
+master database, %(master_db)s, and the currently active archive database.
+You can specify additional databases to save as command-line arguments:
 
+<pre>
+
+pvarch save %(pvdat1)s
+
+</pre>
+
+Example crontab files for these tasks are included in the source distribution.
 
 <h4>Database layout</h4>
 
+This Epics PV Archiver has two main databases that it uses.  The main or
+master database, named %(master_db)s, holds the cache of values, status
+information about running processes, the history of archive 'runs',
+settings for Instruments and Alerts, and the data for related PVs.  The
+archive database holds the archived values for the PVs as well as data
+about how to archive the data.
 
+<p>
+At any one time, one archive database is 'current', meaning that it is the
+one be written to, so the database in use is a sequentially number
+database, of the form %(pvdat1)s, %(pvdat2)s, ....  Each databases holds a
+set of data for a specific time period -- a 'run'. Data retrieval uses the
+full set of archive databases, and looks up older spanning archive
+databases as necessary.
 
-"""
+<p> The assumption is that the Python programming interface will be used to
+access data in the PV Archive.  While the data is stored with MySQL
+databases, using simple SQL queries to retrieve data from the PV Archive is
+slightly non-trivial.  Still, for completeness, a partial description of
+the databases is provided here:
 
+<p><b>Structure of the Master Database:</b></p>
+
+The master database, %(master_db)s, is a fairly simply database.  There are
+several tables, but none of them is very complicated, and the logic that
+joins them is fairly simple.  The tables are:
+
+<table><tr><td>Table</td><td>Description</td></tr>
+<tr> <td>cache</td><td> holds the cached data for all PVs.</td></tr>
+<tr><td></td><td> columns of (<tt>id, pvname,type, value, cvalue, ts, active</tt>)
+                  where <tt>cvalue</tt> is the 'character string value',
+                  <tt>ts</tt> is the timestamp, and <tt>active</tt> holds whether
+                  to actively cache this PV.</td><tr>
+
+<tr> <td>runs</td><td> holds info about archiving 'runs'.</td></tr>
+<tr><td></td><td> columns of (<tt>id, db,notes, start_time,stop_time</tt>)
+                  where <tt>db </tt> is the name of the archive databases.</td></tr>
+                  
+<tr> <td>info</td><td> status information about running 'cache' and 'archive' processes</td></tr>
+<tr><td></td><td> columns of (<tt>id, process, status, db, datetime, ts, pid</tt>)
+                  where <tt>process</tt> is either 'cache' or 'archive'.</td></tr>
+
+<tr> <td>requests</td><td>temporary storage for requested changes to the cache database</td></tr>
+<tr><td></td><td> columns of (<tt>id, pvname, action</tt>)
+                  where <tt>action</tt> is one of 'add', 'dtop', 'suspend', 'ignore'.
+                  The Caching process periodically looks here for new values to include.</td></tr>
+
+<tr> <td>alerts</td><td>data about Alerts</td></tr>
+<tr><td></td><td> columns of (<tt>id, pvname, name, mailto, mailmsg,
+                  compare, trippoint, timeout, active, status</tt>)</td></tr>
+
+<tr> <td>pairs</td><td>data for Related PVs</td></tr>
+<tr><td></td><td> columns of (<tt>id, pv1, pv2, score</tt>)</td></tr>
+
+<tr> <td>instruments</td><td>list of instruments</td></tr>
+<tr><td></td><td> columns of (<tt>id, name, station, notes</tt>).
+                  Here <tt>station</tt> simply holds the ID from the stations table. </td></tr>
+
+<tr> <td>stations</td><td>list of stations</td></tr>
+<tr><td></td><td> columns of (<tt>id, name,  notes</tt>) </td></tr>
+
+<tr> <td>instrument_pvs</td><td>data for which PV goes with which instrument</td></tr>
+<tr><td></td><td> columns of (<tt>id, pvame, inst</tt>) </td></tr>
+
+<tr> <td>instrument_positions</td><td>data for saved positions for  instrument</td></tr>
+<tr><td></td><td> columns of (<tt>id, name, inst, active, ts</tt>) </td></tr>
+
+</table>
+
+<p><b>Structure of the Archive Database:</b></p>
+
+The achive databases, with names like %(pvdat1)s, is is slightly more
+complicated than the master database, in an effort to make an efficient
+system for archiving thousands of PVs.  There is a main <tt>PV</tt> table
+that holds information about the PVs being archived, including their data
+type, archiving deadtime and deadband, and which Data Table to use for data
+storage.  There are 128 Data Tables %(pvdat1)s, %(pvdat2)s, ...  ....
+%(pvdat128)s.  Because many PVs rarely change, while others change very
+frequently, it was found to be inefficient for each PV to have its own data
+table, or to have one data table for all archived data.  Instead, when
+adding a PV to the archive, the PV name is <i>hashed</i> to give a number
+between 1 and 128, and that determines which data table to use.  Of course,
+multiple PVs then store to any single table, so a way to identify the PV in
+the data table is needed.  When looking up data for a PV, which table is
+read from needs to be determined (the table namet is stored in the
+<tt>PV</tt> table, so this is very fast) but then only that one table needs
+to be read, eliminating more than 99%% of the data in the archive.
+
+<p>The <tt>PV</tt> table has the following columns and meanings:
+<table><tr><td>Column</td><td> Description</td></tr>
+<tr><td> id</td><td>          integer ID</td></tr>
+<tr><td> name</td><td>        PV name</td></tr>
+<tr><td> description </td><td>  description of PV</td></tr>
+<tr><td> data_table</td><td>  name of corresponding data table</td></tr>
+<tr><td> deadtime</td><td>    deadtime for archiving </td></tr>
+<tr><td> deadband</td><td>    deadband</td></tr>
+<tr><td> graph_hi</td><td>    default high value for plotting range</td></tr>
+<tr><td> graph_lo</td><td>    default low value for plotting range</td></tr>
+<tr><td> graph_type</td><td>  default type for plottin: 'normal','log','discrete'</td></tr>
+<tr><td> type</td><td>   PV data type</td></tr>
+<tr><td> active</td><td> Whether PV is actively being archived.</td></tr>
+</table>
+
+<p>In contrast, the data tables are much simpler, with columns of
+<tt>pv_id</tt> (that is the <id> from the PV table), <tt>time</tt>, and
+<tt>value</tt>
+
+<p>For further details, simply explore the MySQL databases. 
+
+""" % conf
 
 overview = """
 <font size=+1>Epics PV Archiver Overview</font></p>
@@ -122,13 +311,14 @@ up positions.
 The Epics PV Archiver uses two running processes:
 <ul>
 <li>The <b>Caching Process</b> reads the Epics PVs as fast as it can and stores their
-    values into a database cache, where other processes can read the "current value".
+    values into a cache database, where other processes can read the "current value".
     Using this cache cuts down on the number of Epics Channel Access connections need
-    to be made, and aslo speeds up access to the data values. The caching process also
+    to be made, and speeds up access to the data values. The caching process also
     manages the email alerts and instruments.
 
-<li>The <b>Archiving Process</b> reads the set of Epics PVs from the cache and archives
-    them into a separate database.  Not every change is archived, as detailed below.
+<li>The <b>Archiving Process</b> reads the set of Epics PVs from the cache
+    and archives them into a separate database.  Not every change is
+    archived, as detailed in the Setup section.
 
 </ul>
 
@@ -140,7 +330,6 @@ the number archived recently. For both of these, there should be a
 substantial amount of activity.  See <a
 href="%(helppage)s?section=setup">Setup Help</a> for more information on
 managing these processes.
-
 
 <h4>Adding PVs to the Archive</h4>
 
@@ -372,7 +561,9 @@ time for these time ranges.
 <p> The plot should be shown automatically, and labeled well enough to
 interpret the data.  In addition, links are provided for:
 <ul>
-<li> data file(s) with the real data for each PV
+
+<li> data file(s) with the real data for each PV.
+
 
 <li> the gnuplot script used to create the plot, in case you'd like to
 modify the plot for other purposes.
@@ -394,12 +585,12 @@ That is, a 4 digit year, a 2 digit month, a 2 digit day, 1 space, a 2 digit
 hour, a 2 digit minute, a 2 digit minute, 1 space, a floating point Unix
 timestamp (seconds since epoch), 1 space, and the data value.
 
+<p> On the server, the data files, gnuplot scripts, and resulting PNG files
+will be stored as temporary file in %(data_dir)s.  These files will be
+cleaned out periodically.
 
 
-
-
-
-"""
+""" % conf
 
 templates = """
 <font size=+1>Epics PV Archiver Templates and Web Page Layout</font></p>
@@ -612,7 +803,6 @@ it.
 
 
 """ % conf
-
 
 
 from HTMLWriter import HTMLWriter

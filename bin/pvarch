@@ -13,7 +13,7 @@ except:
 from EpicsArchiver import MasterDB, Cache, ArchiveMaster, Archiver, \
      tformat, add_pvfile, startstop
 
-from EpicsArchiver.config import logdir, master_db, data_dir
+from EpicsArchiver.config import logdir, master_db, data_dir, datfile_prefix
 from EpicsArchiver.util import SEC_DAY
 
 def show_usage():
@@ -70,16 +70,16 @@ def save_archives(args):
         m.save_db(dbname=db)
     m.close()
 
-def clean_webfiles():
+def clean_web_datafiles():
     """clean old files from web data / plot directory:
     files older than 2 days will be deleted"""
     now = time.time()
     for i in os.listdir(data_dir):
         fname = os.path.abspath(os.path.join(data_dir,i))
-        if not os.path.isfile(fname): continue
-        mtime = os.stat(fname)[8]
-        if (now - mtime) > 2*SEC_DAY:
-            os.unlink(fname)
+        if (os.path.isfile(fname) and i.startswith(datfile_prefix)):
+            mtime = os.stat(fname)[8]
+            if (now - mtime) > 2*SEC_DAY:
+                os.unlink(fname)
 
 def list_archives():
     master  = MasterDB()
@@ -94,11 +94,10 @@ def run_archive(action='start'):
     master  = MasterDB()
     dbname  = master.arch_db
 
-    dir     = logdir
-    if not os.path.exists(dir):   os.mkdir(dir)
-    sout    = os.path.join(dir, "%s.log" % dbname)
-    serr    = os.path.join(dir, "%s.err" % dbname)
-    pidfile = os.path.join(dir, "pvarch.pid")
+    if not os.path.exists(logdir):   os.mkdir(logdir)
+    sout    = os.path.join(logdir, "%s.log" % dbname)
+    serr    = os.path.join(logdir, "%s.err" % dbname)
+    pidfile = os.path.join(logdir, "pvarch.pid")
 
     if 'stop'==action:
         print 'Stopping ....'
@@ -119,11 +118,10 @@ def run_cache(action=None):
     def cache_loop():
         Cache().mainloop()
         
-    dir     = logdir
-    if not os.path.exists(dir):   os.mkdir(dir)
-    sout    = os.path.join(dir, "cache.log")
-    serr    = os.path.join(dir, "cache.err")
-    pidfile = os.path.join(dir, "cache.pid")
+    if not os.path.exists(logdir):   os.mkdir(logdir)
+    sout    = os.path.join(logdir, "cache.log")
+    serr    = os.path.join(logdir, "cache.err")
+    pidfile = os.path.join(logdir, "cache.pid")
 
     c = MasterDB()
         
@@ -224,7 +222,7 @@ def main():
         save_archives(args)
 
     elif 'clean' == cmd:
-        clean_webfiles()
+        clean_web_datafiles()
 
     elif 'list' == cmd:
         list_archives()

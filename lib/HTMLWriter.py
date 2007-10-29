@@ -23,8 +23,10 @@ htmlhead = """<html>
 <meta http-equiv='Pragma'  content='no-cache'>
 <meta http-equiv='Refresh' content='%s'>
 <style type='text/css'>
-pre {text-indent: 30px}
-h4 {font:bold 18px verdana,arial,sans-serif;color:#044484;font-weight:bold;font-style:italic;}
+pre {text-indent: 20px}
+h4 {font:bold 16px verdana,arial,sans-serif;color:#A42264;font-weight:bold;font-style:italic;}
+h3 {font:bold 18px verdana,arial,sans-serif;color:#044484;font-weight:bold;font-style:italic;}
+h2 {font:bold 20px verdana,arial,sans-serif;color:#044484;font-weight:bold;}
 .xtitle {font-family: verdana, arial, san-serif; font-size: 13pt;
          font-weight:bold; font-style:italic;color:#900000}
 .xx {font-size: 3pt;}
@@ -42,13 +44,14 @@ padding: 3px 3px 4px 3px;margin: 0px ;text-decoration: none; }
 %s
 </head><body>
 """
+conf = {'jscal_url':config.jscal_url}
 
 jscal_setup = """<link rel='stylesheet' type='text/css' media='all'
  href='%s/calendar-system.css' />
-<script type='text/javascript' src='%s/calendar.js'></script>
-<script type='text/javascript' src='%s/lang/calendar-en.js'></script>
-<script type='text/javascript' src='%s/calendar-setup.js'></script>
-"""  % (config.jscal_url, config.jscal_url, config.jscal_url, config.jscal_url)
+<script type='text/javascript' src='%(jscal_url)s/calendar.js'></script>
+<script type='text/javascript' src='%(jscal_url)s/lang/calendar-en.js'></script>
+<script type='text/javascript' src='%(jscal_url)s/calendar-setup.js'></script>
+"""  % conf
 
 
 jscal_get_2dates = """
@@ -70,7 +73,7 @@ jscal_get_2dates = """
             else if (tstr == 'mo'){ tunit= Date.DAY*31; }
             time     += tarr[0] * tunit; 
             var date2 = new Date(time);
-            f2.value  = date2.print("%Y-%m-%d %H:%M");
+            f2.value  = date2.print("%Y-%m-%d %H:%M:%S");
           }
      }
      Calendar.setup({inputField : "date1",   ifFormat   : "%Y-%m-%d %H:%M:%S",

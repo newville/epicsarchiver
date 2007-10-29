@@ -16,7 +16,8 @@ from util import normalize_pvname, get_force_update_time, tformat, \
      escape_string, clean_string, SEC_DAY, MAX_EPOCH, valid_pvname
 
 class Archiver:
-    MIN_TIME = 1000000
+    MIN_TIME = 100
+    sql_insert  = "insert into %s (pv_id,time,value) values (%i,%f,%s)"
 
     def __init__(self,db=None,dbname=None, **args):
         
@@ -35,6 +36,8 @@ class Archiver:
         self.db.read_table_info()
         self.pv_table = self.db.tables['pv']
         
+        self.get_changes = self.master.get_recent
+
         self.debug  = 0
         self.force_checktime = 0
         self.messenger = sys.stdout
@@ -101,8 +104,24 @@ class Archiver:
         if len(r)>0: return r[0]
         return {}
 
+    def get_value_at_time(self,pvname,t):
+        "return archived value of a pv at one time"
+        if pvname is None: return None
+        pvname = normalize_pvname(pvname)
+        if not self.pvinfo.has_key(pvname):
+            self.sync_with_cache()
+            if not self.pvinfo.has_key(pvname):  return None
+
+        db = self.master.dbs_for_time(t,t)[0]
+        self.db.use(db)
+        qpv  = "select data_table,id from pv where name ='%s'" % pvname
+        qdat = 'select time,value from %s where pv_id=%i and time<=%f order by time desc limit 1'
+        i = self.db.exec_fetchone(qpv)
+        r = self.db.exec_fetchone(qdat % (i['data_table'],i['id'],t))
+        return r['time'],r['value']
+
     def get_data(self,pvname,t0,t1,with_current=None):
-        "get data from database"
+        "get data from database for a time range"
         if pvname is None: return []
         pvname = normalize_pvname(pvname)
         if not self.pvinfo.has_key(pvname):
@@ -114,7 +133,7 @@ class Archiver:
         info   =  self.pvinfo[pvname]
         stat   = [info]
         dat    = []
-        tquery = "select data_table,id from pv where name =%s"
+        pvquery = "select data_table,id from pv where name ='%s'" % pvname
         fquery = 'select time,value from %s where pv_id=%i and time<=%f order by time desc limit 1'
         squery = 'select time,value from %s where pv_id=%i and time>=%f and time<=%f order by time'
 
@@ -134,9 +153,8 @@ class Archiver:
         try:
             for db in self.master.dbs_for_time(t0,t1):
                 self.db.use(db)
-                q     = tquery % clean_string(pvname)
-                stat.append(q)
-                r     = self.db.exec_fetchone(q)
+                stat.append(pvquery)
+                r     = self.db.exec_fetchone(pvquery)
                 table = r['data_table']
                 pvid  = r['id']
                 stat.append((db,table, pvid))
@@ -179,7 +197,7 @@ class Archiver:
         if not valid_pvname(pvname):
             sys.stdout.write("## Archiver add_pv invalid pvname = '%s'" % pvname)
             return
-        
+
         if self.pvinfo.has_key(pvname):
             if 'yes' == self.pvinfo[pvname]['active']:
                 self.write("PV %s is already in database.\n" % pvname)
@@ -189,13 +207,15 @@ class Archiver:
             return None
         # create an Epics PV, check that it's valid
         try:
-            pv = EpicsCA.PV(pvname,connect=True)
+            pv = EpicsCA.PV(pvname,connect=True,use_control=True)
             typ = pv.type
             count = pv.count
+            prec  = pv.precision
         except:
             typ= 'int'
             count = 1
-
+            prec = None
+            
         # determine type
         dtype = 'string'
         if (typ in ('int','long','short')): dtype = 'int'
@@ -248,12 +268,13 @@ class Archiver:
         if (deadtime == None):
             deadtime = config.pv_deadtime_dble
             if dtype in ('enum','string'):   deadtime = config.pv_deadtime_enum
-            if (gr['type'] == 'log'): deadtime = 30.0  # (pressures change very frequently)
+            if (gr['type'] == 'log'): deadtime = 5.0  # (pressures change very frequently)
 
         if (deadband == None):
             deadband = 1.e-5
-            if dtype in ('enum','string'):     deadband =  0.5
             if (gr['type'] == 'log'): deadband = 1.e-4
+            if prec is not None: deadband = 10**(-(prec+1))
+            if dtype in ('enum','string'):     deadband =  0.5
             
         self.write('Archiver adding PV: %s, table: %s \n' % (pvname,table))
         
@@ -271,7 +292,7 @@ class Archiver:
         self.pvinfo[pvname] = self.pv_table.select_where(name=pvname)[0]
         self.pvinfo[pvname]['force_time'] = get_force_update_time()
 
-        self.update_value(pvname,time.time(),pv.value,delay=False)
+        self.update_value(pvname,time.time(),pv.value)
 
         pv.disconnect()
         # should add an insert here!!
@@ -307,16 +328,14 @@ class Archiver:
                 self.update_value(name,r['ts'],r['value'])
                 
 
-    def update_value(self,name,ts,val,delay=False):
+    def update_value(self,name,ts,val):
         "insert value into appropriate table " 
+        if val is None: return
         if ts is None or ts < self.MIN_TIME: ts = time.time()
-        self.last_insert[name] =  (ts,val)
-        delay_str = ''
-        if delay: delay_str = 'delayed'
-        sql  = "insert %s into %s (pv_id,time,value) values (%i,%f,%s)"
         info = self.pvinfo[name]
+        self.last_insert[name] =  (ts,val)
         try:
-            self.db.execute(sql % (delay_str,info['data_table'],info['id'], ts,clean_string(val)))
+            self.db.execute(self.sql_insert % (info['data_table'],info['id'], ts,clean_string(val)))
         except TypeError:
             self.write("cannot update %s\n" % name)
 
@@ -325,13 +344,12 @@ class Archiver:
         """ one pass of collecting new values, deciding what to archive"""
         newvals, forced = [],[]
         tnow = time.time()
-        dt  =  max(1.0, 5*(tnow - self.last_collect))
+        dt  =  max(1.0, 3.*(tnow - self.last_collect))
         self.last_collect = tnow
-        for dat in self.get_cache_changes(dt=dt):
+        for dat in self.get_changes(dt=dt):
             name  = dat['pvname']
             val   = dat['value']
             ts    = dat['ts'] or time.time()
-
             if not self.pvinfo.has_key(name):  self.add_pv(name)
 
             info = self.pvinfo[name]
@@ -340,19 +358,18 @@ class Archiver:
             last_ts,last_val = self.last_insert[name]
             if last_ts is None:  last_ts = 0
 
-            if (ts-last_ts) > info['deadtime']:
-                do_save = True
-                if dat['type'] in ('double','float'):
-                    try:
-                        do_save = abs(info['deadband']) < ( abs((float(val)-float(last_val))/
-                                                             max(float(val),float(last_val),1.e-8)))
-                    except:
-                        pass
-                if do_save:
-                    self.update_value(name,ts,val)
-                    newvals.append((str(name),str(val),ts))
-                    if self.dtime_limbo.has_key(name): self.dtime_limbo.pop(name)
-            elif (ts-last_ts) > 0.003:   # pv changed, but inside 'deadtime': put it in limbo!
+            do_save = ((ts-last_ts) > info['deadtime'])
+            if do_save and dat['type'] in ('double','float'):
+                try:
+                    v,o = float(val),float(last_val)
+                    do_save = abs((v-o)/max(abs(v),abs(o),1.e-12)) > abs(info['deadband'])
+                except:
+                    pass
+            if do_save:
+                self.update_value(name,ts,val)
+                newvals.append((str(name),str(val),ts))
+                if self.dtime_limbo.has_key(name): self.dtime_limbo.pop(name)
+            elif (ts-last_ts) > 1.e-5:   # pv changed, but inside 'deadtime': put it in limbo!
                 self.dtime_limbo[name] = (ts,val)
                 
         # now look through the "limbo list" and insert the most recent change
@@ -362,13 +379,12 @@ class Archiver:
             info = self.pvinfo[name]
             if info['active'] == 'no': continue
             last_ts,last_val  = self.last_insert[name]
-            if last_ts is None: last_ts = 0
             if (tnow - last_ts) > info['deadtime']:
                 ts,val = self.dtime_limbo.pop(name)
-                self.update_value(name,ts,val,delay=False)
+                self.update_value(name,ts,val)
                 newvals.append((str(name),str(val),ts))
                 
-        # check for stale values 
+        # check for stale values and re-read db settings every 10 minutes or so
         if (tnow - self.force_checktime) >= 600.0:
             self.force_checktime = tnow
             sys.stdout.write('looking for stale values, checking for new settings...\n')
@@ -379,14 +395,15 @@ class Archiver:
                 info = self.pvinfo[name]
                 if info['active'] == 'no': continue
                 ftime = info['force_time']
-                if last_ts is None:  last_ts = 0
                 if tnow-last_ts > ftime:
                     r = self.get_cache_full(name)
                     if r['type'] is None and r['value'] is None: # an empty / non-cached PV?
                         try:
                             test_pv = EpicsCA.PV(name,connect=True)
+                            # if PV is still not connected, set time
+                            # to wait 2 hours before checking again.
                             if (test_pv is None or not test_pv.connected):
-                                self.last_insert[name] = (tnow-ftime+7200.0,None)
+                                self.last_insert[name] = (7200+tnow-ftime,None)
                                 self.write(" PV not connected: %s\n" % name)
                             else:
                                 r['value'] = test_pv.value
@@ -426,7 +443,6 @@ class Archiver:
         self.write("done. DB connection took %6.3f sec\n" % (time.time()-t0))
         self.write("connecting to %i Epics PVs ... \n" % ( len(self.pvinfo) ))
         self.write('======   Start monitoring / saving to DB=%s\n' % self.dbname)
-
 
         mypid = os.getpid()
         self.set_pidstatus(pid=mypid, status='running')

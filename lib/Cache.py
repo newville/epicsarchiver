@@ -179,7 +179,7 @@ class Cache(MasterDB):
         while True:
             try:
                 self.start_group()
-                EpicsCA.pend_event(0.1)
+                EpicsCA.pend_event(0.01)
                 n = self.end_group()
                 ncached = ncached + n
                 self.set_date()

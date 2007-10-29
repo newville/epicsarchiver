@@ -6,7 +6,8 @@ from MySQLdb import string_literal, escape_string
 MAX_EPOCH = 2147483647.0   # =  2**31 - 1.0 (max unix timestamp)
 SEC_DAY   = 86400.0
 
-motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS','.DIR','_able.VAL','.SPMG','.DESC')
+motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS',
+                '.DIR','_able.VAL','.SPMG','.DESC')
 
 valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._'
 
@@ -17,20 +18,17 @@ def clean_input(x,maxlen=256):
 
     if len(x)>maxlen:   x = x[:maxlen-1]
     x.replace('#','\#')
-    
     eol = x.find(';')
     if eol > -1: x = x[:eol]
     return x.strip()
                        
 def safe_string(x):
-    x = clean_input(x)
-    if "'" in x:  return  '"%s"' %  escape_string(x)
+    if "'" in x:  x = escape_string(x)
     return  string_literal(x)
 
 def clean_string(x):
     x = clean_input(x)
-    if "'" in x:  return  '"%s"' %  escape_string(x)
-    return  string_literal(x)
+    return safe_string(x)
 
 def normalize_pvname(p):
     """ normalizes a PV name (so that it ends in .VAL if needed)."""

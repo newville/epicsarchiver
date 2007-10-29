@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #
-
 try:
     import MySQLdb
 except ImportError:
@@ -23,7 +22,7 @@ import warnings
 warnings.filterwarnings("ignore", "Unknown table.*")
 warnings.filterwarnings("ignore", ".*drop database.*")
 
-from util import string_literal, safe_string, clean_input, clean_string
+from util import string_literal, clean_string, safe_string, clean_input
 import config
 
 def db_connect(dbname='test',
@@ -91,7 +90,7 @@ class SimpleTable:
             q = "delete from %s where 1=1" % (self._name)
             for k,v in args.items():
                 k = clean_input(k)
-                v = string_literal(v)
+                v = safe_string(v)
                 q = "%s and %s=%s" % (q,k,v)
             # print 'DELETE WHERE: ', q
             # return self.db.exec_fetch(q)
@@ -106,7 +105,7 @@ class SimpleTable:
             q = "select * from %s where 1=1" % (self._name)
             for k,v in args.items():
                 k = clean_input(k)
-                v = string_literal(v)
+                v = safe_string(v)
                 q = "%s and %s=%s" % (q,k,v)
             # print 'S WHERE ', q
             return self.db.exec_fetch(q)
@@ -269,7 +268,7 @@ class SimpleDB:
         except:
             self.write(" could not source file %s" % file)
 
-    def clean_string(self, s):   return clean_string(s)
+    def clean_string(self, s):    return clean_string(s)
     def string_literal(self, s):  return string_literal(s)
 
     def use(self,db):

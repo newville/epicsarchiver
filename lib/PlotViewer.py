@@ -63,7 +63,7 @@ set ytics nomirror
         self.arch   = arch or Archiver()
         self.master = self.arch.master
         
-        self._gp = Gnuplot.Gnuplot() # "%s/out.gp" % self.file_pref)
+        self._gp = Gnuplot.Gnuplot() 
         self.kw  = {'form_pv':'', 'form_pv2':'',  'use_ylog':'', 'use_y2log': '',
                     'submit': 'Time From Present', 'time_ago': '1 day', 
                     'ymin':'', 'ymax':'', 'y2min':'', 'y2max':'',
@@ -239,7 +239,7 @@ set ytics nomirror
                 
         # self.write('<p> draw graph %i %i </p>' % (t0,t1))
         #
-        froot  = "pv%s" % timehash()
+        froot  = "%s%s" % (config.datfile_prefix,timehash())
 
         f_png  = os.path.join(self.file_pref, "%s.png" % froot)
         l_png  = os.path.join(self.link_pref, "%s.png" % froot)
