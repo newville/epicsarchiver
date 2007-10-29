@@ -54,10 +54,10 @@ rather frequently, parameters  can be set to limit the number of changes recorde
 
 Both processes will write log files to %(logdir)s.
 
-<h4>The command-line pvarch process</h4>
+<h3>The command-line pvarch process</h3>
 
 The main administrative interface to the PV Archiver is the command line
-program <tt>pvarch</tt>.  Typical usages of this progrma are:
+program <tt>pvarch</tt>.  Typical usages of this program are:
 
 <table align='center'>
 <tr><td width=30%%>Command</td><td width=70%%> Meaning</td></tr>
@@ -86,12 +86,12 @@ program <tt>pvarch</tt>.  Typical usages of this progrma are:
 <tr><td colspan=2></td></tr><tr><td colspan=2> <font color='#440099'>Adding and removing PVs</font> </td></tr>
 <tr><td><tt>pvarch add_pv     </tt></td><td>    add a PV to the cache and archive </td></tr>
 <tr><td><tt>pvarch add_pvfile </tt></td><td>    read a file of PVs to add to the Archiver </td></tr>
-<tr><td><tt>pvarch drop_pv    </tt></td><td>    remove a PV from cahce and archive </td></tr>
+<tr><td><tt>pvarch drop_pv    </tt></td><td>    remove a PV from cache and archive </td></tr>
 
 </table>
 
 
-<h4>Deadtime and Deadbandss: setting how often a PV is recorded</h4>
+<h3>Deadtime and Deadbands: setting how often a PV is recorded</h3>
 
 While the caching process saves current values for all PVs as fast as it
 can, it is not necessary to store <i>all</i> changes to PVs.  Two
@@ -117,7 +117,7 @@ and then stays fixed, the archiver will record the changes as taking place
 
 <p>
 
-The <i>deadband<i> for a PV sets how big a fractional change must be in
+The <i>deadband</i> for a PV sets how big a fractional change must be in
 order to be archived.
 
 <p>
@@ -131,7 +131,7 @@ deadtime for all other PVs is %(pv_deadtime_enum)s seconds.  Typical
 deadbands are set small enough to be not actually effective.
 
 
-<h4>Rotating databases, cron jobs</h4>
+<h3>Rotating databases, cron jobs</h3>
 
 The archiving process writes data to a single database (more details on
 database layout is below).  It is expected and encouraged to have several
@@ -145,7 +145,7 @@ new database.  All PVs archived and all their settings in the old database
 will be moved into the new one. Using <tt>pvarch list</tt> will show a list
 of the most recent 'runs'.
 
-<p> Looking up a PV's value for plotting or data retrieval will seemlessly
+<p> Looking up a PV's value for plotting or data retrieval will seamlessly
 span multiple databases, so you don't have to worry about how often you
 start a new run.  Because of this, putting <tt>pvarch next</tt> in a cron
 table to run once a week or once a month, or at some other frequency, is
@@ -181,7 +181,7 @@ pvarch save %(pvdat1)s
 
 Example crontab files for these tasks are included in the source distribution.
 
-<h4>Database layout</h4>
+<h3>Database layout</h3>
 
 This Epics PV Archiver has two main databases that it uses.  The main or
 master database, named %(master_db)s, holds the cache of values, status
@@ -204,57 +204,54 @@ databases, using simple SQL queries to retrieve data from the PV Archive is
 slightly non-trivial.  Still, for completeness, a partial description of
 the databases is provided here:
 
-<p><b>Structure of the Master Database:</b></p>
+<h4>Structure of the Master Database:</h4>
 
 The master database, %(master_db)s, is a fairly simply database.  There are
 several tables, but none of them is very complicated, and the logic that
 joins them is fairly simple.  The tables are:
 
-<table><tr><td>Table</td><td>Description</td></tr>
-<tr> <td>cache</td><td> holds the cached data for all PVs.</td></tr>
-<tr><td></td><td> columns of (<tt>id, pvname,type, value, cvalue, ts, active</tt>)
-                  where <tt>cvalue</tt> is the 'character string value',
-                  <tt>ts</tt> is the timestamp, and <tt>active</tt> holds whether
-                  to actively cache this PV.</td><tr>
+<table><tr><td>Table</td><td>Description</td><td>Data Columns</td></tr>
+<tr> <td>cache</td><td> holds the cached data for all PVs.</td>
+<td> <tt>id, pvname,type, value, cvalue, ts, active</tt></td></tr>
+<tr><td></td><td></td><td>
+                  <tt>cvalue</tt> is the 'character string value',
+                  <tt>ts</tt> is the timestamp, <tt>active</tt> holds whether
+                  the PV is actively cached.</td><tr>
 
-<tr> <td>runs</td><td> holds info about archiving 'runs'.</td></tr>
-<tr><td></td><td> columns of (<tt>id, db,notes, start_time,stop_time</tt>)
-                  where <tt>db </tt> is the name of the archive databases.</td></tr>
+<tr> <td>runs</td><td> holds info about archiving 'runs'.</td><td> <tt>id, db,notes, start_time,stop_time</tt>
+<tr><td></td><td></td><td>   tt>db </tt> is the name of the current archive databases.</td></tr>
                   
-<tr> <td>info</td><td> status information about running 'cache' and 'archive' processes</td></tr>
-<tr><td></td><td> columns of (<tt>id, process, status, db, datetime, ts, pid</tt>)
-                  where <tt>process</tt> is either 'cache' or 'archive'.</td></tr>
+<tr> <td>info</td><td> status information about running 'cache' and 'archive' processes</td>
+<td> <tt>id, process, status, db, datetime, ts, pid</tt></td></tr>
+<tr><td></td><td></td><td> <tt>process</tt> is either 'cache' or 'archive'.</td></tr>
 
-<tr> <td>requests</td><td>temporary storage for requested changes to the cache database</td></tr>
-<tr><td></td><td> columns of (<tt>id, pvname, action</tt>)
-                  where <tt>action</tt> is one of 'add', 'dtop', 'suspend', 'ignore'.
-                  The Caching process periodically looks here for new values to include.</td></tr>
+<tr> <td>requests</td><td>temporary storage for requested changes to the cache database</td>
+<td><tt>id, pvname, action</tt></td></tr>
+<tr><td></td><td></td><td> <tt>action</tt> is 'add', 'drop', 'suspend', or 'ignore'.
+                             The Caching process looks here for new values to include.</td></tr>
 
-<tr> <td>alerts</td><td>data about Alerts</td></tr>
-<tr><td></td><td> columns of (<tt>id, pvname, name, mailto, mailmsg,
-                  compare, trippoint, timeout, active, status</tt>)</td></tr>
+<tr> <td>alerts</td><td>data about Alerts
+<td><tt>id, pvname, name, mailto, mailmsg,
+                  compare, trippoint, timeout, active, status</tt></td></tr>
 
-<tr> <td>pairs</td><td>data for Related PVs</td></tr>
-<tr><td></td><td> columns of (<tt>id, pv1, pv2, score</tt>)</td></tr>
+<tr> <td>pairs</td><td>data for Related PVs</td><td><tt>id, pv1, pv2, score</tt></td></tr>
 
-<tr> <td>instruments</td><td>list of instruments</td></tr>
-<tr><td></td><td> columns of (<tt>id, name, station, notes</tt>).
-                  Here <tt>station</tt> simply holds the ID from the stations table. </td></tr>
+<tr> <td>instruments</td><td>list of instruments<td><tt>id, name, station, notes</tt></td></tr>
+<tr><td></td><td></td><td><tt>station</tt> holds the ID from the stations table. </td></tr>
 
-<tr> <td>stations</td><td>list of stations</td></tr>
-<tr><td></td><td> columns of (<tt>id, name,  notes</tt>) </td></tr>
+<tr> <td>stations</td><td>list of stations</td><td> <tt>id, name,  notes</tt> </td></tr>
 
-<tr> <td>instrument_pvs</td><td>data for which PV goes with which instrument</td></tr>
-<tr><td></td><td> columns of (<tt>id, pvame, inst</tt>) </td></tr>
+<tr> <td>instrument_pvs</td><td>data to map PVs with instruments</td>
+<td><tt>id, pvame, inst</tt></td></tr>
 
-<tr> <td>instrument_positions</td><td>data for saved positions for  instrument</td></tr>
-<tr><td></td><td> columns of (<tt>id, name, inst, active, ts</tt>) </td></tr>
+<tr> <td>instrument_positions</td><td>data for saved positions for instrument</td>
+<td><tt>id, name, inst, active, ts</tt></td></tr>
 
 </table>
 
-<p><b>Structure of the Archive Database:</b></p>
+<h4>Structure of the Archive Database:</h4>
 
-The achive databases, with names like %(pvdat1)s, is is slightly more
+The archive databases, with names like %(pvdat1)s, is is slightly more
 complicated than the master database, in an effort to make an efficient
 system for archiving thousands of PVs.  There is a main <tt>PV</tt> table
 that holds information about the PVs being archived, including their data
@@ -267,7 +264,7 @@ adding a PV to the archive, the PV name is <i>hashed</i> to give a number
 between 1 and 128, and that determines which data table to use.  Of course,
 multiple PVs then store to any single table, so a way to identify the PV in
 the data table is needed.  When looking up data for a PV, which table is
-read from needs to be determined (the table namet is stored in the
+read from needs to be determined (the table name is stored in the
 <tt>PV</tt> table, so this is very fast) but then only that one table needs
 to be read, eliminating more than 99%% of the data in the archive.
 
@@ -281,7 +278,7 @@ to be read, eliminating more than 99%% of the data in the archive.
 <tr><td> deadband</td><td>    deadband</td></tr>
 <tr><td> graph_hi</td><td>    default high value for plotting range</td></tr>
 <tr><td> graph_lo</td><td>    default low value for plotting range</td></tr>
-<tr><td> graph_type</td><td>  default type for plottin: 'normal','log','discrete'</td></tr>
+<tr><td> graph_type</td><td>  default type for plotting: 'normal','log','discrete'</td></tr>
 <tr><td> type</td><td>   PV data type</td></tr>
 <tr><td> active</td><td> Whether PV is actively being archived.</td></tr>
 </table>
@@ -299,14 +296,14 @@ overview = """
 
 The Epics PV Archiver saves Epics PVs into a MySQL database and provides a web
 interface for looking up, plotting, and managing the archiving process.  The Archiver
-can easily accomodate thousands of PVs and save and retrieve data for many years.<p>
+can easily accommodate thousands of PVs and save and retrieve data for many years.<p>
 
 The PV Archiver provides <i>Alerts</i>, which will send an email notification when a
 particular PV goes out of an acceptable range.  It also provides a concept of an
 <i>Instrument</i>, which is a group of PVs for which you may want to save and look
 up positions.
 
-<h4>Caching and Archiving Processes</h4>
+<h3>Caching and Archiving Processes</h3>
 
 The Epics PV Archiver uses two running processes:
 <ul>
@@ -331,7 +328,7 @@ substantial amount of activity.  See <a
 href="%(helppage)s?section=setup">Setup Help</a> for more information on
 managing these processes.
 
-<h4>Adding PVs to the Archive</h4>
+<h3>Adding PVs to the Archive</h3>
 
 There are a few ways to add PVs to the archive, all of them very easy.
 <p>
@@ -377,7 +374,7 @@ valid Epics PV that can be accessed from the server.  In some cases, you
 may wish to record remote PVs -- you'll want to set EPICS_ADDR_LIST
 accordingly.
 
-<h4>Adding Motor PVs</h4>
+<h3>Adding Motor PVs</h3>
 
 When adding a PV for a Motor (that is, one that has a record type of
 'motor' from the Epics Motor Record), all of the following fields will
@@ -400,7 +397,7 @@ This subset of all the fields of the motor record are thought to be enough
 to reconstruct "where a motor was" and/or "what happened to the alignment
 questions".
 
-<h4>Related PVs</h4>
+<h3>Related PVs</h3>
 
 As alluded to above, there is a concept that some PVs can be "related" to
 others.  The Archiver uses a simple scoring method for pairs of PVs, and
@@ -422,7 +419,7 @@ The list of related PVs for any PV can also be managed through the Settings
 / Admin page, where you can adjust the score for any pair of PVs.
 
 
-<h4>Web Pages</h4>
+<h3>Web Pages</h3>
 
 Controlling the layout and details of the main Web Status Pages is discussed on the
 <a href="%(helppage)s?section=templates">Web Page Template</a> Page.
@@ -446,7 +443,7 @@ Use the main <a href="%(alertpage)s">Alert Page</a> for a list of currently
 defined alerts.  From this page you can select a "View/Change" link to modify
 any of the settings for a particular alert.
 
-<h4>Setting an Alerts</h4>
+<h3>Setting an Alerts</h3>
 
 Alerts are set for a single PV.  In addition to the PV name, each alert
 also has a label which can be used to describe the alert, and so that
@@ -480,7 +477,7 @@ this time (in seconds).  This is provided to avoid multiple emails for a value
 that may rapidly fluctuate about its trip point.
 
 
-<h4>Customizing and Formatting an Alert email</h4>
+<h3>Customizing and Formatting an Alert email</h3>
 
 By default, the content of the sent email will look something like this:
 
@@ -513,7 +510,7 @@ With the last item, you can get the value for other PVs in the mail message.
 For this to work, the other PV must already be added to the Cache and Archive.
 
 <p>
-Thus, you coud customize the message to be:
+Thus, you could customize the message to be:
 
 <pre>
 
@@ -533,10 +530,10 @@ The mail message will always have a Subject line that starts with
 <tt>[Epics Alert]</tt>, so you can set up auto-forwarding and mail sorting
 rules, and will always include a web link to the PV plot page.
 
-<h4>Managing Alerts</h4>
+<h3>Managing Alerts</h3>
 
 From the web page for Alerts, each can be set to be inactive and then be
-re-activated later.  This can be useful to temporarily supress messages for
+re-activated later.  This can be useful to temporarily suppress messages for
 PVs that are not always critical.    Alerts can also be deleted completely.
 
 """ % conf
@@ -605,7 +602,7 @@ and will be shown as a separate 'Notebook Tab' in the status page,
 with the pages title. The template format for each of these template 
 files is detailed below.
 
-<h4>Ordering of Pages / Overall Structure</h4>
+<h3>Ordering of Pages / Overall Structure</h3>
 
 The master file <tt>FileList</tt> in the template directory contains the 
 list of Title, Template File pairs: 
@@ -631,7 +628,7 @@ You do NOT need to run 'make; when you change a template file --
 these are read on the fly.
 
 
-<h4>Template Formating:</h4>
+<h3>Template Formatting:</h3>
 
 
 The status pages contain an HTML table, with each row corresponding to one
@@ -651,7 +648,7 @@ This will generally get mapped to a table row that has
 
 </pre>
 
-The descripton shown can be found automatically from the PVs own 
+The description shown can be found automatically from the PVs own 
 description field, if available.  If it is not available, the PV
 name will be used.  In either case, it can be set explicitly set 
 by separating with a '|':
@@ -724,7 +721,7 @@ previous set of values.
 <p>
 This is the role of an Instrument in the Epics PV Archiver.
 
-<h4>Instrument naming and hierarchy</h4>
+<h3>Instrument naming and hierarchy</h3>
 
 Instruments are categorized with two names, a "Station Name" and an "Instrument Name".
 This allows some separation of roles, and provides some hierarchy for finding Instruments.
@@ -748,7 +745,7 @@ TimeStamp is used to look up Archived Values.  This has a few consequences:
 </ul>
 
 
-<h4>Defining a new Instrument</h4>
+<h3>Defining a new Instrument</h3>
 
 The <a href=%(instpage)s>Instruments Page</a> allows to choose from a list
 of existing stations or to create a new station.  Once a Station is chosen,
@@ -774,7 +771,7 @@ When you define an instrument, all the PVs in that instrument are given an initi
 
 From this page you can also "Manage Positions" which will be discussed below.
 
-<h4>Named Instrument Positions and Looking up and Restoring Positions</h4>
+<h3>Named Instrument Positions and Looking up and Restoring Positions</h3>
 
 To save the current position of an instrument, simply type the name of the position
 and hit 'Save'.  You can also save an old position, by looking it up by date.
@@ -786,7 +783,7 @@ instrument. <p>
 In addition, You can generate an IDL script, a Python script, or a Save/Restore file
 that you can use to restore the position settings.
 
-<h4>Managing (hiding, deleting) Instrument Positions</h4>
+<h3>Managing (hiding, deleting) Instrument Positions</h3>
 
 Selecting "Manage Positions" from the Position list will bring up a list of all named
 positions for an instrument.  For each of these, you can change the status to one of
@@ -833,7 +830,7 @@ class WebHelp(HTMLWriter):
         
         if section not in self.sections.keys(): section = 'overview'
         
-        self.write("<h4>Epics PV Archiver Documentation: %s</h4>" % section.title())
+        self.write("<h3>Epics PV Archiver Documentation: %s</h3>" % section.title())
 
         sout = [self.link(link="%s?section=%s" % (helppage,s), text=s.title()) for s in self.snames]
         links = "<p>Help Section: [%s]<p>" % '&nbsp;|&nbsp;'.join(sout)

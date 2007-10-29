@@ -111,7 +111,7 @@ set ytics nomirror
 
         pv1 = self.argclean(pvname1,  self.kw['form_pv'])
 
-        self.write("<h4>Epics PV Archive: %s</h4>" % (time.ctime()))
+        self.write("<h3>Epics PV Archive: %s</h3>" % (time.ctime()))
 
         self.starttable(ncol=6, border=0, cellpadding=2)
         #
@@ -239,7 +239,7 @@ set ytics nomirror
                 
         # self.write('<p> draw graph %i %i </p>' % (t0,t1))
         #
-        froot  = "%s%s" % (config.datfile_prefix,timehash())
+        froot  = "%s%s" % (config.webfile_prefix,timehash())
 
         f_png  = os.path.join(self.file_pref, "%s.png" % froot)
         l_png  = os.path.join(self.link_pref, "%s.png" % froot)

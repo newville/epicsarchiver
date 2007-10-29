@@ -127,7 +127,7 @@ class WebAdmin(HTMLWriter):
             return self.get_buffer()            
 
         d = ret[0]
-        wr("""<p> <h4> %s &nbsp;&nbsp;&nbsp;&nbsp; %s </h4></p>
+        wr("""<p> <h3> %s &nbsp;&nbsp;&nbsp;&nbsp; %s </h3></p>
         """ % (pvname, self.link(link="%s?pv=%s" % (thispage,pvname),text='Show Plot')))
 
         self.startform(action=pvinfopage,hiddenkeys=('pv',))
@@ -162,10 +162,10 @@ class WebAdmin(HTMLWriter):
         related_pvs = self.master.get_related_pvs(pvname)
 
         if len(related_pvs)==0:
-            wr("<hr><h4>No Related PVs: (%s)" % self.link(link="%s?pv=%s" % (relpv_page,pvname),
+            wr("<hr><h3>No Related PVs: (%s)" % self.link(link="%s?pv=%s" % (relpv_page,pvname),
                                                         text='View/Change'))
         else:
-            wr("<hr><h4>Related PVs: (%s)" % self.link(link="%s?pv=%s" % (relpv_page,pvname),
+            wr("<hr><h3>Related PVs: (%s)" % self.link(link="%s?pv=%s" % (relpv_page,pvname),
                                                      text='View/Change'))
             self.starttable(ncol=4)
 
@@ -185,9 +185,9 @@ class WebAdmin(HTMLWriter):
         
         insts  = self.master.get_instruments_with_pv(pvname)
         if len(insts)==0:
-            wr("<hr><h4>No Instruments contain %s</h4>" % pvname)
+            wr("<hr><h3>No Instruments contain %s</h3>" % pvname)
         else:
-            wr("<hr><h4>Instruments containing %s:</h4>" % pvname)
+            wr("<hr><h3>Instruments containing %s:</h3>" % pvname)
             self.starttable(ncol=4)
 
             o = []
@@ -209,9 +209,9 @@ class WebAdmin(HTMLWriter):
                             text='Add an Alert')
 
         if len(alerts)==0:
-            wr("<hr><h4>No Alerts set for %s: &nbsp; %s " % (pvname,addlink))
+            wr("<hr><h3>No Alerts set for %s: &nbsp; %s " % (pvname,addlink))
         else:
-            wr("<hr><h4>Alerts for %s: %s" % (pvname,addlink))
+            wr("<hr><h3>Alerts for %s: %s" % (pvname,addlink))
             self.make_alerttable(pvname,alerts)
 
         wr("<hr>")
@@ -246,9 +246,9 @@ class WebAdmin(HTMLWriter):
 
         addlink = self.link(link="%s?new=1" % (alerts_page),text='Add an Alert')
 
-        self.addrow("<h4>All Alerts &nbsp;&nbsp; %s</h4>" % addlink, spans=(5,))
+        self.addrow("<h3>All Alerts &nbsp;&nbsp; %s</h3>" % addlink, spans=(5,))
         if len(alerts)== 0:
-            self.addrow("<h4>No Alerts Defined &nbsp;&nbsp;&nbsp; %s </h4>"% addlink, spans=(5,))
+            self.addrow("<h3>No Alerts Defined &nbsp;&nbsp;&nbsp; %s </h3>"% addlink, spans=(5,))
 
         self.addrow("<hr>", spans=(6,))
 
@@ -438,10 +438,10 @@ class WebAdmin(HTMLWriter):
             i = 0
 
             if len(related_pvs)==0:
-                wr("<h4>No Related PVs for &nbsp; &nbsp; %s</h4>" % pvname)
+                wr("<h3>No Related PVs for &nbsp; &nbsp; %s</h3>" % pvname)
                 self.starttable(ncol=5)                
             else:
-                wr("<h4>Related PVs for &nbsp; &nbsp; %s:</h4> " % pvname)
+                wr("<h3>Related PVs for &nbsp; &nbsp; %s:</h3> " % pvname)
                 self.starttable(ncol=5)
                 self.addrow("PV","Current Score","Change Score",spans=(1,1,3))
                 self.addrow("<hr>",spans=(5,))

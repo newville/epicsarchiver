@@ -63,6 +63,8 @@ cgi_url   = url_root     + 'cgi-bin/pvarch'
 data_dir  = apache_root + 'htdocs/cgi-data/pvarch'
 data_url  = url_root    + 'cgi-data/pvarch'
 
+webfile_prefix = 'pv'
+
 # location for javascript calendar used by PlotViewer how this maps to a URL:
 #  (this will be installed by setup.py)
 jscal_dir  = apache_root + 'htdocs/cgi-data/jscal'

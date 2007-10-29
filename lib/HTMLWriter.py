@@ -24,9 +24,10 @@ htmlhead = """<html>
 <meta http-equiv='Refresh' content='%s'>
 <style type='text/css'>
 pre {text-indent: 20px}
-h4 {font:bold 16px verdana,arial,sans-serif;color:#A42264;font-weight:bold;font-style:italic;}
-h3 {font:bold 18px verdana,arial,sans-serif;color:#044484;font-weight:bold;font-style:italic;}
-h2 {font:bold 20px verdana,arial,sans-serif;color:#044484;font-weight:bold;}
+h5 {font:bold 14px verdana,arial,sans-serif;color:#042264;}
+h4 {font:bold 18px verdana,arial,sans-serif;color:#042264;}
+h3 {font:bold 18px verdana,arial,sans-serif;color:#A42424;font-weight:bold;font-style:italic;}
+h2 {font:bold 22px verdana,arial,sans-serif;color:#044484;font-weight:bold;}
 .xtitle {font-family: verdana, arial, san-serif; font-size: 13pt;
          font-weight:bold; font-style:italic;color:#900000}
 .xx {font-size: 3pt;}

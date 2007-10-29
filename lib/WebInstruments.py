@@ -68,7 +68,7 @@ class WebInstruments(HTMLWriter):
         
         if DEBUG: self.show_dict(self.kw)
 
-        wr(" <h4> Instruments  </h4> ")
+        wr(" <h3> Instruments  </h3> ")
         
         self.startform(action=instpage,hiddenkeys=('pv',))
 
@@ -80,7 +80,7 @@ class WebInstruments(HTMLWriter):
             # a large outer 2 column table: 
             ## self.starttable
             wr("""<table cellpadding=2 border=0 rules='cols'><tr valign='top'><td width=30%% align='top'>
-            <table bgcolor='#FCFCEA' border=0 frame='box'><tr><td>Instruments for %s:</td></tr>
+            <table bgcolor='#F8F8F0' border=0 frame='box'><tr><td>Instruments for %s:</td></tr>
             <tr><td><a href='%s/add_instrument?station=%s'>
             &lt;add instrument&gt; </a></td></tr>""" % (station,instpage,station))
             
@@ -182,7 +182,7 @@ class WebInstruments(HTMLWriter):
         if DEBUG: self.show_dict(mykw)
 
         wr("""<form action ='%s' enctype='multipart/form-data'  method ='POST'>
-        <h4> Positions for Instrument  %s in Station %s </h4><table>
+        <h3> Positions for Instrument  %s in Station %s </h3><table>
         <tr><td align='center'> Position Name &nbsp; &nbsp; &nbsp; </td>
         <td align='center'> &nbsp;  Time Saved &nbsp; &nbsp;</td>
         <td align='center'> Status </td></tr>
@@ -269,7 +269,7 @@ class WebInstruments(HTMLWriter):
         
         flink = "%s/view_position?inst=%i&position=%s&date=%i" % (instpage,inst_id,position,save_time)
         wr("""<form action ='%s' enctype='multipart/form-data'  method ='POST'>
-        <h4> %s for Instrument %s / Station %s<p> Position Saved    %s </h4><table>
+        <h3> %s for Instrument %s / Station %s<p> Position Saved    %s </h3><table>
         <tr><td> PV Name</td> <td> Saved Value </td><td> Current Value </td></tr>
         <tr><td colspan =3 ><hr></td></tr>""" % (flink,pname,instrument,station,save_ctime))
         
@@ -442,7 +442,7 @@ class WebInstruments(HTMLWriter):
 
         wr('<form action ="%s/modify_instrument" enctype="multipart/form-data"  method ="POST"><p>' % (instpage))
         wr('<input type="hidden" name="form_id"  value="%s">' % inst_id)
-        wr("<h4>Definition for Instrument: %s      &nbsp;  &nbsp; in Station %s</h4> " % (instrument,station))
+        wr("<h3>Definition for Instrument: %s      &nbsp;  &nbsp; in Station %s</h3> " % (instrument,station))
 
         wr("""<table><tr><td> Instrument Name:</td><td><input type='text'   name='name'  value='%s' size=35></td></tr>
         <tr><td> Description:</td><td><input type='text'   name='desc'  value='%s' size=35></td></tr>

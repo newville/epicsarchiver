@@ -13,7 +13,7 @@ except:
 from EpicsArchiver import MasterDB, Cache, ArchiveMaster, Archiver, \
      tformat, add_pvfile, startstop
 
-from EpicsArchiver.config import logdir, master_db, data_dir, datfile_prefix
+from EpicsArchiver.config import logdir, master_db, data_dir, webfile_prefix
 from EpicsArchiver.util import SEC_DAY
 
 def show_usage():
@@ -76,7 +76,7 @@ def clean_web_datafiles():
     now = time.time()
     for i in os.listdir(data_dir):
         fname = os.path.abspath(os.path.join(data_dir,i))
-        if (os.path.isfile(fname) and i.startswith(datfile_prefix)):
+        if (os.path.isfile(fname) and i.startswith(webfile_prefix)):
             mtime = os.stat(fname)[8]
             if (now - mtime) > 2*SEC_DAY:
                 os.unlink(fname)
