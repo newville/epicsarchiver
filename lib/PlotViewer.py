@@ -3,9 +3,9 @@ import os
 import time
 import EpicsCA
 
-from EpicsArchiver import ArchiveMaster, Archiver, config, add_pv_to_cache
-from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, normalize_pvname, timehash, \
-     increment_pair_score, tformat
+from EpicsArchiver import MasterDB, Archiver, config
+from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, \
+     normalize_pvname, timehash, tformat
 
 from HTMLWriter import HTMLWriter, jscal_get_2dates
 
@@ -57,11 +57,14 @@ set ytics nomirror
 """
     html_title = "Epics Archiver Data Viewer"
         
-    def __init__(self, arch=None, cache=None, **kw):
+    def __init__(self, arch=None,  **kw):
         HTMLWriter.__init__(self)
 
-        self.arch   = arch or Archiver()
-        self.master = self.arch.master
+        self.arch   = arch or  Archiver()
+        self.master = MasterDB()
+
+        self.arch.db.get_cursor()
+        self.master.db.get_cursor()
         
         self._gp = Gnuplot.Gnuplot() 
         self.kw  = {'form_pv':'', 'form_pv2':'',  'use_ylog':'', 'use_y2log': '',
@@ -97,7 +100,6 @@ set ytics nomirror
     
 
     def draw_form(self,arg_pv1=None,arg_pv2=None,**kw):
-
         action = self.kw.get('submit','Time From')
         if action.startswith('Swap') and arg_pv2 not in (None,''):
             arg_pv1,arg_pv2 = arg_pv2,arg_pv1
@@ -107,7 +109,6 @@ set ytics nomirror
         self.write("""<table><tr valign='top'>
                    <td><form action ="%s" enctype="multipart/form-data"  method ="POST">
                    """ % (thispage))
-
 
         pv1 = self.argclean(pvname1,  self.kw['form_pv'])
 
@@ -494,6 +495,9 @@ set ytics nomirror
         arg_pv1 = self.argclean(pv,  self.kw['form_pv'])
         arg_pv2 = self.argclean(pv2, self.kw['form_pv2'])        
 
+        self.arch.db.get_cursor()
+        self.master.db.get_cursor()
+
         # if DEBUG:
         #    self.write('<br>:: show_pv  // %s // %s //<br>' % ( arg_pv1, arg_pv2))
             
@@ -512,5 +516,9 @@ set ytics nomirror
         self.draw_form(arg_pv1,arg_pv2)
         
         self.endhtml()
+
+        self.arch.db.put_cursor()
+        self.master.db.put_cursor()
+
         return self.get_buffer()
 

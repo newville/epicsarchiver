@@ -1,8 +1,7 @@
 #!/usr/bin/python
 from mod_python import apache
 from EpicsArchiver import WebInstruments
-
-    
+   
 def dispatch(req,method,**kw):
     global arch
     try:
@@ -11,9 +10,13 @@ def dispatch(req,method,**kw):
         arch = None
 
     p = WebInstruments(arch=arch)
-    arch = p.arch
+    arch   = p.arch
 
-    return getattr(p,method)(**kw)
+    arch.db.get_cursor()
+    out = getattr(p,method)(**kw)
+    arch.db.put_cursor()
+
+    return out
 
 
 def index(req,**kw):                return dispatch(req,'show',**kw)

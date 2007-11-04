@@ -1,52 +1,63 @@
 #!/usr/bin/env python
 #
-try:
-    import MySQLdb
-except ImportError:
-    import os
-    os.environ['PYTHON_EGG_CACHE'] = '/tmp/python_eggs/'
-    import MySQLdb
-except ExtractionError:
-    import os
-    os.environ['PYTHON_EGG_CACHE'] = '/tmp/python_eggs/'
-    import MySQLdb
-    
 
 import sys
+import MySQLdb
 import os
 import array
 import time
 import types
+from Queue import Queue, Empty, Full
 
 import warnings
 warnings.filterwarnings("ignore", "Unknown table.*")
 warnings.filterwarnings("ignore", ".*drop database.*")
+warnings.filterwarnings("ignore", ".*drop table.*")
 
 from util import string_literal, clean_string, safe_string, clean_input
-import config
 
-def db_connect(dbname='test',
-               user=config.dbuser,
-               passwd=config.dbpass,
-               host=config.dbhost,
-               autocommit=1):
-    return SimpleDB(dbname=dbname,user=user, passwd=passwd,
-                    host=host, autocommit=autocommit)
+from config import master_db, dbuser, dbpass, dbhost, mysqldump
 
-def save_db(dbname=None,compress=True):
-    if dbname is not None:
-        db = db_connect(dbname=dbname)
-        db.use(dbname)
-        db.safe_dump(compress=compress)
+class Connection:
+    def __init__(self,dbname=master_db,user=dbuser,passwd=dbpass,host=dbhost):
+        self.conn = MySQLdb.connect(user=user, db=dbname, passwd=passwd,host=host)
+        self.cursor = self.conn.cursor(cursorclass=MySQLdb.cursors.DictCursor)
         
+    def close(self):  self.conn.close()
+
+class ConnectionPool(Queue):
+    def __init__(self,constructor=Connection, size=32):
+        Queue.__init__(self,size)
+        self.constructor = constructor
+
+    def get(self,block=0,**kw):
+        try:
+            pstamp, obj = Queue.get(self,block)
+            if (time.time() - pstamp) < 14400:
+                return obj
+            obj.close()
+        except Empty:
+            pass
+        obj = self.constructor(**kw)
+        sys.stdout.write("creating new db connection: %s\n" % repr(obj))
+        return obj
+
+    def put(self,obj, block=0):
+        try:
+            Queue.put(self,(time.time(),obj), block)
+        except Full:
+            pass
+
+global cpool
+cpool = ConnectionPool()
+
 class SimpleTable:
     """ simple MySQL table wrapper class.
     Note: a table must have entry ID"""
-
-    def __init__(self,db, table=None):
+    def __init__(self, table=None, db=None):
         self.db = db
-        if db == None:
-            sys.stdout.write("Warning SimpleTable needs a database\n")
+        if db is  None:
+            sys.stdout.write("Warning SimpleTable needs a database connection\n")
             return None
 
         self.fieldtypes = {}
@@ -59,10 +70,11 @@ class SimpleTable:
                 self._name = table
             else:
                 self.db.write("Table %s not available in %s " % (table,db))
-                return None
 
-        # print "done: describe %s" % self._name
-        for j in self.db.exec_fetch("describe %s" % self._name):
+                return None
+        # sys.stdout.write( "ask to describe %s\n" % self._name)
+        ret = self.db.exec_fetch("describe %s" % self._name)
+        for j in ret:
             field = j['field'].lower()
             vtype = 'str'
             ftype = j['type'].lower()
@@ -84,18 +96,6 @@ class SimpleTable:
             if not self.fieldtypes.has_key(i.lower()): return False
         return True
     
-    def delete_where(self,**args):
-        """delete row: NOT """
-        if (self.check_args(**args)):
-            q = "delete from %s where 1=1" % (self._name)
-            for k,v in args.items():
-                k = clean_input(k)
-                v = safe_string(v)
-                q = "%s and %s=%s" % (q,k,v)
-            # print 'DELETE WHERE: ', q
-            # return self.db.exec_fetch(q)
-        return 0
-
     def select_all(self):
         return self.select_where()
 
@@ -110,7 +110,6 @@ class SimpleTable:
             # print 'S WHERE ', q
             return self.db.exec_fetch(q)
         return 0
-
 
     def select(self,vals='*', where='1=1'):
         """check for a table row, and return matches"""
@@ -132,7 +131,7 @@ class SimpleTable:
         if where==None or set==None:
             self.db.write("update must give 'where' and 'set' arguments")
             return
-        if True: # try:
+        try:
             s = []
             if self.check_columns(kw.keys()):
                 for k,v in kw.items():
@@ -147,10 +146,9 @@ class SimpleTable:
             s = ','.join(s)
             q = "update %s set %s where %s" % (self._name,s,where)
             self.db.execute(q)
-        else: # except:
-            self.db.write('update failed ')
-            self.db.write("##q = %s" % q)
-        return self.db.affected_rows()
+        except:
+            self.db.write('update failed: %s' % q)
+        # return self.db.affected_rows()
 
     def insert(self,**args):
         "add a new table row "
@@ -169,7 +167,6 @@ class SimpleTable:
             q.append("%s=%s" % (field, v))
         s = ','.join(q)
         qu = "insert into %s set %s" % (self._name,s)
-        # print 'insert: ', qu
         self.db.execute(qu)
         return self.db.affected_rows()
 
@@ -188,53 +185,99 @@ class SimpleDB:
                     'fatal': 'Fatal Error: '}
 
     SimpleDB_Exception = 'Simple DB Exception'
-    def __init__(self,dbname=None, user=None, passwd=None, host=None,
+    def __init__(self, dbconn=None,
+                 dbname=None, user=None, passwd=None, host=None,
                  debug=0, messenger=None,bindir=None,autocommit=1):
         
 
         self.debug     = debug
         self.messenger = messenger or sys.stdout
-        self.user      = user      or config.dbuser
-        self.passwd    = passwd    or config.dbpass
-        self.host      = host      or config.dbhost
-        self.dbname    = dbname    or 'test'
-
+        self.user      = user      or dbuser
+        self.passwd    = passwd    or dbpass
+        self.host      = host      or dbhost
+        self.dbname    = dbname    or master_db
+        self.autocommit= autocommit
         self.tables = []
         # start mysql connection
-        try:
-            self.db   = MySQLdb.connect(user=self.user,
-                                        db=self.dbname,
-                                        passwd=self.passwd,
-                                        host=self.host)
-        except:
+        self.cursor = None
+        self.conn   = None
+        self.get_cursor(dbconn=dbconn)
+        self.set_autocommit(autocommit)
+
+        self.read_table_info()
+
+    def __repr__(self):
+        """ shown when printing instance:
+        >>>p = Table()
+        >>>print p
+        """
+        return "<SimpleDB name=%s>" % (self.dbname)
+
+    def get_cursor(self,dbconn=None):
+        " get a DB cursor, possibly getting a new one from the Connection pool"
+
+        if self.conn is not None:
+            if self.cursor is None:   self.cursor = self.conn.cursor
+            return self.cursor
+
+        # try the one provided or get a new connection from the pool
+        self.conn = dbconn
+        conn_count = 0
+        while self.conn is None and conn_count < 100:
+            try: 
+                self.conn =  cpool.get(user=self.user,
+                                       dbname=self.dbname,
+                                       passwd=self.passwd,
+                                       host=self.host)
+            except:
+                time.sleep(0.010)
+                conn_count = conn_count + 1
+                
+        if self.conn is None:
             self.write("Could not start MySQL on %s for database %s" %
                        (self.host, self.dbname),   status='fatal')
-            
-        self.cursor = self.db.cursor(cursorclass=MySQLdb.cursors.DictCursor)
-        
-        self.use(self.dbname)
-        self.__execute("set AUTOCOMMIT=%i" % autocommit)
-        self.read_table_info()
+            raise IOError, "no database connection to  %s" %  self.dbname
+
+        self.cursor = self.conn.cursor
+        return self.cursor
+    
+    def set_autocommit(self,commit=1):
+        self.get_cursor()
+        # sys.stdout.write(" set autocommit %i /cursor = %s \n" % (commit,repr(self.cursor)))
+        self.cursor.execute("set AUTOCOMMIT=%i" % commit)        
+
+    def begin_transaction(self):
+        self.get_cursor()        
+        self.cursor.execute("start transaction")
+
+    def commit_transaction(self):
+        self.get_cursor()
+        self.cursor.execute("commit")
+
+    def put_cursor(self):
+        " return a cursor to the Connection pool"        
+        if self.cursor is not None:
+            sys.stdout.write('releasing cursor\n')
+            cpool.put(self.conn)
+            self.cursor = None
 
     def close(self):
         " close db connection"
-        self.cursor = 0
-        self.db.close()
+        self.put_cursor()
         
     def safe_dump(self, file=None,compress=False):
         " dump database to file with mysqldump"
         if (file==None): file = "%s.sql" % self.dbname
-        cmd = "%s %s > %s" % (config.mysqldump, self.dbname, file)
+        cmd = "%s %s > %s" % (mysqldump, self.dbname, file)
         try:
             os.system("%s" % (cmd))
         except:
-            msg = "could not dump database '%s' to file '%s'"
-            self.write(msg % (self.dbname,file))            
+            self.write("could not dump database '%s' to file '%s'" % (self.dbname,file))            
         if compress:
             try:
                 os.system("gzip -f %s" % (file))
             except:
-                self.write("could compress database file %s" % (file))
+                self.write("could not compress database file %s" % (file))
 
     def write(self, msg,status='normal'):
         " write message, with status "
@@ -246,10 +289,11 @@ class SimpleDB:
        
     def source_file(self,file=None,report=100):
         """ execute a file of sql commands """
+        self.get_cursor()
         try:
             f = open(file)
-	    lines = f.readlines()
-	    count = 0
+            lines = f.readlines()
+            count = 0
             cmds = []
             for x in lines:
                 if not x.startswith('#'):
@@ -267,60 +311,57 @@ class SimpleDB:
             f.close()
         except:
             self.write(" could not source file %s" % file)
-
+      
     def clean_string(self, s):    return clean_string(s)
     def string_literal(self, s):  return string_literal(s)
 
-    def use(self,db):
-        " use database, populate initial list of tables "
-        self.dbname  = db
-        self.__execute("use %s" % db)
-
+    def use(self,dbname):
+        " use database, populate initial list of tables -- may create a cursor!"
+        self.dbname  = dbname
+        self.get_cursor()
+        self.__execute("use %s" % dbname)
+        
     def read_table_info(self):
         " use database, populate initial list of tables "
+        self.get_cursor()
         self.table_list = []
         self.tables     = {}
         x = self.exec_fetch("show TABLES")
+        # print 'Read Table Info ', x
         self.table_list = [i.values()[0] for i in x]
         for i in self.table_list:
-            self.tables[i] = SimpleTable(self,table=i)
-
-    def execute(self,qlist):
+            self.tables[i] = SimpleTable(i,db=self)
+         
+    def execute(self,q):
         "execute a single sql command string or a tuple or list command strings"
-        if isinstance(qlist,str): return self.__execute(qlist)
-        if isinstance(qlist,tuple) or isinstance(qlist,list):
-            r = []
-            for q in qlist: r.append( self.__execute(q))
-            return r
-        self.write("Error: could not execute %s" % str(qlist) )
-        return None                                      
-        
+        if self.cursor is None: self.get_cursor()
+        ret = None
+        if isinstance(q,str):
+            ret = self.__execute(q)
+        elif isinstance(q,(list,tuple)):
+            ret = [self.__execute(i) for i in q]
+        else:
+            self.write("Error: could not execute %s" % str(qlist))
+        return ret
+    
     def __execute(self,q):
-        """internal execution of a single query
-        If the execution fails, it is tried again, and then gives up"""
-        try:
-            if (self.debug == 1): sys.stdout.write( "SQL> %s\n" % (q))
-            return self.cursor.execute(q)
-        except:
-            time.sleep(0.050)
+        """internal execution of a single query -- needs a valid cursor!"""
+        
+        if self.cursor is None: self.get_cursor()            
+        if self.cursor is None:
+            self.write("SimpleDB.__execute -- no cursor: %s" % q)
+            sys.exit(1)
+        n = 0
+        while n < 50:
+            n = n + 1
             try:
-                if (self.debug == 1): sys.stdout.write( "SQL(repeat)> %s\n" % (q))
                 return self.cursor.execute(q)
             except:
-                self.write("SQL Query Failed: %s " % (q))
+                time.sleep(0.010)
+        self.write("Query Failed: %s " % (q))
         return None
-            
-    def fetchone(self):
-        "return next row from most recent query"
-        return self._normalize_dict(self.cursor.fetchone())
- 
-    def affected_rows(self):
-        "return number  of rows affected by last execute"
-        try:
-            return self.cursor.rowcount()
-        except:
-            return self.db.affected_rows()
 
+            
     def _normalize_dict(self, indict):
         """ internal 'normalization' of query outputs,
         converting unicode to str and array data to lists"""
@@ -340,28 +381,44 @@ class SimpleDB:
             t[key] = val
         return t
     
+    def fetchone(self):
+        "return next row from most recent query -- needs valid cursor"
+        if self.cursor is None: return {}
+        return self._normalize_dict(self.cursor.fetchone())
+ 
+    def affected_rows(self):
+        "return number  of rows affected by last execute -- needs valid cursor"
+        if self.cursor is None: return None
+        return self.cursor.rowcount()
+
     def fetchall(self):
-        "return all rows from most recent query"
+        "return all rows from most recent query -- needs valid cursor"
+        if self.cursor is None: return ()
         r = [self._normalize_dict(i) for i  in self.cursor.fetchall()]
         return tuple(r)
 
     def exec_fetch(self,q):
         " execute + fetchall"
+        self.get_cursor()
         self.__execute(q)
-        return self.fetchall()
-
+        ret = self.fetchall()
+        return ret
+    
     def exec_fetchone(self,q):
         " execute + fetchone"
+        self.get_cursor()
         self.__execute(q)
-        return self.fetchone()
+        ret = self.fetchone()
+        return ret
 
     def create_and_use(self, dbname):
         "create and use a database.  Use with caution!"
+        self.get_cursor()
         self.__execute("drop database if exists %s" % dbname)
         self.__execute("create database %s" % dbname)
         self.use(dbname)
 
-    def grant(self,db=None,user=None,passwd=None,host=None,priv=None):
+    def grant(self,db=None,user=None,passwd=None,host=None,priv=None,grant=False):
         """grant permissions """
         if db     is None: db  = self.dbname
         if user   is None: user = self.user 
@@ -369,7 +426,10 @@ class SimpleDB:
         if host   is None: host = self.host
         if priv   is None: priv = 'all privileges'
         priv = clean_input(priv)
-
-        cmd = "grant %s on %s.* to %s@%s identified by '%s'" 
-        self.__execute(cmd % (priv,db,user,host,passwd) )
+        grant_opt =''
+        if grant: grant_opt = "with GRANT OPTION"
+        self.get_cursor()
+        
+        cmd = "grant %s on %s.* to %s@%s identified by '%s'  %s" 
+        self.__execute(cmd % (priv,db,user,host,passwd,grant_opt) )
 

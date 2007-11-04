@@ -13,17 +13,20 @@ __version__ = '0.1'
 
 import os
 import config
-os.environ['PYTHON_EGG_CACHE'] = config.data_dir
+import sys
+os.environ['PYTHON_EGG_CACHE'] = config.share_dir
+sys.path.insert(0, config.share_dir)
 import MySQLdb
-
+    
 from util import string_literal, clean_input, escape_string, timehash, tformat
 
-from SimpleDB import SimpleDB, SimpleTable
+# from DBConnect import ConnectionPool 
+from SimpleDB import SimpleDB, SimpleTable,ConnectionPool
 
 from MasterDB       import MasterDB
 from Instruments    import Instruments, Alerts
 from ArchiveMaster  import ArchiveMaster
-from Cache          import Cache, add_pv_to_cache, add_pvfile
+from Cache          import Cache, add_pvfile
 from Archiver       import Archiver
 from Daemon         import startstop
 from HTMLWriter     import HTMLWriter

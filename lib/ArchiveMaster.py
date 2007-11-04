@@ -43,10 +43,10 @@ class ArchiveMaster(MasterDB):
 
     sql_get_times   = "select min(time),max(time) from pvdat%3.3i"
     
-    def __init__(self):
+    def __init__(self,dbconn=None,**kw):
         # use of MasterDB assumes that there are not a lot of new PVs being
         # added to the cache so that this lookup of PVs can be done once.
-        MasterDB.__init__(self)
+        MasterDB.__init__(self,dbconn=dbconn,**kw)
 
     def stop_archiver(self):
         return self.set_arch_status('stopping')
@@ -97,7 +97,7 @@ class ArchiveMaster(MasterDB):
         self.db.execute(self.pv_init)
         for i in range(1,129):
             for q in self.dat_init: self.db.execute(q % i)
-        self.db.grant(db=dbname,user=dbuser,passwd=dbpass,host=dbhost)
+        self.db.grant(db=dbname,user=dbuser,passwd=dbpass,host=dbhost,grant=True)
         self.db.use(master_db)
 
     def make_nextdb(self,dbname=None):

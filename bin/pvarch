@@ -11,10 +11,13 @@ except:
     sys.exit(1)
 
 from EpicsArchiver import MasterDB, Cache, ArchiveMaster, Archiver, \
-     tformat, add_pvfile, startstop
+     tformat, add_pvfile, startstop, ConnectionPool
 
 from EpicsArchiver.config import logdir, master_db, data_dir, webfile_prefix
 from EpicsArchiver.util import SEC_DAY
+
+
+cpool = ConnectionPool()
 
 def show_usage():
     print """    pvarch:   run and interact with Epics PV Archiver and MySQL process
@@ -88,56 +91,64 @@ def list_archives():
     master.close()
 
 def run_archive(action='start'):
-    def archive_loop():
-        Archiver().mainloop()
-
-    master  = MasterDB()
-    dbname  = master.arch_db
 
     if not os.path.exists(logdir):   os.mkdir(logdir)
-    sout    = os.path.join(logdir, "%s.log" % dbname)
-    serr    = os.path.join(logdir, "%s.err" % dbname)
+    sout    = os.path.join(logdir, "pvarch.log")
+    serr    = os.path.join(logdir, "pvarch.err")
     pidfile = os.path.join(logdir, "pvarch.pid")
 
+    startstop(stdout =sout,stderr=serr, pidfile=pidfile,
+              process_name='pvarch', action=action)
+
+    dbconn  = cpool.get()
+    a = Archiver(dbconn=dbconn)
     if 'stop'==action:
         print 'Stopping ....'
-        master.set_arch_status('stopping')
-        master.set_arch_pid(0)
+        a.set_pidstatus(pid=0,status='stopping')
         time.sleep(1.0)
-    if 'start'==action:
-        n = master.arch_nchanged(minutes=5)
-        if n < 2:  pidfile='/dev/null'
-
-    master.close()
     
-    startstop(stdout =sout,stderr=serr, pidfile=pidfile,
-              process_name='pvarch', action=action,
-              func = archive_loop)
+    elif 'start'==action:
+        pid,status = a.get_pidstatus()
+        do_start = pid == 0 or status == 'offline'
+        if not do_start:
+            ret = a.get_nchanged(minutes=2)
+            if ret <  5:
+                do_start = True
+            else:
+                print 'Archive appears to be running'
+        if do_start:
+            a.mainloop()
 
 def run_cache(action=None):
-    def cache_loop():
-        Cache().mainloop()
-        
+
     if not os.path.exists(logdir):   os.mkdir(logdir)
     sout    = os.path.join(logdir, "cache.log")
     serr    = os.path.join(logdir, "cache.err")
     pidfile = os.path.join(logdir, "cache.pid")
 
-    c = MasterDB()
-        
+    startstop(stdout =sout,stderr=serr, pidfile=pidfile,
+              process_name='pvcache', action=action)
+
+    dbconn  = cpool.get()
+    c = Cache(dbconn=dbconn)
     if 'stop'==action:
+        print 'Stopping Cache.... '
         c.set_cache_status('stopping')
         c.set_cache_pid(0)
         time.sleep(1.0)        
-
-    if 'start'==action:
-        ret = c.cache.select(where="ts> %i order by ts" % (time.time()-30.0))
-        if len(ret)< 2: pidfile='/dev/null'
-    c.close()
-    
-    startstop(stdout =sout,stderr=serr, pidfile=pidfile,
-              process_name='pvcache', action=action,
-              func = cache_loop)
+        
+    elif 'start'==action:
+        status = c.get_cache_status()
+        pid  = c.get_cache_pid()
+        do_start = pid == 0 or status == 'offline'        
+        if not do_start:
+            ret = c.cache.select(where="ts> %i order by ts" % (time.time()-30.0))
+            if len(ret) <  5:
+                do_start = True
+            else:
+                print 'cache appears to be running'
+        if do_start:
+            c.mainloop()
 
 def read_pid(name='cache'):
     pidfile = "%s/%s.pid" % (logdir,name)
@@ -169,14 +180,15 @@ def cache_status(action='activity', dt=60):
 
     
 def archive_status(minutes=10):
-    m    = MasterDB()
+    m    = MasterDB(dbconn=None)
     stat = m.arch_report(minutes=minutes)
     m.close()
     return stat
         
 def drop_pv(pvname):
-    Archiver().drop_pv(pvname)
-    MasterDB().drop_pv(pvname)
+    dbconn = cpool.get()
+    Archiver(dbconn=dbconn).drop_pv(pvname)
+    MasterDB(dbconn=dbconn).drop_pv(pvname)
     
 def main():
     opts, rawargs = getopt.getopt(sys.argv[1:], "h", ["help"])

@@ -7,8 +7,8 @@ from config import mailserver, mailfrom, cgi_url
 
 class Instruments(MasterDB):
     """ interface to Instruments"""
-    def __init__(self,**kw):
-        MasterDB.__init__(self)
+    def __init__(self,dbconn=None,**kw):
+        MasterDB.__init__(self,dbconn=dbconn,**kw)
         self.inst_pos  = self.db.tables['instrument_positions']
 
     def create_station(self,name=None,notes=''):
@@ -231,8 +231,8 @@ class Alerts(MasterDB):
 
     comps = ('ne', 'eq', 'le', 'lt', 'gt', 'ge')
 
-    def __init__(self,**kw):
-        MasterDB.__init__(self)
+    def __init__(self,dbconn=None,**kw):
+        MasterDB.__init__(self,dbconn=dbconn,**kw)
         self.alerts = self.db.tables['alerts']
 
     def show_all(self):

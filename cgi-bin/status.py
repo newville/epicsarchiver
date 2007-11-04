@@ -18,10 +18,10 @@ def show_page(req,page=None,**kw):
     except NameError:
         cache = None
 
-    stat   = WebStatus(cache=cache)
-
+    stat   = WebStatus()
     cache  = stat.cache
 
+    cache.db.get_cursor()
     stat.begin_page(page, pagelist, refresh=30)
     
     if page == None: page = pagelist[0]
@@ -29,6 +29,9 @@ def show_page(req,page=None,**kw):
         stat.show_pvfile(filemap[page])
    
     stat.end_page()
+
+    cache.db.put_cursor()
+
     return stat.get_buffer()
 
 def index(req):

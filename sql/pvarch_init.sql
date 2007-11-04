@@ -39,6 +39,7 @@ drop table if exists requests;
 create table requests (
     id         int unsigned not null primary key auto_increment,
     pvname     varchar(64) default null,
+    ts         double default 0,
     action     enum('add','drop','suspend','ignore') not null default 'add');
 
 drop table if exists alerts;

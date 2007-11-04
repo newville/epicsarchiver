@@ -15,6 +15,31 @@ except:
     print "Error: cannot import config: Typo in config.py?"
     sys.exit(1)
 
+import Gnuplot
+import EpicsCA
+    
+with_mysql = False
+
+def extract_mysqlso(tmpdir='.foo'):
+    try:
+        os.makedirs(tmpdir)
+    except:
+        pass
+    l1 = os.listdir(tmpdir)
+    os.environ['PYTHON_EGG_CACHE'] = tmpdir   
+    import MySQLdb
+    l2 = os.listdir(tmpdir)
+    for i in l1: l2.remove(i)
+    print 'extract: ', os.environ['PYTHON_EGG_CACHE']
+    print l2
+    for i in l2:
+        xdir  = os.path.join(tmpdir,i)
+        xso   = os.path.join(xdir,'_mysql.so')        
+        if os.path.isdir(xdir) and os.path.exists(xso):
+            return xso
+
+
+
 try: 
     x = config.dbpass[1:2].lower()
     if config.dbpass == 'Change Me!!':
@@ -51,6 +76,7 @@ create_dir(config.template_dir, desc='web template')
 
 create_dir(config.data_dir,     desc='web data')
 create_dir(config.jscal_dir,    desc='javascript calendar')
+
 
 httpdconf = """
 #############################################
@@ -104,7 +130,31 @@ if 'install' == cmd:
     copy_tree('jscal',   config.jscal_dir)
     copy_tree('templates',   config.template_dir)
 
-    
+    thisdir = os.getcwd()
+    os.chdir(config.template_dir)
+    os.system("touch FileList")
+    os.system("make")
+    os.chdir(thisdir)
+
+
+    os.system("chmod -R 755 %s" %  (config.data_dir))
+
+    if with_mysql:
+        mysqlso = extract_mysqlso('.foo')
+        # print 'MYSQL : ', mysqlso, config.share_dir
+        os.system("cp -pr %s %s/."  %  (mysqlso,config.share_dir))
+        os.system("rm -rf .foo")
+
+        setperms = "chown -R %s.%s" % (config.apache_user,config.apache_group)
+
+        os.system("%s %s" % (setperms, config.data_dir))
+
+        newso = os.path.join(config.share_dir, '_mysql.so')
+        os.system("chmod 755 %s" %  (newso))
+        os.system("%s %s" % (setperms, newso))
+
+
+
     
 print  """=================================================
 Writing Apache configuration to httpd_pvarch.conf

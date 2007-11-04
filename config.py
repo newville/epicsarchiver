@@ -1,6 +1,7 @@
 #
 # configuration file for PV_Archive.py
 #
+DEBUG = True
 
 ######################################################
 ##
@@ -16,8 +17,9 @@ dbhost = 'localhost'
 mysqldump = '/usr/bin/mysqldump --opt -p%s -u%s' % (dbpass,dbuser)
 
 # location of log directories
-# logdir = '/var/log/pvarch'
-logdir = '/home/newville/logs/pvarch'
+logdir = '/var/log/pvarch'
+if DEBUG:
+    logdir='/home/newville/logs/pvarch/'
 
 # name of 'master' database
 master_db = 'pvarch_master'
@@ -50,25 +52,35 @@ pv_deadtime_enum = 1
 ## Web setup section
 ##
 #  apache root directory, and the URL 
-apache_root = '/usr/local/apache/'
+apache_root = '/var/www/'
+url_root    = 'http://idea.cars.aps.anl.gov/'
+# apache user / group -- these should be the same as in httpd.conf
+apache_user = 'apache'
+apache_group= 'apache'
 
-apache_root = '/www/apache/'
-url_root    = 'http://ion.cars.aps.anl.gov/'
+if DEBUG:
+    apache_root = '/www/apache/'
+    url_root    = 'http://ion.cars.aps.anl.gov/'
+    apache_user = 'nobody'
+    apache_group= 'nobody'
+    
 
 # location for python web scripts, and how this maps to a URL:
 cgi_bin   = apache_root  + 'cgi-bin/pvarch'
 cgi_url   = url_root     + 'cgi-bin/pvarch'
 
 # location for output data files from PlotViewer and how this maps to a URL:
-data_dir  = apache_root + 'htdocs/cgi-data/pvarch'
-data_url  = url_root    + 'cgi-data/pvarch'
+cgi_data_dir = apache_root + 'htdocs/cgi-data/'
+cgi_data_url = url_root   + 'cgi-data/'
+data_dir     = cgi_data_dir+ 'pvarch'
+data_url     = cgi_data_url+ 'pvarch'
 
 webfile_prefix = 'pv'
 
 # location for javascript calendar used by PlotViewer how this maps to a URL:
 #  (this will be installed by setup.py)
-jscal_dir  = apache_root + 'htdocs/cgi-data/jscal'
-jscal_url  = url_root    + 'cgi-data/jscal'
+jscal_dir     = cgi_data_dir+ 'jscal'
+jscal_url     = cgi_data_url+ 'jscal'
 
 # title for status web pages
 pagetitle = 'PV Archiver Status Page'
@@ -84,8 +96,9 @@ footer = """<hr>[
 #   the files in this directory should be readily editable
 #   to customize the PVs displayed in the status page
 #   directory needs to be world-readable, but can be in a user directory
+share_dir  = '/usr/local/share/pvarch/'
 
-template_dir  = '/usr/local/share/pvarch/templates/'
+template_dir  = share_dir + 'templates/'
 
 ######################################################
 ##

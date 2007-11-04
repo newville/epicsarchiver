@@ -2,7 +2,7 @@
 
 import time
 from EpicsArchiver import Cache, config
-from util import normalize_pvname, set_pair_scores
+from util import normalize_pvname
 pagetitle  = config.pagetitle
 cgiroot    = config.cgi_url
 footer     = config.footer
@@ -15,37 +15,20 @@ dblink     = "%s/viewer.py?pv=" % cgiroot
 
 
 htmlhead = """<html>
-<head><title>%s</title>
-<meta http-equiv='Pragma'  content='no-cache'>
-<meta http-equiv='Refresh' content=%s>
+<head><title>%s</title><meta http-equiv='Pragma'  content='no-cache'><meta http-equiv='Refresh' content=%s>
 <style type='text/css'>
-h4 {font: bold 18px verdana, arial, sans-serif;
-    color: #044484; font-weight: bold; font-style: italic;}
-
-body {margin: 20px; padding: 0px; background: #FCFCEA;
-    font: bold 14px verdana, arial, sans-serif;}
-
-#content {text-align: justify;  background: #FCFCEA;
-    padding: 0px;  border: 4px solid #88000;
+h4 {font: bold 18px verdana, arial, sans-serif; color: #044484; font-weight: bold; font-style: italic;}
+body {margin: 20px; padding: 0px; background: #FCFCEA; font: bold 14px verdana, arial, sans-serif;}
+#content {text-align: justify;  background: #FCFCEA; padding: 0px;  border: 4px solid #88000;
     border-top: none; z-index: 2;}
-
-#tabmenu {font: bold 11px verdana, arial, sans-serif;
-    border-bottom: 2px solid #880000;  margin: 1px;
+#tabmenu {font: bold 11px verdana, arial, sans-serif; border-bottom: 2px solid #880000;  margin: 1px;
     padding: 0px 0px 4px 0px; padding-left: 20px}
-
-#tabmenu li {display: inline; overflow: hidden;
-    margin: 1px; list-style-type: none; }
-
-#tabmenu a, a.active {color: #4444AA; background: #EEDD88;
-    border: 2px solid #880000; padding: 3px 3px 4px 3px;
-    margin: 0px; text-decoration: none; }
-
-#tabmenu a.active {color: #CC0000; background: #FCFCEA;
-    border-bottom: 2px solid #FCFCEA;}
-
+#tabmenu li {display: inline; overflow: hidden; margin: 1px; list-style-type: none; }
+#tabmenu a, a.active {color: #4444AA; background: #EEDD88; border: 2px solid #880000;
+    padding: 3px 3px 4px 3px; margin: 0px; text-decoration: none; }
+#tabmenu a.active {color: #CC0000; background: #FCFCEA;  border-bottom: 2px solid #FCFCEA;}
 #tabmenu a:hover {color: #CC0000; background: #F9F9E0;}
-</style></head>
-<body><h4>%s&nbsp;&nbsp;&nbsp;&nbsp; %s</h4><ul id='tabmenu'>
+</style></head><body><h4>%s&nbsp;&nbsp;&nbsp;&nbsp; %s</h4><ul id='tabmenu'>
 """ 
 
 class WebStatus:
@@ -56,9 +39,9 @@ class WebStatus:
     colored_row = "<tr><td><b>%s</b></td><td><font color=%s> %s </font></td></tr>"
     title_row   = "<tr><th colspan=2><font color=%s>%s</font></tr>"
     
-    def __init__(self,cache=None,**args):
-        self.cache  = cache  or Cache()
-
+    def __init__(self,dbconn=None,**kw):
+        self.cache  = Cache(dbconn=dbconn)
+        
         self.pvget  = self.cache.get_full
         self.null_pv= self.cache.null_pv_value
 
@@ -212,7 +195,7 @@ class WebStatus:
                     if len(pvnames) > 1:
                         if desc is None: desc = labs
                         self.linked_row(desc,pvnames,vals)
-                        set_pair_scores(pvnames)
+                        self.cache.set_allpairs(pvnames)
                     else:
                         if desc is None: desc = labs[0]
                         self.linked_row(desc,pvnames[0],vals[0])

@@ -26,15 +26,18 @@ The end result will be:
  2. Install python extensions for EpicsCA, Gnuplot, MySQL.
 
  3. Set up MySQL permissions for a privileged account that can
-    grant permissions.
+    grant permissions.  
 
  4. edit the settings in config.py
 
  5. run 'python setup.py install'
 
- 6. Configure Apache to use mod_python for the web programs
+ 6. Configure Apache to use mod_python for the web programs, by
+    adding the generated text to the Apache configuration file.
 
- 7.  Initialize the MySQL databases with 'bin/init_pvarch'
+ 7. Initialize the MySQL databases with 'init_pvarch'.  Here,
+    you will be prompted for a MySQL username/password that can 
+    grant permissions.
 
  8. Add some PVs to be collected.
 
@@ -85,13 +88,21 @@ The EpicsCA installation will need to find EPICS base, so if it is
 somewhere other than /usr/local/epics/base, you may need to set the
 environmental variable EPICS_BASE.
 
+Many linux systems come with a slightly old Gnuplot that will work but 
+make plots with mediocre fonts. Installing the latest gnuplot 4.2 with 
+a simple
+     ./configure --prefix=/usr
+      make install 
+
+will enable better looking fonts.
+
  
 == 3. Set up MySQL permissions for a privileged account that can
       grant permissions.
 
 That is, set up a mysql super-user account:
    ~> mysql 
-    mysql> grant all privileges on *.* to me@localhost identified by 'me';
+    mysql> grant all on *.* to czar@localhost identified by 'Sacha' with GRANT OPTION;
 
 You will need to use this username/password to set up the databases
 for the archiver

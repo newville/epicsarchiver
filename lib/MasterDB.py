@@ -43,13 +43,14 @@ class MasterDB:
            'le':'__le__', 'lt':'__lt__', 
            'ge':'__ge__', 'gt':'__gt__'}
            
-    def __init__(self,db=None, **kw):
-        if db is None:
-            self.db = SimpleDB(user=dbuser, passwd=dbpass,
-                               host=dbhost, dbname=master_db)
-        else:
-            self.db = db
-            
+    def __init__(self,dbconn=None, **kw):
+
+        self.db = SimpleDB(dbconn=dbconn)
+
+        self.db.use(master_db)
+        self.db.get_cursor()
+        self.db.read_table_info()
+
         self.info    = self.db.tables['info']
         self.cache   = self.db.tables['cache']
         self.runs    = self.db.tables['runs']
@@ -85,15 +86,16 @@ class MasterDB:
         for i in self.cache.select():
             if i['pvname'] not in self.pvnames:
                 self.pvnames.append(i['pvname'])
-
+        return self.pvnames
+    
     def request_pv_cache(self,pvname):
         """request a PV to be included in caching.
         will take effect once a 'process_requests' is executed."""
+        self.use(master_db)
         npv = normalize_pvname(pvname)
         if npv in self.pvnames: return
 
         cmd = "insert into requests (pvname,action,ts) values ('%s','add',%f)" % (npv,time.time())
-        
         self.db.execute(cmd)
 
     def add_pv(self,pvname):
@@ -111,7 +113,6 @@ class MasterDB:
         
         prefix = pvname
         if pvname.endswith('.VAL'): prefix = pvname[:-4]
-
         if 'motor' == EpicsCA.caget(prefix+'.RTYP'):
             fields = ["%s%s" % (prefix,i) for i in motor_fields]
             for pvname in fields:
@@ -125,7 +126,6 @@ class MasterDB:
                 self.request_pv_cache(pvname)
         EpicsCA.pend_event(0.01)
         EpicsCA.pend_io(1.0)
-
 
     def drop_pv(self,pvname):
         """drop a PV from the caching process -- really this 'suspends updates'
@@ -201,9 +201,7 @@ class MasterDB:
     ##
     ## Status/Activity Reports 
     def arch_nchanged(self,minutes=10):
-        """return a report (list of text lines) for archiving process,
-        giving the number of values archived in the past minutes.
-        """
+        """return the number of values archived in the past minutes. """
         self.db.use(self.arch_db)
         n = 0
         dt = (time.time()-minutes*60.)
@@ -211,6 +209,7 @@ class MasterDB:
         for i in range(1,129):
             r = self.db.exec_fetch(q % (i,dt))
             n = n + len(r)
+        self.db.use(master_db)
         return n
 
     def arch_report(self,minutes=10):
@@ -219,7 +218,6 @@ class MasterDB:
         """
         n = self.arch_nchanged(minutes=minutes)
 
-        self.db.use(master_db)
         o = ["Current Database=%s, status=%s, PID=%i" %(self.arch_db,
                                                         self.get_arch_status(),
                                                         self.get_arch_pid()),
@@ -311,7 +309,7 @@ class MasterDB:
             if i not in self.pvnames:
                 # look for this pvname in requests -- it may have been just added
                 r = self.db.exec_fetchone("select * from requests where pvname='%s'" % i)
-                print 'set pair score: req pv? ',i, r
+                # print 'set pair score: req pv? ',i, r
                 if not r.has_key('pvname'):
                     self.request_pv_cache(i)
                 

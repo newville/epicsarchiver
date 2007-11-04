@@ -1,7 +1,9 @@
 #!/usr/bin/python
 from mod_python import apache
-from EpicsArchiver import WebAdmin, config
+from EpicsArchiver import WebAdmin, config, ConnectionPool
 
+global pool
+pool = ConnectionPool(size=16)
 
 def is_valid(user,passwd):
     passdata = {config.dbuser: config.dbpass}
@@ -13,23 +15,19 @@ def __auth__(req,user,passwd):
     if is_valid(user,passwd): return 1
     return 0
 
+def __Admin(method,**kw):
+    dbconn1 = pool.get()
+    dbconn2 = pool.get()
+    p = WebAdmin(dbconn1=dbconn1,dbconn2=dbconn2)
 
+    out = getattr(p,method)(**kw)
 
-def dispatch(req,method,**kw):
-    global arch
-    try:
-        arch is None
-    except NameError:
-        arch = None
+    pool.put(dbconn1)
+    pool.put(dbconn2)
+    return out
 
-    p = WebAdmin(arch=arch)
-    arch = p.arch
-
-    return getattr(p,method)(**kw)
-
-def index(req,**kw):        return dispatch(req,'show_adminpage',**kw)
-def pvinfo(req,**kw):       return dispatch(req,'show_pvinfo',**kw)
-def related_pvs(req,**kw):  return dispatch(req,'show_related_pvs',**kw)    
-def alerts(req,**kw):       return dispatch(req,'show_alerts',**kw)
-def list_alerts(req,**kw):  return dispatch(req,'show_all_alerts',**kw)    
-
+def index(req,**kw):        return __Admin('show_adminpage',**kw)
+def pvinfo(req,**kw):       return __Admin('show_pvinfo',**kw)
+def related_pvs(req,**kw):  return __Admin('show_related_pvs',**kw)    
+def alerts(req,**kw):       return __Admin('show_alerts',**kw)
+def list_alerts(req,**kw):  return __Admin('show_all_alerts',**kw)    

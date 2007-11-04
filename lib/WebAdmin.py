@@ -1,4 +1,4 @@
-from EpicsArchiver import Archiver, config, add_pv_to_cache
+from EpicsArchiver import MasterDB, Archiver, config
 from EpicsArchiver.util import clean_string, clean_input, normalize_pvname
 
 from HTMLWriter import HTMLWriter
@@ -15,12 +15,15 @@ alerts_page = "%s/admin.py/alerts"   % cgiroot
 class WebAdmin(HTMLWriter):
     html_title = "PV Archive Admin Page"
     
-    def __init__(self, arch=None, **kw):
+    def __init__(self, dbconn1=None, dbconn2=None,**kw):
         HTMLWriter.__init__(self)
 
-        self.arch    = arch or Archiver()
-        self.master  = self.arch.master
+        self.arch    = Archiver(dbconn=dbconn1)
+        self.master  = MasterDB(dbconn=dbconn2) 
 
+        self.arch.db.get_cursor()
+        self.master.db.get_cursor()
+        
         self.kw  = {'form_pv':'', 'pv':'', 'inst_id':-1,'submit':''}
         self.kw.update(kw)
 
@@ -38,7 +41,7 @@ class WebAdmin(HTMLWriter):
         if submit.startswith('Add') and len(pvname)>1:
             pvn = clean_input(pvname)
             wr("<p>Added %s to archive!!<p><hr>" % (pvn))
-            add_pv_to_cache(pvn)
+            self.master.add_pv(pvn)
             #             self.endhtml()
             #             return self.get_buffer()
         
@@ -111,6 +114,7 @@ class WebAdmin(HTMLWriter):
                 
             wr("<p>%s&nbsp;&nbsp;</p>" % self.link(link="%s?pv=%s" % (thispage,pvname),
                                                    text=pvname))
+            self.master.use_master()
             self.endhtml()
             return self.get_buffer()
 

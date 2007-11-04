@@ -108,11 +108,9 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
             
     if action in ('stop','restart'):
         if not pid:
-            mess = "Could not stop, pid file '%s' missing.\n"
+            mess = "Warning: Could not stop, pid file '%s' missing.\n"
             sys.stderr.write(mess % pidfile)
-            sys.exit(1)
-            if 'stop' == action: sys.exit(1)
-            action = 'start'
+            if 'restart' == action: action = 'start'
             pid = None
         else:
             try:
@@ -123,8 +121,7 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
                err = str(err)
                if err.find("No such process") > 0:
                    os.remove(pidfile)
-                   if 'stop' == action: sys.exit(0)
-                   action = 'start'
+                   if 'retart' == action: action = 'start'
                    pid = None
                else:
                    print str(err)
@@ -145,6 +142,7 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
 def test():
     """ This is an example main function run by the daemon.
         This prints a count and timestamp once per second."""
+
     sys.stdout.write ('Message to stdout...')
     sys.stderr.write ('Message to stderr...')
     c = 0

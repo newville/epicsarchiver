@@ -8,7 +8,8 @@ Linux/Apache/MySQL/Python set of tools and requires:
 
   - python: version 2.3 or higher
 
-  - mysql:  MySQL 5.x (with INNOdb support)
+  - mysql: MySQL 5.x (with INNOdb support)  For many linux
+           distributions, you will need the 'devel' package.
   
   - a minimal Epics installation (at least epics base).
 
@@ -20,12 +21,18 @@ You will also need these (slightly less standard) tools:
   - Gnuplot  4.0 or higher
 
   - These python modules (included in the source install):
-      MySQLdb : py_install/MySQL-python-1.2.2.tar.gz
-      Gnuplot : py_install/gnuplot-py-1.7.tar.gz
-      EpicsCA : py_install/EpicsCA-2.0.7.tar.gz
+        Gnuplot : py_install/gnuplot-py-1.7.tar.gz
+        MySQLdb : py_install/MySQL-python-1.2.2.tar.gz
+        EpicsCA : py_install/EpicsCA-2.1.2.tar.gz
 
-  - mod_python.  The source for this is included, but you will 
-    need to install this and configure apache to use it.
+    All of these packages buid and install with a simple
+        python setup.py install
+    For MySQLdb, you may need the 'mysql-devel' package installed.
+    For EpicsCA, you need a minimal installation of Epics base.
+
+  - mod_python.  Many linux distributions include this as an
+    add-on package for Apache.  The source for this is included, 
+    but you will need to install this and configure apache to use it. 
 
 See INSTALL for more Installation instructions.
 

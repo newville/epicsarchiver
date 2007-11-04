@@ -78,39 +78,6 @@ def valid_pvname(pvname):
     for c in pvname:
         if c not in valid_pvstr: return False
     return True
-    
-def set_pair_scores(pvlist):
-    """ set (or check) that all pairs of pvs in list pvlist have a 'pair score'"""
-    if not isinstance(pvlist,(list,tuple)): return
-    if len(pvlist)< 2: return
-    from MasterDB import MasterDB
-
-    m = MasterDB()
-    get_score = m.get_pair_score
-    set_score = m.set_pair_score
-       
-    while pvlist:
-        q = pvlist.pop()
-        for p in pvlist:
-            if get_score(q,p)<1: set_score(q,p,10)
-            
-    m.close()
-    m = None
-    return 
-
-def get_related_pvs(pvname):
-    m = MasterDB()
-    out = m.get_related_pvs(normalize_pvname(pvname),minscore=1)
-    m.close()
-    m = None
-    return out
-
-def increment_pair_score(pv1,pv2):
-    from MasterDB import MasterDB
-    m = MasterDB()
-    m.increment_pair_score(normalize_pvname(pv1),normalize_pvname(pv2))
-    m.close()
-    m = None
 
 def write_saverestore(pvvals,format='plain',header=None):
     """ generate a save/restore file for a set of PV values

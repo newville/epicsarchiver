@@ -5,7 +5,7 @@ from EpicsArchiver import Instruments, config
 
 from HTMLWriter import HTMLWriter, jscal_get_date
 
-from util import normalize_pvname, set_pair_scores, clean_input, \
+from util import normalize_pvname,  clean_input, \
      tformat, time_str2sec, write_saverestore
 
 pagetitle  = config.pagetitle
@@ -20,10 +20,10 @@ class WebInstruments(HTMLWriter):
     POS_DATE = '__(position_by_date)__'
     html_title = 'Epics Instruments'
     
-    def __init__(self,arch=None,**kw):
+    def __init__(self,dbconn=None,**kw):
 
         HTMLWriter.__init__(self)
-        self.arch   = arch or Instruments()
+        self.arch   = Instruments(dbconn=dbconn)
 
         self.kw  = {'station_sel':'', 'newstation':'',
                     'station':'', 'instrument':'','pv':'',
@@ -168,7 +168,6 @@ class WebInstruments(HTMLWriter):
                 hide = ('hidden' == v and k not in (None,''))
                 self.arch.hide_position(inst_id=inst_id,name=k,hide=hide)
                 if 'remove' == v and k not in (None,''):
-                    
                     self.arch.delete_position(inst_id=inst_id,name=k)                    
 
         positions = self.arch.get_positions(inst_id=inst_id,get_hidden=True)

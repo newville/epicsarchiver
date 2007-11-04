@@ -11,21 +11,21 @@ from MasterDB import MasterDB
 from util import clean_input, clean_string, motor_fields, \
      normalize_pvname, tformat, valid_pvname
 
-def add_pv_to_cache(pvname=None,cache=None,**kw):
-    """ add a PV to the Cache and Archiver
-
-    For a PV that is the '.VAL' field for an Epics motor will
-    automatically cause the following motor fields added as well:
-        .OFF .FOFF .SET .HLS .LLS .DIR _able.VAL .SPMG
-
-    Each of these pairs of PVs will also be given an inital
-    'pair score' of 10, which is used to define 'related pvs'
-
-    """
-    if pvname is None: return
-    if cache is None: cache = Cache()
-    cache.add_pv(pvname)
-    cache.close()
+# def add_pv_to_cache(pvname=None,cache=None,**kw):
+#     """ add a PV to the Cache and Archiver
+# 
+#     For a PV that is the '.VAL' field for an Epics motor will
+#     automatically cause the following motor fields added as well:
+#         .OFF .FOFF .SET .HLS .LLS .DIR _able.VAL .SPMG
+# 
+#     Each of these pairs of PVs will also be given an inital
+#     'pair score' of 10, which is used to define 'related pvs'
+# 
+#     """
+#     if pvname is None: return
+#     if cache is None: cache = Cache()
+#     cache.add_pv(pvname)
+#     cache.close()
 
 def add_pvfile(fname):
     """
@@ -69,8 +69,6 @@ def add_pvfile(fname):
     EpicsCA.disconnect_all()
     EpicsCA.pend_io(10.0)
     
-    print 'done.'
-
 class Cache(MasterDB):
     """ class for access to Master database as the Meta table of Archive databases
     """
@@ -78,16 +76,17 @@ class Cache(MasterDB):
     null_pv_value = {'value':None,'ts':0,'cvalue':None,'type':None}
     q_getfull     = "select value,cvalue,type,ts from cache where pvname='%s'"
 
-    def __init__(self,**kw):
+    def __init__(self,dbconn=None,**kw):
         # use of Master assumes that there are not a lot of new PVs being
         # added to the cache so that this lookup of PVs can be done once.
+        MasterDB.__init__(self,dbconn=dbconn,**kw)
 
-        MasterDB.__init__(self)
+        self.db.set_autocommit(1)
         self.pid   = self.get_cache_pid()
         self._table_alerts = self.db.tables['alerts']
         self.pvs   = {}
         self.data  = {}
-        
+
     def status_report(self,brief=False,dt=60):
         return self.cache_report(brief=brief,dt=dt)
     
@@ -96,23 +95,17 @@ class Cache(MasterDB):
         
         p = EpicsCA.PV(pvname,connect=True,connect_time=1.0)
         EpicsCA.pend_event(0.01)
-        EpicsCA.pend_io(2.0)
+        EpicsCA.pend_io(10.0)
         if p.connected:  self.pvs[pvname] = p
         return p
 
     def onChanges(self,pv=None):
         if not isinstance(pv,EpicsCA.PV): return 
-        self.data[pv.pvname] = (pv.value,pv.char_value,time.time())
+        self.data[pv.pvname] = (clean_string(str(pv.value)),pv.char_value,time.time(),pv.pvname)
 
-    def start_group(self):
-        self.data   = {}
-
-    def end_group(self):
-        for name,val in self.data.items():
-            v = [clean_string(str(i)) for i in val]
-            v.append(name)
-            q = "update cache set value=%s,cvalue=%s,ts=%s where pvname='%s'" % tuple(v)
-            self.db.execute(q)
+    def update_cache(self):
+        fmt = "update cache set value=%s,cvalue='%s',ts=%f where pvname='%s'"
+        self.db.execute( [fmt % v for v in self.data.values()] )
         return len(self.data)
 
     def connect_pvs(self):
@@ -120,6 +113,7 @@ class Cache(MasterDB):
         npvs = len(self.pvnames)
         n_notify = 2 + (npvs / 10)
         sys.stdout.write("connecting to %i PVs\n" %  npvs)
+        
         # print 'EpicsArchiver.Cache connecting to %i PVs ' %  npvs
         for i,pvname in enumerate(self.pvnames):
             try:
@@ -127,28 +121,30 @@ class Cache(MasterDB):
                 self.pvs[pvname] = pv
             except:
                 sys.stderr.write('connect failed for %s\n' % pvname)
-                               
-        EpicsCA.pend_io(1.0)
+
+        EpicsCA.pend_io(10.0)
         t0 = time.time()
-        self.start_group()
+        self.data = {}
         for i,pvname in enumerate(self.pvnames):
             xx = self.cache.select_one(where="pvname='%s'" % pvname)
             if xx.has_key('active'):
                 if 'no' == xx['active']:  continue                
             try:
                 pv = self.pvs[pvname]
-                pv.connect(connect_time=5.00)
+                pv.connect(connect_time=1.00)
                 pv.set_callback(self.onChanges)
-                self.data[pvname] = (pv.value, pv.char_value, time.time())
+                self.data[pvname] = (clean_string(str(pv.value)), pv.char_value, time.time(),pvname)
             except KeyboardInterrupt:
                 self.exit()
             except:
                 sys.stderr.write('connect failed for %s\n' % pvname)
+
             if i % n_notify == 0:
                 EpicsCA.pend_io(1.0)
                 sys.stdout.write('%.2f ' % (float(i)/npvs))
                 sys.stdout.flush()
-        self.end_group()
+
+        self.update_cache()
 
     def set_date(self):
         t = time.time()
@@ -161,28 +157,40 @@ class Cache(MasterDB):
     def mainloop(self):
         " "
         sys.stdout.write('Starting Epics PV Archive Caching: \n')
+        self.db.get_cursor()
+
         t0 = time.time()
-        self.set_date()
-        self.connect_pvs()
         self.pid = os.getpid()
         self.set_cache_status('running')
         self.set_cache_pid(self.pid)
+        self.set_date()
+
+        self.connect_pvs()
         self.read_alert_settings()
-        
+        self.db.get_cursor()        
         fmt = 'pvs connected in %.1f seconds, Cache Process ID= %i\n'
         sys.stdout.write(fmt % (time.time()-t0, self.pid))
         sys.stdout.flush()
 
-        status_str = '%s: %i values cached since last notice\n'
+        status_str = '%s: %i values cached since last notice %i loops\n'
         ncached = 0
+        nloop   = 0
         mlast   = -1
+        pend_event = EpicsCA.pend_event
+        pend_io    = EpicsCA.pend_io
+        self.db.set_autocommit(0)
         while True:
             try:
-                self.start_group()
-                EpicsCA.pend_event(0.01)
-                n = self.end_group()
+                self.db.begin_transaction()
+                self.data = {}
+                pend_event(1.e-3)
+
+                n = self.update_cache()
                 ncached = ncached + n
+                nloop   = nloop + 1
                 self.set_date()
+                self.db.commit_transaction()
+
                 self.process_requests()
                 self.process_alerts()
                 if self.get_pid() != self.pid:
@@ -191,12 +199,17 @@ class Cache(MasterDB):
                 tmin,tsec = time.localtime()[4:6]
                 if tsec == 0 and (tmin != mlast): # report once per minute
                     mlast = tmin
-                    sys.stdout.write(status_str % (time.ctime(),ncached))
+                    sys.stdout.write(status_str % (time.ctime(),ncached,nloop))
                     sys.stdout.flush()
                     self.read_alert_settings()
                     ncached = 0
+                    nloop = 0
+                    pend_io(5.0)                    
+
             except KeyboardInterrupt:
                 return
+
+        self.db.free_cursor()            
 
     def exit(self):
         self.close()
@@ -206,7 +219,7 @@ class Cache(MasterDB):
 
     def shutdown(self):
         self.set_cache_pid(0)
-        time.sleep(1.0)
+        self.exit()
 
     def sql_exec(self,sql):
         self.db.execute(sql)
@@ -255,8 +268,14 @@ class Cache(MasterDB):
         #       the request table.
         drop_req = True
 
+        if len(req)>0:
+            print 'process requests ', time.ctime()
+            for r in  req: print r
         es = clean_string
         now = time.time()
+        
+        self.db.set_autocommit(1)
+
         for r in req:
             nam,action,ts = r['pvname'],r['action'],r['ts']
             drop_req = True
@@ -279,10 +298,11 @@ class Cache(MasterDB):
                             self.pvs[nam].set_callback(self.onChanges)                    
                         else:
                             drop_req = False
-                            print 'could not connect to ', nam
+                            sys.stdout.write('could not connect to PV %s\n' % nam)
 
             if drop_req: self.sql_exec(del_req % where)
         self.get_pvnames()
+        self.db.set_autocommit(0)
 
     def add_epics_pv(self,pv):
         """ add an epics PV to the cache"""
@@ -308,6 +328,7 @@ class Cache(MasterDB):
         
     def process_alerts(self):
         msg = 'Alert sent for PV=%s / Label=%s at %s\n'
+        self.db.set_autocommit(1)
         for pvname,pvdata in self.data.items():
             if self.alert_data.has_key(pvname):
                 alarm = self.alert_data[pvname]
@@ -319,6 +340,6 @@ class Cache(MasterDB):
                     self.alert_data[pvname]['last_notice'] = time.time()
                     sys.stdout.write(msg % (pvname, alarm['name'],time.ctime()))
                     
-                
+        self.db.set_autocommit(0)                
 
                 
