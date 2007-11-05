@@ -1,5 +1,4 @@
 import time
-import smtplib
 
 from MasterDB import MasterDB
 from util import normalize_pvname

@@ -48,7 +48,7 @@ create table alerts (
     pvname     varchar(64) not null,
     name       varchar(256) not null, 
     mailto     varchar(256) default null,
-    mailmsg    varchar(1024) default null,
+    mailmsg    varchar(4096) default null,
     trippoint  tinyblob default null,
     timeout    float default 30,
     compare    enum('eq','ne','le','lt','ge','gt') not null default 'eq',

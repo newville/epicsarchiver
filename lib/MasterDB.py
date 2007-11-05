@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys
 import re
 import time
@@ -91,7 +93,7 @@ class MasterDB:
     def request_pv_cache(self,pvname):
         """request a PV to be included in caching.
         will take effect once a 'process_requests' is executed."""
-        self.use(master_db)
+        self.db.use(master_db)
         npv = normalize_pvname(pvname)
         if npv in self.pvnames: return
 
@@ -521,7 +523,11 @@ class MasterDB:
         msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/show.py/plot?pv=%s\n" % \
               (mailfrom,subject,'\n'.join(mlines),cgi_url,pvname)
 
-        s = smtplib.SMTP(mailserver)
-        s.sendmail(mailfrom,mailto,msg)
-        s.quit()
+        try:
+            s = smtplib.SMTP(mailserver)
+            s.sendmail(mailfrom,mailto,msg)
+            s.quit()
+        except:
+            sys.stdout.write("Could not send mail:  mail not configured??")
+            
         

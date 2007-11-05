@@ -156,7 +156,6 @@ class SimpleTable:
             self.db.execute(q)
         except:
             self.db.write('update failed: %s' % q)
-        # return self.db.affected_rows()
 
     def insert(self,**args):
         "add a new table row "
@@ -176,7 +175,7 @@ class SimpleTable:
         s = ','.join(q)
         qu = "insert into %s set %s" % (self._name,s)
         self.db.execute(qu)
-        return self.db.affected_rows()
+        
 
     def __repr__(self):
         """ shown when printing instance:
@@ -265,7 +264,7 @@ class SimpleDB:
     def put_cursor(self):
         " return a cursor to the Connection pool"        
         if self.cursor is not None:
-            sys.stdout.write('releasing cursor\n')
+            # sys.stdout.write('releasing cursor\n')
             cpool.put(self.conn)
             self.cursor = None
 
@@ -394,11 +393,6 @@ class SimpleDB:
         if self.cursor is None: return {}
         return self._normalize_dict(self.cursor.fetchone())
  
-    def affected_rows(self):
-        "return number  of rows affected by last execute -- needs valid cursor"
-        if self.cursor is None: return None
-        return self.cursor.rowcount()
-
     def fetchall(self):
         "return all rows from most recent query -- needs valid cursor"
         if self.cursor is None: return ()

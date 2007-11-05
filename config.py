@@ -1,7 +1,7 @@
 #
 # configuration file for PV_Archive.py
 #
-DEBUG = True
+DEBUG = False
 
 ######################################################
 ##
@@ -68,13 +68,10 @@ if DEBUG:
 # location for python web scripts, and how this maps to a URL:
 cgi_bin   = apache_root  + 'cgi-bin/pvarch'
 cgi_url   = url_root     + 'cgi-bin/pvarch'
-# 
-# cgi_bin   = apache_root  + 'cgi-bin/'
-# cgi_url   = url_root     + 'cgi-bin/'
 
 # location for output data files from PlotViewer and how this maps to a URL:
-cgi_data_dir = apache_root + 'htdocs/cgi-data/'
-cgi_data_url = url_root   + 'cgi-data/'
+cgi_data_dir = apache_root + 'html/cgi-data/'
+cgi_data_url = url_root    + 'cgi-data/'
 data_dir     = cgi_data_dir+ 'pvarch'
 data_url     = cgi_data_url+ 'pvarch'
 
@@ -108,4 +105,4 @@ template_dir  = share_dir + 'templates/'
 ## Email setup for email alerts
 ##
 mailserver = 'localhost'
-mailfrom   = 'pvarchiver@cars.uchicago.edu'
+mailfrom   = 'pvarchiver@idea.cars.uchicago.edu'
