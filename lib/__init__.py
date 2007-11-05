@@ -32,5 +32,6 @@ from Daemon         import startstop
 from HTMLWriter     import HTMLWriter
 from PlotViewer     import PlotViewer
 from WebStatus      import WebStatus
+from WebHelp        import WebHelp
 from WebAdmin       import WebAdmin
 from WebInstruments import WebInstruments

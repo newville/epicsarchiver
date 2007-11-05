@@ -68,6 +68,9 @@ if DEBUG:
 # location for python web scripts, and how this maps to a URL:
 cgi_bin   = apache_root  + 'cgi-bin/pvarch'
 cgi_url   = url_root     + 'cgi-bin/pvarch'
+# 
+# cgi_bin   = apache_root  + 'cgi-bin/'
+# cgi_url   = url_root     + 'cgi-bin/'
 
 # location for output data files from PlotViewer and how this maps to a URL:
 cgi_data_dir = apache_root + 'htdocs/cgi-data/'

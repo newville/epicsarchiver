@@ -5,16 +5,14 @@
 
 import config
 from util import SEC_DAY, clean_input, normalize_pvname
-cgiroot   = config.cgi_url
 
-thispage   = "%s/viewer.py" % cgiroot
-adminpage  = "%s/admin.py" % cgiroot
-pvinfopage = "%s/admin.py/pvinfo"       % cgiroot
-relpv_page = "%s/admin.py/related_pvs"  % cgiroot
-instpage   = "%s/instruments.py"  % cgiroot
-alertspage = "%s/admin.py/list_alerts"   % cgiroot
-statuspage = "%s/status.py" % cgiroot
-helppage   = "%s/help.py" % cgiroot
+adminpage  = "%s/admin.py" % config.cgi_url
+pvinfopage = "%s/admin.py/pvinfo"       % config.cgi_url
+relpv_page = "%s/admin.py/related_pvs"  % config.cgi_url
+instpage   = "%s/show.py/instrument"  % config.cgi_url
+alertspage = "%s/admin.py/list_alerts"   % config.cgi_url
+statuspage = "%s/show.py" % config.cgi_url
+helppage   = "%s/help.py" % config.cgi_url
 
 REFRESH_TIME = "%i" % (SEC_DAY * 7)
 

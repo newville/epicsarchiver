@@ -1,9 +1,16 @@
 #!/usr/bin/python
+
 from mod_python import apache
 from EpicsArchiver import WebAdmin, config, ConnectionPool
 
+DEBUG = False
+
+logfile = None
+if DEBUG:
+    logfile = open("%s/webadmin_dbpool.log" % config.data_dir, 'a')
+
 global pool
-pool = ConnectionPool(size=16)
+pool = ConnectionPool(size=8,out=logfile)
 
 def is_valid(user,passwd):
     passdata = {config.dbuser: config.dbpass}

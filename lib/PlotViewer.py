@@ -9,17 +9,9 @@ from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, \
 
 from HTMLWriter import HTMLWriter, jscal_get_2dates
 
-DEBUG=True
 DEBUG=False
-cgiroot   = config.cgi_url
 
-
-thispage   = "%s/viewer.py" % cgiroot
-adminpage  = "%s/admin.py" % cgiroot
-pvinfopage = "%s/admin.py/pvinfo"       % cgiroot
-relpv_page = "%s/admin.py/related_pvs"  % cgiroot
-instspage  = "%s/instruments.py"  % cgiroot
-statuspage = "%s/status.py" % cgiroot
+plotpage   = "%s/show.py/plot" % config.cgi_url
 
 os.environ['GNUTERM'] = 'png'
 
@@ -108,7 +100,7 @@ set ytics nomirror
         pvname2 = arg_pv2 or ''
         self.write("""<table><tr valign='top'>
                    <td><form action ="%s" enctype="multipart/form-data"  method ="POST">
-                   """ % (thispage))
+                   """ % (plotpage))
 
         pv1 = self.argclean(pvname1,  self.kw['form_pv'])
 
@@ -188,7 +180,7 @@ set ytics nomirror
         out.append("<p class='xtitle'>related pvs:%s<p>" % '')  # pvname)
         n = 0
         for pv2 in r:
-            out.append("<font size=-2><a href='%s?pv=%s&pv2=%s'>%s</a></font></p>" % (thispage,pvname,pv2,pv2))
+            out.append("<font size=-2><a href='%s?pv=%s&pv2=%s'>%s</a></font></p>" % (plotpage,pvname,pv2,pv2))
             n = n + 1
             if n>20: break
         return '\n'.join(out)

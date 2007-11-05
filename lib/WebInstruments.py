@@ -9,11 +9,11 @@ from util import normalize_pvname,  clean_input, \
      tformat, time_str2sec, write_saverestore
 
 pagetitle  = config.pagetitle
-cgiroot    = config.cgi_url
+
 footer     = config.footer
-instpage   = "%s/instruments.py"  % cgiroot
-pvinfopage = "%s/admin.py/pvinfo" % cgiroot
-helppage   = "%s/help.py" % cgiroot
+mainpage   = "%s/show.py"  % config.cgi_url
+instpage   = "%s/show.py/instrument"  % config.cgi_url
+pvinfopage = "%s/admin.py/pvinfo" % config.cgi_url
 
 DEBUG = False
 class WebInstruments(HTMLWriter):
@@ -82,7 +82,7 @@ class WebInstruments(HTMLWriter):
             wr("""<table cellpadding=2 border=0 rules='cols'><tr valign='top'><td width=30%% align='top'>
             <table bgcolor='#F8F8F0' border=0 frame='box'><tr><td>Instruments for %s:</td></tr>
             <tr><td><a href='%s/add_instrument?station=%s'>
-            &lt;add instrument&gt; </a></td></tr>""" % (station,instpage,station))
+            &lt;add instrument&gt; </a></td></tr>""" % (station,mainpage,station))
             
             self.instruments = {}
             for s in self.arch.list_instruments(station=station):
@@ -129,16 +129,16 @@ class WebInstruments(HTMLWriter):
                     <tr><td colspan=2><hr></td></tr>
                     <tr><td colspan=2>Saved Positions:
                     (<a href='%s/manage_positions?inst_id=%i'>Manage Positions</a>)</td></tr>
-                    <tr><td>Name</td><td>Time Saved</td></tr>""" % (instpage,inst_id))
+                    <tr><td>Name</td><td>Time Saved</td></tr>""" % (mainpage,inst_id))
 
                     for p in positions:
-                        plink = "<a href='%s/view_position?inst=%i&position=%s'>%s" % (instpage,inst_id,p[1],p[1])
+                        plink = "<a href='%s/view_position?inst=%i&position=%s'>%s" % (mainpage,inst_id,p[1],p[1])
                         wr("<tr><td>%s </td><td>%s</td></tr>" % (plink,tformat(p[2],format="%Y-%m-%d %H:%M:%S")))
 
 
                 wr("""<tr><td colspan=2><hr></td></tr><tr><td colspan=2>PVs in instrument:
                 (<a href='%s/modify_instrument?inst_id=%i'>View/Change)</td></tr>"""
-                   % (instpage,inst_id))
+                   % (mainpage,inst_id))
 
                 ix = 0
                 for pvn in pvlist:
@@ -175,7 +175,7 @@ class WebInstruments(HTMLWriter):
 
         self.starthtml()
         self.show_links()
-        flink = "%s/manage_positions?inst_id=%i" % (instpage,inst_id)
+        flink = "%s/manage_positions?inst_id=%i" % (mainpage,inst_id)
 
 
         if DEBUG: self.show_dict(mykw)
@@ -266,7 +266,7 @@ class WebInstruments(HTMLWriter):
         self.show_links()
         # self.show_dict(mykw)
         
-        flink = "%s/view_position?inst=%i&position=%s&date=%i" % (instpage,inst_id,position,save_time)
+        flink = "%s/view_position?inst=%i&position=%s&date=%i" % (mainpage,inst_id,position,save_time)
         wr("""<form action ='%s' enctype='multipart/form-data'  method ='POST'>
         <h3> %s for Instrument %s / Station %s<p> Position Saved    %s </h3><table>
         <tr><td> PV Name</td> <td> Saved Value </td><td> Current Value </td></tr>
@@ -312,7 +312,7 @@ class WebInstruments(HTMLWriter):
             if len(sname)>1:
                 self.arch.create_station(name=sname,notes=sdesc)
 
-        wr('<form action ="%s/add_station" enctype="multipart/form-data"  method ="POST"><p>' % (instpage))
+        wr('<form action ="%s/add_station" enctype="multipart/form-data"  method ="POST"><p>' % (mainpage))
         wr("Add a new station:<p>")
         wr("""<table> <tr> <td>Station Name</td>
                            <td><input type='text' name='name'  value='' size=20></td></tr>
@@ -367,7 +367,7 @@ class WebInstruments(HTMLWriter):
             self.arch.set_instrument_pvs(pvlist,name=sname,station=station)
             wr(" added instrument !! %s " % (sname))
 
-        wr('<form action ="%s/add_instrument" enctype="multipart/form-data"  method ="POST"><p>' % (instpage))
+        wr('<form action ="%s/add_instrument" enctype="multipart/form-data"  method ="POST"><p>' % (mainpage))
         wr('<input type="hidden" name="form_station"  value="%s">' % station)
         wr("""Add a new instrument to station '%s' """ % station)
         wr("""<table><tr><td> Instrument Name:</td><td><input type='text'   name='name'  value='' size=35></td></tr>
@@ -439,7 +439,7 @@ class WebInstruments(HTMLWriter):
         pvlist = self.arch.get_instrument_pvs(name=instrument,station=station)
         pvlist.sort()        
 
-        wr('<form action ="%s/modify_instrument" enctype="multipart/form-data"  method ="POST"><p>' % (instpage))
+        wr('<form action ="%s/modify_instrument" enctype="multipart/form-data"  method ="POST"><p>' % (mainpage))
         wr('<input type="hidden" name="form_id"  value="%s">' % inst_id)
         wr("<h3>Definition for Instrument: %s      &nbsp;  &nbsp; in Station %s</h3> " % (instrument,station))
 
@@ -484,6 +484,6 @@ class WebInstruments(HTMLWriter):
         wr("""</select>
         <input type='submit' name='station_sel' value='Select Station'></td><td>
         <td>&nbsp;&nbsp;<a href='%s/add_station'>Add Station</a></td><tr>
-        <tr><td colspan=4><hr></td></tr></table>""" % (instpage))
+        <tr><td colspan=4><hr></td></tr></table>""" % (mainpage))
 
         

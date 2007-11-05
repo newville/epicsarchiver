@@ -3,7 +3,6 @@ import smtplib
 
 from MasterDB import MasterDB
 from util import normalize_pvname
-from config import mailserver, mailfrom, cgi_url
 
 class Instruments(MasterDB):
     """ interface to Instruments"""

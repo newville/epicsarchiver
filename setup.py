@@ -18,7 +18,7 @@ except:
 import Gnuplot
 import EpicsCA
     
-with_mysql = False
+full_install = False
 
 def extract_mysqlso(tmpdir='.foo'):
     try:
@@ -107,6 +107,18 @@ f.close()
 
 bin_dir = os.path.join(sys.prefix,'bin')
 
+# generate list of template files
+template_files = []
+for i in os.listdir('templates'):
+    f = os.path.join('templates',i)
+    if f.starstwith('pages.py'): continue
+    if os.path.isfile(f): template_files.append(f)
+
+# generate list of web scripts:
+cgifiles  = []
+for i in os.listdir('cgi-bin'):
+    f = os.path.join('templates',i)
+    if os.path.isfile(f): cgifile.append(f)
 
 setup(
     name        = 'EpicsArchiver',
@@ -117,8 +129,10 @@ setup(
     description = 'A library for Archiving Epics PVs.',
     package_dir = {'EpicsArchiver': 'lib'},
     packages    = ['EpicsArchiver'], 
-    data_files  = [(bin_dir, ['bin/pvarch'])], 
-)
+    data_files  = [(bin_dir, ['bin/pvarch']),
+                   (config.cgi_bin, cgifiles),
+                   (config.template_dir, template_files)]
+    )
 
     
 setup_py = sys.argv.pop(0)
@@ -126,20 +140,16 @@ cmd     = sys.argv.pop(0)
 
 
 if 'install' == cmd:
-    copy_tree('cgi-bin', config.cgi_bin)
-    copy_tree('jscal',   config.jscal_dir)
-    copy_tree('templates',   config.template_dir)
-
-    thisdir = os.getcwd()
-    os.chdir(config.template_dir)
-    os.system("touch FileList")
-    os.system("make")
-    os.chdir(thisdir)
-
-
     os.system("chmod -R 755 %s" %  (config.data_dir))
 
-    if with_mysql:
+    if full_install:
+        thisdir = os.getcwd()
+        os.chdir(config.template_dir)
+        os.system("touch FileList")
+        os.system("make")
+        os.chdir(thisdir)
+        copy_tree('jscal',   config.jscal_dir)
+
         mysqlso = extract_mysqlso('.foo')
         # print 'MYSQL : ', mysqlso, config.share_dir
         os.system("cp -pr %s %s/."  %  (mysqlso,config.share_dir))

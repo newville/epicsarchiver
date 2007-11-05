@@ -26,25 +26,33 @@ class Connection:
     def close(self):  self.conn.close()
 
 class ConnectionPool(Queue):
-    def __init__(self,constructor=Connection, size=32):
+    def __init__(self,constructor=Connection, size=32,out=None):
         Queue.__init__(self,size)
         self.constructor = constructor
-
+        self.out = out
     def get(self,block=0,**kw):
-        try:
+        try:cd 
             pstamp, obj = Queue.get(self,block)
             if (time.time() - pstamp) < 14400:
+                if self.out is not None:
+                    self.out.write("reuse dbconn: %s for PID=%i %s\n" % (repr(obj),os.getpid(),time.ctime()))
+                    self.out.flush()
                 return obj
             obj.close()
         except Empty:
             pass
         obj = self.constructor(**kw)
-        sys.stdout.write("creating new db connection: %s\n" % repr(obj))
+        if self.out is not None:
+            self.out.write("create dbconn: %s for PID=%i %s\n" % (repr(obj),os.getpid(),time.ctime()))
+            self.out.flush()
         return obj
 
     def put(self,obj, block=0):
         try:
             Queue.put(self,(time.time(),obj), block)
+            if self.out is not None:
+                self.out.write("return dbconn: %s for PID=%i %s\n" % (repr(obj),os.getpid(),time.ctime()))
+                self.out.flush()
         except Full:
             pass
 

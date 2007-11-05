@@ -5,12 +5,12 @@ from HTMLWriter import HTMLWriter
 
 DEBUG = False
 
-cgiroot    = config.cgi_url
-thispage   = "%s/viewer.py" % cgiroot
-adminpage  = "%s/admin.py" % cgiroot
-pvinfopage = "%s/admin.py/pvinfo"      % cgiroot
-relpv_page = "%s/admin.py/related_pvs" % cgiroot
-alerts_page = "%s/admin.py/alerts"   % cgiroot
+plotpage   = "%s/show.py/plot" % config.cgi_url
+instpage   = "%s/show.py/show_instrument" % config.cgi_url
+adminpage  = "%s/admin.py" % config.cgi_url
+pvinfopage = "%s/admin.py/pvinfo"      % config.cgi_url
+relpv_page = "%s/admin.py/related_pvs" % config.cgi_url
+alerts_page = "%s/admin.py/alerts"   % config.cgi_url
 
 class WebAdmin(HTMLWriter):
     html_title = "PV Archive Admin Page"
@@ -112,7 +112,7 @@ class WebAdmin(HTMLWriter):
                 for k,v in kws.items():  wr("<p> update    %s :: %s </p>"  % (k,v))
                 pv_update(where=where, **kws)
                 
-            wr("<p>%s&nbsp;&nbsp;</p>" % self.link(link="%s?pv=%s" % (thispage,pvname),
+            wr("<p>%s&nbsp;&nbsp;</p>" % self.link(link="%s?pv=%s" % (plotpage,pvname),
                                                    text=pvname))
             self.master.use_master()
             self.endhtml()
@@ -132,7 +132,7 @@ class WebAdmin(HTMLWriter):
 
         d = ret[0]
         wr("""<p> <h3> %s &nbsp;&nbsp;&nbsp;&nbsp; %s </h3></p>
-        """ % (pvname, self.link(link="%s?pv=%s" % (thispage,pvname),text='Show Plot')))
+        """ % (pvname, self.link(link="%s?pv=%s" % (plotpage,pvname),text='Show Plot')))
 
         self.startform(action=pvinfopage,hiddenkeys=('pv',))
         self.starttable(ncol=2)
@@ -185,8 +185,6 @@ class WebAdmin(HTMLWriter):
             self.endtable()
 
         #  Instruments PVs
-        instpage   = "%s/instruments.py"  % cgiroot
-        
         insts  = self.master.get_instruments_with_pv(pvname)
         if len(insts)==0:
             wr("<hr><h3>No Instruments contain %s</h3>" % pvname)

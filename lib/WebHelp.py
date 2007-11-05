@@ -17,8 +17,8 @@ conf = {'template_dir':config.template_dir,
         'pv_deadtime_enum': str(config.pv_deadtime_enum)  }
 
 conf['adminpage']  = "%s/admin.py"  % config.cgi_url
-conf['plotpage']   = "%s/viewer.py" % config.cgi_url
-conf['instpage']   = "%s/instruments.py" % config.cgi_url
+conf['plotpage']   = "%s/show.py/plot" % config.cgi_url
+conf['instpage']   = "%s/show.py/instrument" % config.cgi_url
 conf['pvinfopage'] = "%s/admin.py/pvinfo"      % config.cgi_url
 conf['relpv_page'] = "%s/admin.py/related_pvs" % config.cgi_url
 conf['alertpage']  = "%s/admin.py/list_alerts"   % config.cgi_url
@@ -826,7 +826,7 @@ class WebHelp(HTMLWriter):
         if anchor is not None: self.anchor = anchor
         
         self.starthtml()
-        self.show_links()      
+        self.show_links()
         
         if section not in self.sections.keys(): section = 'overview'
         
