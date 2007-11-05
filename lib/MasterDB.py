@@ -15,6 +15,14 @@ from util import normalize_pvname, tformat, clean_input, \
 
 re_showpv = re.compile(r".*%PV\((.*)\)%.*").match
 
+def clean_mail_message(s):
+    "cleans a stored escaped mail message for real delivery"
+    s = s.strip()
+    s = s.replace("\\r","\r").replace("\\n","\n")
+    s = s.replace("\\'","\'").replace("\\","").replace('\\"','\"')
+    return s
+    
+
 class MasterDB:
     """ general interface to Master Database of Epics Archiver.
     This is used by both by itself, and is sublcassed by
@@ -476,6 +484,7 @@ class MasterDB:
 
         return value_ok, notify
             
+    
     def sendmail(self,alarm,value):
         """ send an alert email from an alarm dict holding
         the appropriate row of the alert table.        
@@ -484,16 +493,18 @@ class MasterDB:
         pvname = alarm['pvname']
         label  = alarm['name']
         compare= alarm['compare']
-
+        msg    = alarm['mailmsg']
+        
         if mailto in ('', None) or pvname in ('', None): return
 
         trippoint = str(alarm['trippoint'])
         mailto    = tuple(mailto.split(','))
         subject   = "[Epics Alert] PV=%s, %s " % (pvname,label)
 
-        msg       = alarm['mailmsg'].strip()
         if msg in ('', None):  msg = self.def_alert_msg
         
+        msg  = clean_mail_message(msg)
+
         opstr = 'not equal to'
         for tok,desc in zip(self.optokens, self.opstrings):
             if tok == compare: opstr = desc
@@ -523,11 +534,15 @@ class MasterDB:
         msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/show.py/plot?pv=%s\n" % \
               (mailfrom,subject,'\n'.join(mlines),cgi_url,pvname)
 
+        sys.stdout.write("Alert mail: PV %s, Alert ID=%i, mailto=%s" % (pvname,
+                                                                        alarm['id'],
+                                                                        mailto))
+        
         try:
             s = smtplib.SMTP(mailserver)
             s.sendmail(mailfrom,mailto,msg)
             s.quit()
         except:
-            sys.stdout.write("Could not send mail:  mail not configured??")
+            sys.stdout.write("Could not send Alert mail:  mail not configured??")
             
         

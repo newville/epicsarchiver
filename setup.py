@@ -18,7 +18,7 @@ except:
 import Gnuplot
 import EpicsCA
     
-full_install = True
+full_install = False
 
 script_name= sys.argv[0]
 try:

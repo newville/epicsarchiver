@@ -86,10 +86,11 @@ class SimpleTable:
             field = j['field'].lower()
             vtype = 'str'
             ftype = j['type'].lower()
-            if ftype.startswith('int'):   vtype = 'int'
-            if ftype.startswith('double'): vtype = 'double'            
+            if ftype.startswith('int'):     vtype = 'int'
+            if ftype.startswith('double'):  vtype = 'double'
+            if ftype.startswith('float'):   vtype = 'float'
             self.fieldtypes[field] = vtype
-
+            
     def check_args(self,**args):
         """ check that the keys of the passed args are all available
         as table columns.
@@ -141,15 +142,15 @@ class SimpleTable:
             return
         try:
             s = []
-            if self.check_columns(kw.keys()):
-                for k,v in kw.items():
+            for k,v in kw.items():
+                if self.fieldtypes.has_key(k):
+                    ftype = self.fieldtypes[k]
                     k = clean_input(k)
-                    v = clean_input(v)
-                    if 'str' == self.fieldtypes[k]:
+                    if ftype == 'str':
                         s.append("%s=%s" % (k,safe_string(v)))
-                    elif 'double' == self.fieldtypes[k]:
+                    elif ftype in ('double','float'):
                         s.append("%s=%f" % (k,float(v)))
-                    elif 'int' == self.fieldtypes[k]:
+                    elif ftype == 'int':
                         s.append("%s=%i" % (k,int(v)))
             s = ','.join(s)
             q = "update %s set %s where %s" % (self._name,s,where)
@@ -165,13 +166,16 @@ class SimpleTable:
             return 0
         q  = []
         for k,v in args.items():
-            field = clean_input(k.lower())
-            if (v == None): v = ''
-            if type(v) == types.StringType:
-                v = safe_string(v)
-            else:
-                v = str(v)
-            q.append("%s=%s" % (field, v))
+            if self.fieldtypes.has_key(k):
+                ftype = self.fieldtypes[k]
+                field = clean_input(k.lower())
+                if (v == None): v = ''
+                if isinstance(v,(str,unicode)):
+                    v = safe_string(v)
+                else:
+                    v = str(v)
+                # v =clean_input(v,maxlen=flen)
+                q.append("%s=%s" % (field, v))
         s = ','.join(q)
         qu = "insert into %s set %s" % (self._name,s)
         self.db.execute(qu)

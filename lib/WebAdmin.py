@@ -1,5 +1,5 @@
 from EpicsArchiver import MasterDB, Archiver, config
-from EpicsArchiver.util import clean_string, clean_input, normalize_pvname
+from EpicsArchiver.util import clean_string, clean_input, normalize_pvname, clean_mail_message
 
 from HTMLWriter import HTMLWriter
 
@@ -359,7 +359,7 @@ class WebAdmin(HTMLWriter):
 
         # normal, show 1 alert....
         if a['mailmsg'] is None:  a['mailmsg'] = self.master.def_alert_msg
-
+        
         opstr = 'not equal to'
         for tok,desc in zip(self.master.optokens, self.master.opstrings):
             if tok == a['compare']: opstr = desc
@@ -399,7 +399,7 @@ class WebAdmin(HTMLWriter):
                                                    value=a['mailto']))
         self.addrow("Mail Message", self.textinput(name='mailmsg',
                                                    size=65, nlines=8,
-                                                   value=a['mailmsg']))
+                                                   value=clean_mail_message(a['mailmsg'])))
 
         self.addrow('&nbsp;')
         self.addrow(self.button(text='Set Alert'),

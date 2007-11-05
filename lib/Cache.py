@@ -101,11 +101,13 @@ class Cache(MasterDB):
 
     def onChanges(self,pv=None):
         if not isinstance(pv,EpicsCA.PV): return 
-        self.data[pv.pvname] = (clean_string(str(pv.value)),pv.char_value,time.time(),pv.pvname)
+        self.data[pv.pvname] = (pv.value,pv.char_value,time.time(),pv.pvname)
 
     def update_cache(self):
         fmt = "update cache set value=%s,cvalue='%s',ts=%f where pvname='%s'"
-        self.db.execute( [fmt % v for v in self.data.values()] )
+        for (val,cval,ts,nam) in self.data.values():
+            sval = clean_string(str(val))
+            self.db.execute(fmt % (sval,cval,ts,nam))
         return len(self.data)
 
     def connect_pvs(self):
@@ -133,7 +135,7 @@ class Cache(MasterDB):
                 pv = self.pvs[pvname]
                 pv.connect(connect_time=1.00)
                 pv.set_callback(self.onChanges)
-                self.data[pvname] = (clean_string(str(pv.value)), pv.char_value, time.time(),pvname)
+                self.data[pvname] = (pv.value, pv.char_value, time.time(),pvname)
             except KeyboardInterrupt:
                 self.exit()
             except:
@@ -269,8 +271,8 @@ class Cache(MasterDB):
         drop_req = True
 
         if len(req)>0:
-            print 'process requests ', time.ctime()
-            for r in  req: print r
+            sys.stdout.write("processing %i requests at %s\n" % (len(req), time.ctime()))
+
         es = clean_string
         now = time.time()
         
@@ -332,6 +334,7 @@ class Cache(MasterDB):
         for pvname,pvdata in self.data.items():
             if self.alert_data.has_key(pvname):
                 alarm = self.alert_data[pvname]
+
                 sendmail = (time.time() - alarm['last_notice']) > alarm['timeout']
                 ok, notified = self.check_alert(alarm['id'],
                                                 pvdata[0],
@@ -339,6 +342,7 @@ class Cache(MasterDB):
                 if notified:
                     self.alert_data[pvname]['last_notice'] = time.time()
                     sys.stdout.write(msg % (pvname, alarm['name'],time.ctime()))
+                # sys.stdout.write("alertcheck: %s %s %s %s\n" % (pvname,str(pvdata[0]),ok,notified))
                     
         self.db.set_autocommit(0)                
 

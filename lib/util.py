@@ -11,12 +11,13 @@ motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS',
 
 valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._'
 
-def clean_input(x,maxlen=256):
+def clean_input(x,maxlen=None):
     """clean input, forcing it to be a string, with comments stripped,
     and guarding against extra sql statements"""
     if not isinstance(x,(unicode,str)): x = str(x)
 
-    if len(x)>maxlen:   x = x[:maxlen-1]
+    if maxlen is None: maxlen = 1024
+    if len(x) > maxlen:   x = x[:maxlen-1]
     x.replace('#','\#')
     eol = x.find(';')
     if eol > -1: x = x[:eol]
@@ -26,8 +27,8 @@ def safe_string(x):
     if "'" in x:  x = escape_string(x)
     return  string_literal(x)
 
-def clean_string(x):
-    x = clean_input(x)
+def clean_string(x,maxlen=None):
+    x = clean_input(x,maxlen=maxlen)
     return safe_string(x)
 
 def normalize_pvname(p):
@@ -36,6 +37,13 @@ def normalize_pvname(p):
     if len(x) > 2 and x.find('.') < 1: return '%s.VAL' % x
     return x
 
+def clean_mail_message(s):
+    "cleans a stored escaped mail message for real delivery"
+    s = s.strip()
+    s = s.replace("\\r","\r").replace("\\n","\n")
+    s = s.replace("\\'","\'").replace("\\","").replace('\\"','\"')
+    return s
+    
 def get_force_update_time():
     """ inserts will be forced into the Archives for stale values
     between 18 and 21 hours after last insert.

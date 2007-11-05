@@ -225,7 +225,12 @@ def main():
         print archive_status()[1].split()[0]
                 
     elif cmd in ('start','stop','restart'):
-        run_archive(action=cmd)
+        if 'restart':
+            run_archive(action='stop')
+            time.sleep(1)
+            run_archive(action='start')            
+        else:
+            run_archive(action=cmd)
             
     elif 'next' == cmd:
         next_archive()
@@ -265,6 +270,10 @@ def main():
             dt = 60
             if len(args)>0: dt = args.pop(0)
             cache_status(action=action,dt=float(dt))
+        elif 'restart':
+            run_cache(action='stop')
+            time.sleep(1)
+            run_cache(action='start')            
         else:
             run_cache(action=action)
 

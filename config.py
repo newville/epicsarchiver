@@ -1,7 +1,7 @@
 #
 # configuration file for PV_Archive.py
-#
-DEBUG = False
+
+DEBUG = True
 
 ######################################################
 ##
@@ -105,4 +105,4 @@ template_dir  = share_dir + 'templates/'
 ## Email setup for email alerts
 ##
 mailserver = 'localhost'
-mailfrom   = 'pvarchiver@idea.cars.uchicago.edu'
+mailfrom   = 'pvarchiver@cars.uchicago.edu'
