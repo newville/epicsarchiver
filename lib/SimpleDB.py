@@ -31,7 +31,7 @@ class ConnectionPool(Queue):
         self.constructor = constructor
         self.out = out
     def get(self,block=0,**kw):
-        try:cd 
+        try:
             pstamp, obj = Queue.get(self,block)
             if (time.time() - pstamp) < 14400:
                 if self.out is not None:

@@ -18,7 +18,13 @@ except:
 import Gnuplot
 import EpicsCA
     
-full_install = False
+full_install = True
+
+script_name= sys.argv[0]
+try:
+    cmd  = sys.argv[1]
+except:
+    cmd = ''
 
 def extract_mysqlso(tmpdir='.foo'):
     try:
@@ -30,8 +36,6 @@ def extract_mysqlso(tmpdir='.foo'):
     import MySQLdb
     l2 = os.listdir(tmpdir)
     for i in l1: l2.remove(i)
-    print 'extract: ', os.environ['PYTHON_EGG_CACHE']
-    print l2
     for i in l2:
         xdir  = os.path.join(tmpdir,i)
         xso   = os.path.join(xdir,'_mysql.so')        
@@ -70,12 +74,12 @@ def create_dir(dir,desc='?'):
 
 shutil.copyfile('config.py','lib/config.py')
 
-create_dir(config.cgi_bin,      desc='cgi_bin')
-create_dir(config.logdir,       desc='log file')
-create_dir(config.template_dir, desc='web template')
-
-create_dir(config.data_dir,     desc='web data')
-create_dir(config.jscal_dir,    desc='javascript calendar')
+if 'install' == cmd:
+    create_dir(config.cgi_bin,      desc='cgi_bin')
+    create_dir(config.logdir,       desc='log file')
+    create_dir(config.template_dir, desc='web template')
+    create_dir(config.data_dir,     desc='web data')
+    create_dir(config.jscal_dir,    desc='javascript calendar')
 
 
 httpdconf = """
@@ -111,21 +115,25 @@ bin_dir = os.path.join(sys.prefix,'bin')
 template_files = []
 for i in os.listdir('templates'):
     f = os.path.join('templates',i)
-    if f.starstwith('pages.py'): continue
+    if f.startswith('pages.py'): continue
     if os.path.isfile(f): template_files.append(f)
+
 
 # generate list of web scripts:
 cgifiles  = []
 for i in os.listdir('cgi-bin'):
-    f = os.path.join('templates',i)
-    if os.path.isfile(f): cgifile.append(f)
+    f = os.path.join('cgi-bin',i)
+    if f.endswith('.py') and os.path.isfile(f): cgifiles.append(f)
+
+# print 'CGI: ', cgifiles
 
 setup(
     name        = 'EpicsArchiver',
-    version     = '0.1',
+    version     = '1.0',
     author      = 'Matthew Newville',
     author_email= 'newville@cars.uchicago.edu',
     license     = 'Python',
+    script_name = script_name,
     description = 'A library for Archiving Epics PVs.',
     package_dir = {'EpicsArchiver': 'lib'},
     packages    = ['EpicsArchiver'], 
@@ -135,8 +143,6 @@ setup(
     )
 
     
-setup_py = sys.argv.pop(0)
-cmd     = sys.argv.pop(0)
 
 
 if 'install' == cmd:
@@ -151,7 +157,6 @@ if 'install' == cmd:
         copy_tree('jscal',   config.jscal_dir)
 
         mysqlso = extract_mysqlso('.foo')
-        # print 'MYSQL : ', mysqlso, config.share_dir
         os.system("cp -pr %s %s/."  %  (mysqlso,config.share_dir))
         os.system("rm -rf .foo")
 
