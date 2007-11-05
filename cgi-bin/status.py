@@ -3,7 +3,7 @@
 
 from mod_python import apache
 
-from EpicsArchiver import WebStatus, Cache, config
+from EpicsArchiver import WebStatus, Cache, config, ConnectionPool
 import sys
 
 file_base   = config.template_dir
@@ -11,28 +11,25 @@ sys.path.insert(0,file_base)
 
 from pages import pagelist, filemap
 
+
+global pool
+pool = ConnectionPool(size=16)
+
 def show_page(req,page=None,**kw):
-    global cache
-    try:
-        cache is None
-    except NameError:
-        cache = None
+    dbconn = pool.get()
 
-    stat   = WebStatus()
-    cache  = stat.cache
-
-    cache.db.get_cursor()
-    stat.begin_page(page, pagelist, refresh=30)
+    p = WebStatus(dbconn=dbconn)
+    
+    p.begin_page(page, pagelist, refresh=30)
     
     if page == None: page = pagelist[0]
     if page in pagelist:
-        stat.show_pvfile(filemap[page])
+        p.show_pvfile(filemap[page])
    
-    stat.end_page()
+    p.end_page()
+    pool.put(dbconn)
 
-    cache.db.put_cursor()
-
-    return stat.get_buffer()
+    return p.get_buffer()
 
 def index(req):
     return show_page(req)

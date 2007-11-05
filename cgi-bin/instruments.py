@@ -1,23 +1,19 @@
 #!/usr/bin/python
 from mod_python import apache
-from EpicsArchiver import WebInstruments
+from EpicsArchiver import WebInstruments, ConnectionPool
+
+global pool
+pool = ConnectionPool(size=8)
    
 def dispatch(req,method,**kw):
-    global arch
-    try:
-        arch is None
-    except NameError:
-        arch = None
+    if method is None: return index(req)
 
-    p = WebInstruments(arch=arch)
-    arch   = p.arch
+    dbconn = pool.get()
+    p = WebInstruments(dbconn=dbconn)
 
-    arch.db.get_cursor()
     out = getattr(p,method)(**kw)
-    arch.db.put_cursor()
-
+    pool.put(dbconn)
     return out
-
 
 def index(req,**kw):                return dispatch(req,'show',**kw)
 def add_instrument(req,**kw):       return dispatch(req,'add_instrument',**kw)

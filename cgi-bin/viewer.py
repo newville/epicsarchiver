@@ -1,17 +1,16 @@
 #!/usr/bin/python
 
 from mod_python import apache
-from EpicsArchiver.PlotViewer import PlotViewer
+from EpicsArchiver import PlotViewer, ConnectionPool
+
+ 
+global pool
+pool = ConnectionPool(size=16)
  
 def index(req,pv=None,pv2=None,**kw):
-    global arch
-    try:
-        arch is None
-    except NameError:
-        arch = None
-
-    p = PlotViewer(arch=arch,**kw) 
-    arch  = p.arch
-
-    return p.show_pv(pv,pv2)
+    dbconn = pool.get()
+    p = PlotViewer(dbconn=dbconn,**kw)
+    out = p.show_pv(pv,pv2)
+    pool.put(dbconn)
+    return out
 
