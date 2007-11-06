@@ -111,7 +111,7 @@ class ArchiveMaster(MasterDB):
         self.create_emptydb(dbname)
         
         newdb = SimpleDB(user=dbuser, passwd=dbpass,dbname=dbname, host=dbhost,debug=0)
-        pvtable = SimpleTable(newdb, table='pv')
+        pvtable = newdb.tables['pv']
         sys.stdout.write('adding %i pvs to DB %s\n' % (len(old_data),dbname))
 
         for p in old_data:
