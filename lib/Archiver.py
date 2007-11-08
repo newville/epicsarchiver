@@ -86,12 +86,45 @@ class Archiver:
         " return full information for a cached pv"
         return self.read_master("select * from cache where pvname='%s'" % pv)[0]
 
-    def sync_with_cache(self):
+    def sync_with_cache(self,update_vals=False):
+        """ initialize pv lists, insert times, etc with cache
+        use update_vals to force insert of cache values into
+        the archive (as on startup)
+        """
         self.pvinfo = {}
         self.last_insert = {}
+        newpvs = []
+        cache_values = []
         self.get_cache_names()
-        for pvdata in self.pv_table.select():
-            self.initialize_data(pvdata)
+        pvtable_data = self.pv_table.select()
+        # print ' This is sync with cache ', update_vals, len(self.cache_names), len(pvtable_data)
+        self.db.use(self.master_db)
+        for pvdata in pvtable_data:
+            name = normalize_pvname(pvdata['name'])
+            
+            pvdata['force_time'] = get_force_update_time()
+            self.pvinfo[name]    = pvdata
+            self.last_insert[name] = (0,None)
+
+            if name not in self.cache_names:
+                newpvs.append(name)            
+            elif update_vals:
+                r = self.db.exec_fetchone("select * from cache where pvname='%s'" % name)
+                try: 
+                    if r['value'] is not None and r['ts'] is not None:
+                        cache_values.append((name,r['ts'],r['value']))
+                except:
+                    pass
+                
+        if len(newpvs)>0:
+            m = MasterDB()
+            for p in newpvs:   m.add_pv(p)
+            m.close()
+        # now switch to archiving database, and (perhaps) insert values from cache
+        if self.dbname is not None:
+            self.db.use(self.dbname)
+            for name,ts,value in cache_values: self.update_value(name,ts,value)
+                
         self.check_for_new_pvs()
 
     def check_for_new_pvs(self):
@@ -129,7 +162,7 @@ class Archiver:
         if pvname is None: return None
         pvname = normalize_pvname(pvname)
         if not self.pvinfo.has_key(pvname):
-            self.sync_with_cache()
+            self.sync_with_cache(update_vals=False)
             if not self.pvinfo.has_key(pvname):  return None
 
         db = self.dbs_for_time(t,t)[0]
@@ -145,7 +178,7 @@ class Archiver:
         if pvname is None: return []
         pvname = normalize_pvname(pvname)
         if not self.pvinfo.has_key(pvname):
-            self.sync_with_cache()
+            self.sync_with_cache(update_vals=False)
             if not self.pvinfo.has_key(pvname):
                 return ([],'No PV named %s',pvname)
         
@@ -327,36 +360,7 @@ class Archiver:
         else:
             self.add_pv(pvname)
 
-    def add_pvs_to_cache(self,pvlist):
-        m = MasterDB()
-        for p in pvlist:
-            m.add_pv(p)
-        m.close()
-        
-    def initialize_data(self,pvdata):
-        name = normalize_pvname(pvdata['name'])
-        newpvs_for_cache = []
-        if name not in self.cache_names:  newpv_for_cache.append(name)
-        if len(newpvs_for_cache)>0:      self.add_pvs_to_cache(newpvs_for_cache)
-            
-        self.db.use(self.dbname)
-
-        pvdata['force_time'] = get_force_update_time()
-        self.pvinfo[name]    = pvdata
-        self.last_insert[name] = (0,None)
-
-        t0 = time.time() - SEC_DAY
-        q ="select time,value from %s where pv_id=%i and time>%i order by time desc limit 1"
-
-        db_dat = self.db.exec_fetchone(q  % (pvdata['data_table'], pvdata['id'],t0))
-        if db_dat.has_key('time') and db_dat.has_key('value'):
-            self.last_insert[name] = (db_dat['time'],db_dat['value'])
-        else:
-            r= self.get_cache_full(name)
-            if r['value'] is not None and r['ts'] is not None:
-                self.update_value(name,r['ts'],r['value'])
                 
-
     def update_value(self,name,ts,val):
         "insert value into appropriate table " 
         if val is None: return
@@ -487,7 +491,7 @@ class Archiver:
 
         self.last_collect = t0
         self.write( 'connecting to database %s ... \n' % self.dbname)
-        self.sync_with_cache()
+        self.sync_with_cache(update_vals=True)
         
         self.write("done. DB connection took %6.3f sec\n" % (time.time()-t0))
         self.write("connecting to %i Epics PVs ... \n" % ( len(self.pvinfo) ))
@@ -503,6 +507,7 @@ class Archiver:
         t_lastlog = 0
         mlast = -1
         msg = "%s: %i new, %i forced entries. (%i)\n"
+
         while is_collecting:
             try:
                 n_loop = n_loop + 1
