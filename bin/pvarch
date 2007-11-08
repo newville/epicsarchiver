@@ -52,13 +52,15 @@ def show_usage():
 
 def next_archive():
     master  = ArchiveMaster()
-    dbname  = master.arch_db
+    old_dbname  = master.arch_db
     next_db = master.make_nextdb()
 
     master.stop_archiver()
     master.set_currentDB(next_db)
-    master.set_runinfo(dbname)
-    time.sleep(1.0)
+
+    time.sleep(0.5)
+    master.set_runinfo(old_dbname)
+    time.sleep(0.5)
     master.close()
     run_archive(action='start')
 

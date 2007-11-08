@@ -28,7 +28,7 @@ class ArchiveMaster(MasterDB):
     """ class for access to Master database as the Meta table of Archive databases
     """
     pv_init = ("drop table if exists pv",
-               """create table pv (id  smallint unsigned not null primary key auto_increment,
+               """create table pv (id  int unsigned not null primary key auto_increment,
                name        varchar(64) not null unique,
                description varchar(128),          data_table  varchar(16),
                deadtime    double default 10.0,   deadband    double default 1.e-8,
@@ -39,7 +39,7 @@ class ArchiveMaster(MasterDB):
 
     dat_init = ("drop table if exists pvdat%3.3i",
                 """create table pvdat%3.3i( time   double not null,
-                pv_id  smallint unsigned not null, value  tinyblob);""")
+                pv_id  int unsigned not null, value  tinyblob);""")
 
     sql_get_times   = "select min(time),max(time) from pvdat%3.3i"
     
@@ -102,7 +102,6 @@ class ArchiveMaster(MasterDB):
 
     def make_nextdb(self,dbname=None):
         "create a new pvarch database, copying pvs to save from an old database"
-        # print ' This is make_next ', dbname
         olddb  = SimpleDB(user=dbuser, passwd=dbpass,dbname=self.arch_db, host=dbhost,debug=0)
         olddb.use(self.arch_db)
         old_data = olddb.tables['pv'].select()

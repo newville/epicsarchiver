@@ -260,7 +260,7 @@ class MasterDB:
         for i in self.runs.select(where='1=1 order by start_time desc limit 10'):
             timefmt = "%6.2f "
             if  i['db'] == self.arch_db:
-                timefmt = "%6.2f*"
+                timefmt = "%6.1f*"
                 i['stop_time'] = time.time()
             days = timefmt % ((i['stop_time'] - i['start_time'])/(24*3600.0))
             drange = "%s to %s" %(tformat(i['start_time'],format="%Y-%m-%d"),
@@ -268,7 +268,7 @@ class MasterDB:
             
             r.append("| %16s  | %24s  |   %10s   |" % (i['db'],drange,days))
         r.reverse()
-        out = [self.runs_title,self.runs_line]
+        out = [self.runs_line,self.runs_title,self.runs_line]
         for i in r: out.append(i)
         out.append(self.runs_line)
         return out
