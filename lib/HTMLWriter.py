@@ -46,7 +46,7 @@ padding: 3px 3px 4px 3px;margin: 0px ;text-decoration: none; }
 conf = {'jscal_url':config.jscal_url}
 
 jscal_setup = """<link rel='stylesheet' type='text/css' media='all'
- href='%s/calendar-system.css' />
+ href='%(jscal_url)s/calendar-system.css' />
 <script type='text/javascript' src='%(jscal_url)s/calendar.js'></script>
 <script type='text/javascript' src='%(jscal_url)s/lang/calendar-en.js'></script>
 <script type='text/javascript' src='%(jscal_url)s/calendar-setup.js'></script>
