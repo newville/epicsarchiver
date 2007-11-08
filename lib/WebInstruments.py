@@ -51,16 +51,17 @@ class WebInstruments(HTMLWriter):
                 return self.view_position(position= self.POS_DATE,
                                           inst= int(inst), date= time_str2sec(ds))
             
-
-        elif (self.kw.has_key('save_position') and
-              self.kw.has_key('newpos_name') and
-              self.kw.has_key('inst_id')):
+            
+        elif (self.kw.has_key('inst_id') and
+              (self.kw.has_key('save_position') or
+               self.kw.has_key('newpos_name'))):
 
             inst_id = int(self.kw['inst_id'])
-            position =clean_input(self.kw['newpos_name'].strip())
-
-            self.arch.save_instrument_position(inst_id = inst_id, name=position)            
-            instrument,station = self.arch.get_instrument_names_from_id(inst_id)
+            
+            position =clean_input(self.kw.get('newpos_name','').strip())
+            if position != '':
+                self.arch.save_instrument_position(inst_id = inst_id, name=position)            
+                instrument,station = self.arch.get_instrument_names_from_id(inst_id)
 
 
         self.starthtml()
