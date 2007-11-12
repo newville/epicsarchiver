@@ -3,13 +3,13 @@
    Matthew Newville <newville@cars.uchicago.edu>
    CARS, University of Chicago
 
-   version    :  0.1
-   last update:  14-Sep-2007
+   version:      0.2
+   last update:  12-Nov-2007
+   copyright:    Matthew Newville, The University of Chicago, 2007
+   license:      MIT / BSD
          
-== Overview:
-   
 """
-__version__ = '0.1'
+__version__ = '0.2'
 
 import os
 import config

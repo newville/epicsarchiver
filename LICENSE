@@ -1,0 +1,37 @@
+Copyright, Licensing, and Re-distribution
+-----------------------------------------
+
+Except as Noted, the code, documentation, and files here are distributed
+under the following license:
+  
+    Copyright (c) 2007 Matthew Newville, The University of Chicago
+
+    Permission to use and redistribute the source code or binary forms of this
+    software and its documentation, with or without modification is hereby
+    granted provided that the above notice of copyright, these terms of use,
+    and the disclaimer of warranty below appear in the source code and
+    documentation, and that the names of The University of Chicago or the
+    authors appear in advertising or endorsement of works derived from this
+    software without specific prior written permission from all parties.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+    SOFTWARE OR THE USE OR OTHER DEALINGS IN THIS SOFTWARE.
+
+
+Exceptions:
+   1. The jscalendar used by EpicsArchiver in jscalendar-1.0.zip is distributed
+      under an LGPL license.  
+
+   2. The MySQLdb Python interface in py_install/ is distributed under the
+      Python license.  
+
+   3. The Gnuplot-Python interface in py_install/ is distributed under the
+      Python license.
+
+All of these are included with this distribution as a matter of
+convenience, and are unmodifief from their original forms.
