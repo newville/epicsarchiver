@@ -1,0 +1,20 @@
+Help Files and Documentation:
+
+Most of the information here is also available on-line 
+for a running Web Archiver.
+
+
+  File                 Contents 
+  ---------            --------
+  README               This file, overall documentation
+  Overview.txt         general description of processes
+  Setup.txt            runnig the pvarch command to control and manage
+                       the data archiving, layout of databases.
+  ApacheConfig.txt     some details of Apache / mod_python configuration
+  Plotting.txt         brief description of plotting archived data
+  Templates.txt        how to setup "status web pages" with templates
+  Alerts.txt           all about email alerts for PVs
+  Instruments.txt      all about defining and using Instruments.
+
+
+ 
