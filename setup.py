@@ -18,7 +18,7 @@ except:
 import Gnuplot
 import EpicsCA
     
-full_install = False
+full_install = True
 
 script_name= sys.argv[0]
 try:
@@ -152,8 +152,8 @@ if 'install' == cmd:
         thisdir = os.getcwd()
         os.chdir(config.template_dir)
         os.system("touch FileList")
-OB        os.system("make")
-        os.chdir(thisdirOB)
+        os.system("make")
+        os.chdir(thisdir)
         os.system("unzip -pur jscalendar-1.0.zip")        
         copy_tree('jscalendar-1.0',   config.jscal_dir)
 

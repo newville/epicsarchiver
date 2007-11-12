@@ -1,10 +1,10 @@
 Metadata-Version: 1.0
 Name: EpicsArchiver
 Version: 1.0
-Summary: Epics PV Archiver
-Home-page: http://cars9.uchicago.edu/software/
-Author: Matt Newville
+Summary: A library for Archiving Epics PVs.
+Home-page: UNKNOWN
+Author: Matthew Newville
 Author-email: newville@cars.uchicago.edu
-License: Python license
-Description: Archive Epics Process Variables to a MySQL database + Web Applications
+License: Python
+Description: UNKNOWN
 Platform: UNKNOWN
