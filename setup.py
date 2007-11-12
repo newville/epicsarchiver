@@ -152,9 +152,10 @@ if 'install' == cmd:
         thisdir = os.getcwd()
         os.chdir(config.template_dir)
         os.system("touch FileList")
-        os.system("make")
-        os.chdir(thisdir)
-        copy_tree('jscal',   config.jscal_dir)
+OB        os.system("make")
+        os.chdir(thisdirOB)
+        os.system("unzip -pur jscalendar-1.0.zip")        
+        copy_tree('jscalendar-1.0',   config.jscal_dir)
 
         mysqlso = extract_mysqlso('.foo')
         os.system("cp -pr %s %s/."  %  (mysqlso,config.share_dir))

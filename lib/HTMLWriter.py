@@ -75,23 +75,20 @@ jscal_get_2dates = """
             f2.value  = date2.print("%Y-%m-%d %H:%M:%S");
           }
      }
-     Calendar.setup({inputField : "date1",   ifFormat   : "%Y-%m-%d %H:%M:%S",
-             showsTime  : true,              timeFormat : 24,
-             singleClick: false,             button     : "date1_trig",
-             weekNumbers: false,             onUpdate   : setdate2  });
-     Calendar.setup({inputField : "date2",   ifFormat   : "%Y-%m-%d %H:%M:%S",
-             showsTime  : true,              timeFormat : 24,
-             singleClick: false,             button     : "date2_trig",
-             weekNumbers: false,             });
+     Calendar.setup({inputField: "date1",button: "date1_trig", onUpdate: setdate2, 
+             ifFormat: "%Y-%m-%d %H:%M:%S", showsTime: true,  timeFormat: 24,
+             showOthers: true, singleClick: false,  weekNumbers: false});
+     Calendar.setup({inputField: "date2",button: "date2_trig", 
+             ifFormat: "%Y-%m-%d %H:%M:%S", showsTime: true,  timeFormat: 24,
+             showOthers: true, singleClick: false,  weekNumbers: false});
 </script>
 """
 
 jscal_get_date = """
 <script type='text/javascript'>
-Calendar.setup({inputField : "date",   ifFormat   : "%Y-%m-%d %H:%M:%S",
-             showsTime  : true,             timeFormat : 24,
-             singleClick: false,            button     : "date_trig",
-             weekNumbers: false,            });
+Calendar.setup({inputField: "date",button: "date_trig", 
+        ifFormat: "%Y-%m-%d %H:%M:%S", showsTime: true,  timeFormat: 24,
+        showOthers: true, singleClick: false,  weekNumbers: false});
 </script>
 """
 
@@ -159,6 +156,7 @@ class HTMLWriter:
     def starthtml(self,refresh=''):
         if self.html_title in (None,'',' '):  self.html_title = ' '
         if refresh == '' : refresh = REFRESH_TIME
+        self.buffer=[]
         self.write(htmlhead % (self.html_title,refresh,jscal_setup))
 
     def show_links(self,pv='',inst_id=-1,**kw):
@@ -211,11 +209,25 @@ class HTMLWriter:
         if len(spans)< ncol:
             spans.extend(['']*(ncol-len(spans)+2))
 
+        print kw
         opts = ['']*ncol
-        if kw.has_key('options'): opts = list(kw['options'] )
-        if len(opts)< ncol:
-            opts.extend(['']*(ncol-len(opts)+2))
-
+        print opts
+        if len(kw)>0:
+            for k,v in kw.items():
+                if isinstance(v,(tuple,list)):
+                    vals = list(v)
+                    if len(vals) < ncol: vals.extend(['']*(ncol-len(vals)+2))
+                else:
+                    vals = [v]*ncol
+                for i,o in enumerate(opts):
+                    o = "%s %s='%s'" % (o,k,vals[i])
+                    opts[i] = o
+                #                
+#         if kw.has_key('options'): opts = list(kw['options'] )
+#         if len(opts)< ncol:
+#             opts.extend(['']*(ncol-len(opts)+2))
+        print 'opts: ', opts
+        
         self.write("<tr>")
         wr = self.write
         mcol = 0
@@ -302,11 +314,11 @@ class HTMLWriter:
 if __name__ == '__main__':
     t = HTMLWriter()
     t.starttable(ncol=3)
-    t.addrow('col 1', 'c2', 'c3')
+    t.addrow('col 1', 'c2', 'c3', align='center',color=('a','b'))
 
-    t.addrow('span 1 and 2', 'col 3', spans=(2,1))
-    t.addrow('name', t.textinput(name='fnamex'), spans=(1,2))
-    t.addrow('radio', t.radio(name='rx1'), spans=(1,2))
+#     t.addrow('span 1 and 2', 'col 3', spans=(2,1))
+#     t.addrow('name', t.textinput(name='fnamex'), spans=(1,2))
+#     t.addrow('radio', t.radio(name='rx1'), spans=(1,2))
 
     
     t.endtable()

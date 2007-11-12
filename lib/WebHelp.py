@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import config
+from EpicsArchiver import HTMLWriter, config
 
 xdbname1 = config.dat_format % (config.dat_prefix,1)
 xdbname2 = config.dat_format % (config.dat_prefix,2)
@@ -219,7 +219,7 @@ joins them is fairly simple.  The tables are:
                   the PV is actively cached.</td><tr>
 
 <tr> <td>runs</td><td> holds info about archiving 'runs'.</td><td> <tt>id, db,notes, start_time,stop_time</tt>
-<tr><td></td><td></td><td>   tt>db </tt> is the name of the current archive databases.</td></tr>
+<tr><td></td><td></td><td> <tt>db </tt> is the name of the current archive databases.</td></tr>
                   
 <tr> <td>info</td><td> status information about running 'cache' and 'archive' processes</td>
 <td> <tt>id, process, status, db, datetime, ts, pid</tt></td></tr>
@@ -284,7 +284,7 @@ to be read, eliminating more than 99%% of the data in the archive.
 </table>
 
 <p>In contrast, the data tables are much simpler, with columns of
-<tt>pv_id</tt> (that is the <id> from the PV table), <tt>time</tt>, and
+<tt>pv_id</tt> (that is the <tt>id</tt> from the PV table), <tt>time</tt>, and
 <tt>value</tt>
 
 <p>For further details, simply explore the MySQL databases. 
@@ -552,7 +552,7 @@ you can select the 'Time From Present' button and the time length from the
 drop down menu (ranging from 15 minutes to 1 month).  Second, you can give
 an explicit time range and select the 'Data Range' button.  Here, the
 format needs to be "YYYY-mm-dd HH:MM:SS" for both dates.  Clicking on the
-small buttons will pop-up a calender than can be used to chose the date and
+small buttons will pop-up a calendar than can be used to chose the date and
 time for these time ranges.
 
 <p> The plot should be shown automatically, and labeled well enough to
@@ -802,18 +802,20 @@ it.
 """ % conf
 
 
-from HTMLWriter import HTMLWriter
-class WebHelp(HTMLWriter):
 
-    sections = {'overview':overview,
+section_map = {'overview':overview,
                 'plotting':plotting,
                 'templates':templates,
                 'instruments':instruments,
                 'alerts':alerts,
                 'setup':setup}
+section_names  = ('overview', 'plotting', 'templates',
+                  'instruments', 'alerts',  'setup')
 
-    snames = ('overview', 'plotting', 'templates',
-              'instruments', 'alerts',  'setup')
+
+
+class WebHelp(HTMLWriter):
+
 
     html_title = 'Epics PV Archiver Help'
     def __init__(self,section=None,anchor=None,**kw):
@@ -828,14 +830,38 @@ class WebHelp(HTMLWriter):
         self.starthtml()
         self.show_links()
         
-        if section not in self.sections.keys(): section = 'overview'
+        if section not in section_map.keys(): section = 'overview'
         
         self.write("<h3>Epics PV Archiver Documentation: %s</h3>" % section.title())
 
-        sout = [self.link(link="%s?section=%s" % (helppage,s), text=s.title()) for s in self.snames]
+        sout = [self.link(link="%s?section=%s" % (helppage,s), text=s.title()) for s in section_names]
         links = "<p>Help Section: [%s]<p>" % '&nbsp;|&nbsp;'.join(sout)
                    
-        self.write("%s<hr>%s %s<hr>" % (links, self.sections[section], links) )
+        self.write("%s<hr>%s %s<hr>" % (links, section_map[section], links) )
 
         self.endhtml()
         return self.get_buffer()
+
+def dehtml(s):
+    replacements = {'<hr>':'---'*20, '<h3>':'== ','</h3>':' ==',
+                    '<h4>':' ** ','</h4>':'',
+                    '</a>':'>>','<a href="':'<<'}
+
+    remove_tags = ('hr','b','p','i','h3','h4','pre','a',
+                   'li','ul','tt','td','tr','table','font',
+                   "font color='#440099'",'td colspan=2',
+                   "table align='center'","font size=+1",
+                   "td width=30%", "td width=70%")
+    
+    for k,v in replacements.items(): s = s.replace(k,v)
+
+    for i in remove_tags:
+        s = s.replace('<%s>'%i,'').replace('</%s>'%i,'').replace('\n\n\n','\n\n').replace('\t','   ')
+    return s
+
+if __name__ == '__main__':
+    for name in section_names:        
+        print "##== %s ==##" % name.title()
+        print dehtml(section_map[name])
+        print "========================================="
+        

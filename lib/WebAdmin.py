@@ -445,7 +445,7 @@ class WebAdmin(HTMLWriter):
             else:
                 wr("<h3>Related PVs for &nbsp; &nbsp; %s:</h3> " % pvname)
                 self.starttable(ncol=5)
-                self.addrow("PV","Current Score","Change Score",spans=(1,1,3))
+                self.addrow("PV","Current Score","Change Score",spans=(1,1,3),align='center')
                 self.addrow("<hr>",spans=(5,))
 
                 for pv2 in related_pvs:

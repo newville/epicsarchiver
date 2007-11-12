@@ -16,6 +16,7 @@ instpage   = "%s/show.py/instrument"  % config.cgi_url
 pvinfopage = "%s/admin.py/pvinfo" % config.cgi_url
 
 DEBUG = False
+
 class WebInstruments(HTMLWriter):
     POS_DATE = '__(position_by_date)__'
     html_title = 'Epics Instruments'
@@ -40,41 +41,53 @@ class WebInstruments(HTMLWriter):
 
         wr = self.write                
         
-        if (self.kw.has_key('search_position') and
-            self.kw.has_key('date') and
-            self.kw.has_key('inst_id')):
-            # look up position by date!
-            ds   = self.kw['date'].strip()
-            inst = self.kw['inst_id'].strip()
-            
-            if len(inst)>0 and len(ds)>8:
-                return self.view_position(position= self.POS_DATE,
-                                          inst= int(inst), date= time_str2sec(ds))
-            
-            
-        elif (self.kw.has_key('inst_id') and
-              (self.kw.has_key('save_position') or
-               self.kw.has_key('newpos_name'))):
-
-            inst_id = int(self.kw['inst_id'])
-            
-            position =clean_input(self.kw.get('newpos_name','').strip())
-            if position != '':
-                self.arch.save_instrument_position(inst_id = inst_id, name=position)            
-                instrument,station = self.arch.get_instrument_names_from_id(inst_id)
-
-
         self.starthtml()
         self.show_links(pv=pv,help='instruments')
-        
         if DEBUG: self.show_dict(self.kw)
+        
+        inst_id = -1        
+        if self.kw.has_key('inst_id'):
+            try:
+                inst_id = int(self.kw['inst_id'])
+            except:
+                pass
 
+        newpos_name = ''
+        if self.kw.has_key('newpos_name'):
+            newpos_name =clean_input(self.kw.get('newpos_name','').strip())
+
+        tsec = -1
+        if self.kw.has_key('date'):
+            try:
+                tsec  = time_str2sec(self.kw.get('date','').strip())
+            except:
+                pass
+                
+
+        try:
+            use_newstation = int(self.kw.get('newstation','0').strip())==1
+            
+        except:
+            use_newstation = False
+            
+        if not use_newstation and inst_id>0:
+            # we may act on new position name or lookup-by-date
+            if newpos_name!='':
+                # save new position name
+                self.arch.save_instrument_position(inst_id = inst_id, name=newpos_name)
+                instrument,station = self.arch.get_instrument_names_from_id(inst_id)
+            elif tsec>0:
+                # look up position by date
+                return self.view_position(position= self.POS_DATE,
+                                          inst= inst_id, date=tsec)
+
+        self.kw['station_sel'] = ''
+        
         wr(" <h3> Instruments  </h3> ")
         
-        self.startform(action=instpage,hiddenkeys=('pv',))
-
         self.show_station_choices()
 
+        self.startform(action=instpage,hiddenkeys=('pv',))
         if station == '':
             wr("Please select a station.")
         else:
@@ -149,6 +162,7 @@ class WebInstruments(HTMLWriter):
                     
 
             wr("</table>")
+        self.endform()
         self.endhtml()
         return self.get_buffer()
         
@@ -290,7 +304,11 @@ class WebInstruments(HTMLWriter):
         <input type='submit' name='submit' value='IDL script'>
         <input type='submit' name='submit' value='Python script'>
         <input type='submit' name='submit' value='Save/Restore file'><p>
-           and run the script. """)
+        and run the script. <br>
+        <a href='%s?station=%s&instrument=%s'>View All Positions for %s</a>""" % (instpage,
+                                                                                  station,
+                                                                                  instrument,
+                                                                                  instrument))
 
         
         self.endhtml()
@@ -470,21 +488,22 @@ class WebInstruments(HTMLWriter):
     def show_station_choices(self):
         # stations:
         wr = self.write
-        
-        wr("<table>")
         self.stations = {}
+        
+        self.startform(action=instpage)
+
         for s in self.arch.list_stations():
             self.stations[s['name']] = (s['id'],s['notes'])
 
         station_list = self.stations.keys() ; station_list.sort()
-        wr("<tr><td>Station: <select id='station' name='station'>")
+
+        wr("Station: <select id='station' name='station'>")
         for s in station_list:
             extra = ''
             if self.kw['station'] == s: extra = 'selected'
             wr("<option %s value='%s'>%s" % (extra, s, s))
-        wr("""</select>
-        <input type='submit' name='station_sel' value='Select Station'></td><td>
-        <td>&nbsp;&nbsp;<a href='%s/add_station'>Add Station</a></td><tr>
-        <tr><td colspan=4><hr></td></tr></table>""" % (mainpage))
+        wr("""</select><input type='submit' name='station_sel' value='Select Station'>
+        &nbsp;&nbsp;<a href='%s/add_station'>Add Station</a></form><hr>""" % mainpage)
+
 
         

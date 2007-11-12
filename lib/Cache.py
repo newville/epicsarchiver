@@ -195,6 +195,7 @@ class Cache(MasterDB):
 
                 self.process_requests()
                 self.process_alerts()
+                sys.stdout.flush()                
                 if self.get_pid() != self.pid:
                     sys.stdout.write('no longer master.  Exiting !!\n')
                     self.exit()
@@ -262,7 +263,7 @@ class Cache(MasterDB):
         " process requests for new PV's to be cached"
         req   = self.sql_exec_fetch("select * from requests")
         if len(req) == 0: return
-        sys.stdout.write('processing %i requests\n' %  len(req))
+        # sys.stdout.write('processing %i requests\n' %  len(req))
         del_cache= "delete from cache where %s"
         del_req  = "delete from requests where %s"
         # note: if a requested PV does not connect,
@@ -272,7 +273,7 @@ class Cache(MasterDB):
 
         if len(req)>0:
             sys.stdout.write("processing %i requests at %s\n" % (len(req), time.ctime()))
-
+            sys.stdout.flush()
         es = clean_string
         now = time.time()
         
@@ -327,9 +328,11 @@ class Cache(MasterDB):
             i['last_notice'] = -1.
             pvname = i.pop('pvname')
             self.alert_data[pvname] = i
-        
+        # sys.stdout.write("read alerts: %i \n" % len(self.alert_data))
+        # sys.stdout.flush()
+                         
     def process_alerts(self):
-        msg = 'Alert sent for PV=%s / Label=%s at %s\n'
+        msg = 'Alert sent for PV=%s / Label=%s to %s at %s\n'
         self.db.set_autocommit(1)
         for pvname,pvdata in self.data.items():
             if self.alert_data.has_key(pvname):
@@ -341,9 +344,8 @@ class Cache(MasterDB):
                                                 sendmail=sendmail)
                 if notified:
                     self.alert_data[pvname]['last_notice'] = time.time()
-                    sys.stdout.write(msg % (pvname, alarm['name'],time.ctime()))
-                # sys.stdout.write("alertcheck: %s %s %s %s\n" % (pvname,str(pvdata[0]),ok,notified))
-                    
+                    sys.stdout.write(msg % (pvname, alarm['name'],alarm['mailto'],time.ctime()))
+
         self.db.set_autocommit(0)                
 
                 

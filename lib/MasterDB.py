@@ -534,10 +534,6 @@ class MasterDB:
         msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/show.py/plot?pv=%s\n" % \
               (mailfrom,subject,'\n'.join(mlines),cgi_url,pvname)
 
-        sys.stdout.write("Alert mail: PV %s, Alert ID=%i, mailto=%s" % (pvname,
-                                                                        alarm['id'],
-                                                                        mailto))
-        
         try:
             s = smtplib.SMTP(mailserver)
             s.sendmail(mailfrom,mailto,msg)
