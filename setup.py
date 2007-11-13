@@ -154,7 +154,7 @@ if 'install' == cmd:
         os.system("touch FileList")
         os.system("make")
         os.chdir(thisdir)
-        os.system("unzip -pur jscalendar-1.0.zip")        
+        os.system("unzip -o jscalendar-1.0.zip")        
         copy_tree('jscalendar-1.0',   config.jscal_dir)
 
         mysqlso = extract_mysqlso('.foo')

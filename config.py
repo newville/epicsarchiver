@@ -1,7 +1,7 @@
 #
 # configuration file for PV_Archive.py
 
-DEBUG = False
+DEBUG = True
 
 ######################################################
 ##

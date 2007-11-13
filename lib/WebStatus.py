@@ -85,9 +85,12 @@ class WebStatus:
         if desc is None: desc = pv
         if outtype=='yes/no':
             oval = 'Unknown'
-
-            if int(float(val.strip())) == 0: oval = 'No'
-            if int(float(val.strip())) == 1: oval = 'Yes'
+            try:
+                if int(float(val.strip())) == 0: oval = 'No'
+                if int(float(val.strip())) == 1: oval = 'Yes'
+            except ValueError:
+                pass
+                    
 
         return (desc,oval)
 

@@ -106,8 +106,16 @@ class Cache(MasterDB):
     def update_cache(self):
         fmt = "update cache set value=%s,cvalue='%s',ts=%f where pvname='%s'"
         for (val,cval,ts,nam) in self.data.values():
-            sval = clean_string(str(val))
-            self.db.execute(fmt % (sval,cval,ts,nam))
+            if val is None:
+                pv   = self.pvs[nam]
+                val  = pv.get()
+                cval = pv.char_value
+                ts   = time.time()
+                if val is None:
+                    sys.stdout.write("why does %s have value 'None'\n" % nam)
+            if val is not None:
+                sval = clean_string(str(val))
+                self.db.execute(fmt % (sval,cval,ts,nam))
         return len(self.data)
 
     def connect_pvs(self):
@@ -134,6 +142,7 @@ class Cache(MasterDB):
             try:
                 pv = self.pvs[pvname]
                 pv.connect(connect_time=1.00)
+                pv.get()
                 pv.set_callback(self.onChanges)
                 self.data[pvname] = (pv.value, pv.char_value, time.time(),pvname)
             except KeyboardInterrupt:
