@@ -68,7 +68,7 @@ def daemonize(stdout='/dev/null', stderr=None, stdin='/dev/null',
     so = file(stdout, 'w+')
     se = file(stderr, 'w+', 0)
     pid = str(os.getpid())
-    sys.stderr.write("\n%s\n" % startmsg % pid)
+    sys.stderr.write("%s\n" % startmsg % pid)
     sys.stderr.flush()
     if pidfile: file(pidfile,'w+').write("%s\n" % pid)
     
@@ -106,6 +106,7 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
         except IOError:
             pid_status = 'not running'            
             
+    # print 'startstop: ', action, pid_status, pid, pidfile
     if action in ('stop','restart'):
         if not pid:
             mess = "Warning: Could not stop, pid file '%s' missing.\n"
