@@ -39,7 +39,6 @@ lib/WebAdmin.py
 lib/WebHelp.py
 lib/WebInstruments.py
 lib/WebStatus.py
-py_install/EpicsCA-2.1.2.tar.gz
 py_install/gnuplot-py-1.7.tar.gz
 py_install/MySQL-python-1.2.2.tar.gz
 sql/pvarch_init.sql
