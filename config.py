@@ -1,8 +1,8 @@
 #
 # configuration file for PV_Archive.py
-#
-#  you should check that the settings here
-#  reflect your apache and mysql setup.
+
+DEBUG = True
+
 ######################################################
 ##
 ## Mysql setup section
@@ -10,7 +10,7 @@
 # give the mysql user name, password, and host.
 # this account does not need to have access to all tables!!
 dbuser = 'epics'
-dbpass = 'epics_'
+dbpass = 'epics321'
 dbhost = 'localhost'
 
 # command for how mysql databases should be 'dumped'.
@@ -18,6 +18,8 @@ mysqldump = '/usr/bin/mysqldump --opt -p%s -u%s' % (dbpass,dbuser)
 
 # location of log directories
 logdir = '/var/log/pvarch'
+if DEBUG:
+    logdir='/home/newville/logs/pvarch/'
 
 # name of 'master' database
 master_db = 'pvarch_master'
@@ -51,12 +53,17 @@ pv_deadtime_enum = 1
 ##
 #  apache root directory, and the URL 
 apache_root = '/var/www/'
-url_root    = 'http://test.aps.anl.gov/'
-
-# apache user / group -- these should be the same as in your httpd.conf
+url_root    = 'http://idea.cars.aps.anl.gov/'
+# apache user / group -- these should be the same as in httpd.conf
 apache_user = 'apache'
 apache_group= 'apache'
 
+if DEBUG:
+    apache_root = '/www/apache/'
+    url_root    = 'http://ion.cars.aps.anl.gov/'
+    apache_user = 'nobody'
+    apache_group= 'nobody'
+    
 
 # location for python web scripts, and how this maps to a URL:
 cgi_bin   = apache_root  + 'cgi-bin/pvarch'
@@ -68,11 +75,10 @@ cgi_data_url = url_root    + 'cgi-data/'
 data_dir     = cgi_data_dir+ 'pvarch'
 data_url     = cgi_data_url+ 'pvarch'
 
-# temporary datafiles should have this prefix:
 webfile_prefix = 'pv'
 
 # location for javascript calendar used by PlotViewer how this maps to a URL:
-# (setup.py will install jscalendar here):
+#  (this will be installed by setup.py)
 jscal_dir     = cgi_data_dir+ 'jscal'
 jscal_url     = cgi_data_url+ 'jscal'
 
@@ -93,12 +99,10 @@ footer = """<hr>[
 share_dir  = '/usr/local/share/pvarch/'
 
 template_dir  = share_dir + 'templates/'
+
 ######################################################
 ##
 ## Email setup for email alerts
 ##
 mailserver = 'localhost'
-mailfrom   = 'pvarchiver@aps.anl.gov'
-
-#   done.
-######################################################
+mailfrom   = 'pvarchiver@cars.uchicago.edu'
