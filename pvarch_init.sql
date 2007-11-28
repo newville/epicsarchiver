@@ -89,8 +89,3 @@ create table instrument_positions (
     active     enum('yes','no') not null default 'yes',
     ts         double not null default 0);
 
-
-
-
-
-
