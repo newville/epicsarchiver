@@ -4,7 +4,7 @@
    CARS, University of Chicago
 
    version:      1.0
-   last update:  12-Nov-2007
+   last update:  27-Nov-2007
    copyright:    Matthew Newville, The University of Chicago, 2007
    license:      MIT / BSD
          
@@ -20,7 +20,6 @@ import MySQLdb
     
 from util import string_literal, clean_input, escape_string, timehash, tformat, clean_mail_message
 
-# from DBConnect import ConnectionPool 
 from SimpleDB import SimpleDB, SimpleTable,ConnectionPool
 
 from MasterDB       import MasterDB
