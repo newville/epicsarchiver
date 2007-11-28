@@ -11,40 +11,38 @@ Linux/Apache/MySQL/Python set of tools and requires:
   - mysql: MySQL 5.x (with INNOdb support)  For many linux
            distributions, you will need the 'devel' package.
   
-  - a minimal Epics installation (at least epics base).
-
 These are generally standard components on modern linux machines.
 You will also need these (slightly less standard) tools:
 
+  - Gnuplot  4.0 or higher
+
   - Epics Base.
 
-  - Gnuplot  4.0 or higher
+  - mod_python.  Many linux distributions include this as an
+    add-on package for Apache.  The source for this is included, 
+    but you will need to install this and configure apache to use it. 
 
   - These python modules (included in the source install):
         Gnuplot : py_install/gnuplot-py-1.7.tar.gz
         MySQLdb : py_install/MySQL-python-1.2.2.tar.gz
-        EpicsCA : py_install/EpicsCA-2.1.2.tar.gz
+        EpicsCA : py_install/EpicsCA-2.1.3.tar.gz
 
     All of these packages buid and install with a simple
         python setup.py install
     For MySQLdb, you may need the 'mysql-devel' package installed.
     For EpicsCA, you need a minimal installation of Epics base.
 
-  - mod_python.  Many linux distributions include this as an
-    add-on package for Apache.  The source for this is included, 
-    but you will need to install this and configure apache to use it. 
-
 See INSTALL for more Installation instructions.
 
 See doc/ApacheConfig.txt for more details on setting up Apache and mod_python.
 
-See doc/Usage.txt for general usage notes, 
+See doc/Overview.txt for general usage notes, 
 
-See doc/WebPages.txt for detailed notes on how to build and 
+See doc/Templates.txt for detailed notes on how to build and 
     view web pages of PVs.
 
-See doc/DataLayout.txt for description of MySQL databases,
-    and command-line tools for extracting data.
+See doc/Setup.txt for description of MySQL databases,and command-line 
+    tools for extracting data.
 
 
 
