@@ -18,6 +18,7 @@ except:
 import Gnuplot
 import EpicsCA
     
+# useful for debugging / re-installing
 full_install = True
 
 script_name= sys.argv[0]
@@ -41,8 +42,6 @@ def extract_mysqlso(tmpdir='.foo'):
         xso   = os.path.join(xdir,'_mysql.so')        
         if os.path.isdir(xdir) and os.path.exists(xso):
             return xso
-
-
 
 try: 
     x = config.dbpass[1:2].lower()
@@ -147,7 +146,6 @@ setup(
 
 if 'install' == cmd:
     os.system("chmod -R 755 %s" %  (config.data_dir))
-
     if full_install:
         thisdir = os.getcwd()
         os.chdir(config.template_dir)
@@ -168,8 +166,6 @@ if 'install' == cmd:
         newso = os.path.join(config.share_dir, '_mysql.so')
         os.system("chmod 755 %s" %  (newso))
         os.system("%s %s" % (setperms, newso))
-
-
 
     
 print  """=================================================
