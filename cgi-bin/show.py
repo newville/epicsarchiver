@@ -28,16 +28,26 @@ sys.path.insert(0,file_base)
 
 def plot(req,pv=None,pv2=None,**kw):
     " plot viewer "
-    dbconn = pool.get()
+    try:
+        dbconn = req.dbconn
+    except AttributeError:
+        dbconn = pool.get()
+        req.dbconn = dbconn
+        
     p   = PlotViewer(dbconn=dbconn,**kw) 
     out = p.show_pv(pv,pv2)
-    pool.put(dbconn)
+    # pool.put(dbconn)
     return out
 
 
 def show_page(req,page=None,**kw):
     " status pages "
-    dbconn = pool.get()
+    try:
+        dbconn = req.dbconn
+    except AttributeError:
+        dbconn = pool.get()
+        req.dbconn = dbconn
+
     p = WebStatus(dbconn=dbconn)
 
     # here we import the list of pages for the web templates
@@ -49,7 +59,7 @@ def show_page(req,page=None,**kw):
         p.show_pvfile(filemap[page])
    
     p.end_page()
-    pool.put(dbconn)
+    # pool.put(dbconn)
     return p.get_buffer()
 
 def help(req,**kw):
@@ -57,20 +67,25 @@ def help(req,**kw):
     return p.show(**kw)
 
 #methods for instruments:
-def __Inst(method='show',**kw):
-    dbconn = pool.get()
+def __Inst(req,method='show',**kw):
+    try:
+        dbconn = req.dbconn
+    except AttributeError:
+        dbconn = pool.get()
+        req.dbconn = dbconn
+
     p = WebInstruments(dbconn=dbconn)
     out = getattr(p,method)(**kw)
-    pool.put(dbconn)
+    # pool.put(dbconn)
     return out
 
-def instrument(req,**kw):           return __Inst('show',**kw)
-def show_instrument(req,**kw):      return __Inst('show',**kw)
-def add_instrument(req,**kw):       return __Inst('add_instrument',**kw)
-def modify_instrument(req,**kw):    return __Inst('modify_instrument',**kw)    
-def manage_positions(req,**kw):     return __Inst('manage_positions',**kw)    
-def view_position(req,**kw):        return __Inst('view_position',**kw)
-def add_station(req,**kw):          return __Inst('add_station',**kw)
+def instrument(req,**kw):           return __Inst(req,'show',**kw)
+def show_instrument(req,**kw):      return __Inst(req,'show',**kw)
+def add_instrument(req,**kw):       return __Inst(req,'add_instrument',**kw)
+def modify_instrument(req,**kw):    return __Inst(req,'modify_instrument',**kw)    
+def manage_positions(req,**kw):     return __Inst(req,'manage_positions',**kw)    
+def view_position(req,**kw):        return __Inst(req,'view_position',**kw)
+def add_station(req,**kw):          return __Inst(req,'add_station',**kw)
 
 # default function:
 def index(req):  return show_page(req,page=None)

@@ -22,19 +22,25 @@ def __auth__(req,user,passwd):
     if is_valid(user,passwd): return 1
     return 0
 
-def __Admin(method,**kw):
-    dbconn1 = pool.get()
-    dbconn2 = pool.get()
-    p = WebAdmin(dbconn1=dbconn1,dbconn2=dbconn2)
+def __Admin(req,method,**kw):
+    try:
+        dbconn = req.dbconn
+        dbconn2 = req.dbconn2
+    except AttributeError:
+        dbconn = pool.get()
+        dbconn2 = pool.get()
+        req.dbconn = dbconn
+        req.dbconn2 = dbconn2
+
+    p = WebAdmin(dbconn1=dbconn,dbconn2=dbconn2)
 
     out = getattr(p,method)(**kw)
-
-    pool.put(dbconn1)
-    pool.put(dbconn2)
+    # pool.put(dbconn1)
+    # pool.put(dbconn2)
     return out
 
-def index(req,**kw):        return __Admin('show_adminpage',**kw)
-def pvinfo(req,**kw):       return __Admin('show_pvinfo',**kw)
-def related_pvs(req,**kw):  return __Admin('show_related_pvs',**kw)    
-def alerts(req,**kw):       return __Admin('show_alerts',**kw)
-def list_alerts(req,**kw):  return __Admin('show_all_alerts',**kw)    
+def index(req,**kw):        return __Admin(req,'show_adminpage',**kw)
+def pvinfo(req,**kw):       return __Admin(req,'show_pvinfo',**kw)
+def related_pvs(req,**kw):  return __Admin(req,'show_related_pvs',**kw)    
+def alerts(req,**kw):       return __Admin(req,'show_alerts',**kw)
+def list_alerts(req,**kw):  return __Admin(req,'show_all_alerts',**kw)    
