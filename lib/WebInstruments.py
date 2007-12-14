@@ -25,7 +25,7 @@ class WebInstruments(HTMLWriter):
 
         HTMLWriter.__init__(self)
         self.arch   = Instruments(dbconn=dbconn)
-
+        self.dbconn  = self.arch.dbconn
         self.kw  = {'station_sel':'', 'newstation':'',
                     'station':'', 'instrument':'','pv':'',
                     'station_add':'','inst_id':-1,
@@ -42,7 +42,7 @@ class WebInstruments(HTMLWriter):
         wr = self.write                
         
         self.starthtml()
-        self.show_links(pv=pv,help='instruments')
+        self.show_links(pv=pv,help='instruments',active_tab='Instruments')
         if DEBUG: self.show_dict(self.kw)
         
         inst_id = -1        
@@ -83,7 +83,7 @@ class WebInstruments(HTMLWriter):
 
         self.kw['station_sel'] = ''
         
-        wr(" <h3> Instruments  </h3> ")
+        # wr(" <h3> Instruments  </h3> ")
         
         self.show_station_choices()
 
@@ -189,13 +189,13 @@ class WebInstruments(HTMLWriter):
         instrument,station =  self.arch.get_instrument_names_from_id(inst_id)
 
         self.starthtml()
-        self.show_links()
+        self.show_links(active_tab='Instruments')
         flink = "%s/manage_positions?inst_id=%i" % (mainpage,inst_id)
 
 
         if DEBUG: self.show_dict(mykw)
 
-        wr("""<form action ='%s' enctype='multipart/form-data'  method ='POST'>
+        wr("""<form action ='%s' name='inst_form' enctype='multipart/form-data'  method ='POST'>
         <h3> Positions for Instrument  %s in Station %s </h3><table>
         <tr><td align='center'> Position Name &nbsp; &nbsp; &nbsp; </td>
         <td align='center'> &nbsp;  Time Saved &nbsp; &nbsp;</td>
@@ -278,7 +278,7 @@ class WebInstruments(HTMLWriter):
             pname = 'Position %s ' % position
             
         self.starthtml()
-        self.show_links()
+        self.show_links(active_tab='Instruments')
         # self.show_dict(mykw)
         
         flink = "%s/view_position?inst=%i&position=%s&date=%i" % (mainpage,inst_id,position,save_time)
@@ -320,7 +320,7 @@ class WebInstruments(HTMLWriter):
         mykw.update(kw)
 
         self.starthtml()
-        self.show_links()
+        self.show_links(active_tab='Instruments')
         wr = self.write
 
         if DEBUG: self.show_dict(mykw)
@@ -368,7 +368,7 @@ class WebInstruments(HTMLWriter):
         mykw['station'] = station
        
         self.starthtml()
-        self.show_links(help='instruments')
+        self.show_links(help='instruments',active_tab='Instruments')
 
         wr = self.write
 
@@ -425,7 +425,7 @@ class WebInstruments(HTMLWriter):
         instrument,station = self.arch.get_instrument_names_from_id(inst_id)
 
         self.starthtml()
-        self.show_links(help='instruments')
+        self.show_links(help='instruments',active_tab='Instruments')
 
         wr = self.write
         
@@ -489,21 +489,32 @@ class WebInstruments(HTMLWriter):
         # stations:
         wr = self.write
         self.stations = {}
+
         
         self.startform(action=instpage)
 
+        self.write("""<script type='text/javascript'>
+        function showStation(dropdown) {
+           var index=dropdown.selectedIndex;
+           var val  = dropdown.options[index].value;
+           var url  = '%s';
+           var url  = url.concat('?station=');
+           var url  = url.concat(val);           
+           top.location.href = url;
+           }
+        </script>"""  % (instpage))
+        
         for s in self.arch.list_stations():
             self.stations[s['name']] = (s['id'],s['notes'])
 
         station_list = self.stations.keys() ; station_list.sort()
 
-        wr("Station: <select id='station' name='station'>")
+        wr("""<font class='h3font'>Station:</font>
+        <select id='station' name='station' onChange='showStation(this.form.station);'>""")
+        
         for s in station_list:
             extra = ''
             if self.kw['station'] == s: extra = 'selected'
             wr("<option %s value='%s'>%s" % (extra, s, s))
-        wr("""</select><input type='submit' name='station_sel' value='Select Station'>
-        &nbsp;&nbsp;<a href='%s/add_station'>Add Station</a></form><hr>""" % mainpage)
-
-
+        wr("""</select> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href='%s/add_station'>&lt;add station&gt;</a></form><hr>""" % mainpage)
         

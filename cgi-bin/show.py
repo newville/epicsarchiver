@@ -4,20 +4,9 @@
 from mod_python import apache
 
 import sys
-from EpicsArchiver import config, WebStatus, PlotViewer, WebHelp, WebInstruments, ConnectionPool
+from EpicsArchiver import config, WebStatus, PlotViewer, WebHelp, WebInstruments
 
 DEBUG = False
-logfile = None
-if DEBUG:
-    logfile = open("%s/web_dbpool.log" % config.data_dir, 'a')
-    
-
-# here we create a "Globabl Pool" of DB Connections for this process:
-# as the apache process accesses pages, it will create/return/re-use
-# db connections from this pool with pool.get() and pool.put()
-
-global pool
-pool = ConnectionPool(size=8,out=logfile)
 
 # add the location of the web template file to the path 
 file_base   = config.template_dir
@@ -26,17 +15,32 @@ sys.path.insert(0,file_base)
 
 # methods for public access, called with: http://.../show.py/plot?key=arg&key=arg, etc
 
-def plot(req,pv=None,pv2=None,**kw):
+def old_plot(req,pv=None,**kw):
     " plot viewer "
     try:
         dbconn = req.dbconn
     except AttributeError:
-        dbconn = pool.get()
+        dbconn = None
         req.dbconn = dbconn
         
-    p   = PlotViewer(dbconn=dbconn,**kw) 
-    out = p.show_pv(pv,pv2)
-    # pool.put(dbconn)
+    p   = PlotViewer(dbconn=dbconn)
+    req.dbconn = p.dbconn
+    
+    out = p.show_plot(pv=pv,**kw)
+    return out
+
+def plot(req,pv=None,**kw):
+    " plot viewer "
+    try:
+        dbconn = req.dbconn
+    except AttributeError:
+        dbconn = None
+        req.dbconn = dbconn
+        
+    p   = PlotViewer(dbconn=dbconn)
+    req.dbconn = p.dbconn
+    
+    out = p.do_plot(pv=pv,**kw)
     return out
 
 
@@ -45,21 +49,22 @@ def show_page(req,page=None,**kw):
     try:
         dbconn = req.dbconn
     except AttributeError:
-        dbconn = pool.get()
+        dbconn = None
         req.dbconn = dbconn
 
     p = WebStatus(dbconn=dbconn)
-
+    req.dbconn = p.dbconn
     # here we import the list of pages for the web templates
     from pages import pagelist, filemap
 
-    p.begin_page(page, pagelist, refresh=30)
     if page == None: page = pagelist[0]
+
+    p.begin_page(page, pagelist, refresh=30)
+
     if page in pagelist:
         p.show_pvfile(filemap[page])
    
     p.end_page()
-    # pool.put(dbconn)
     return p.get_buffer()
 
 def help(req,**kw):
@@ -71,12 +76,12 @@ def __Inst(req,method='show',**kw):
     try:
         dbconn = req.dbconn
     except AttributeError:
-        dbconn = pool.get()
+        dbconn = None
         req.dbconn = dbconn
 
     p = WebInstruments(dbconn=dbconn)
+    req.dbconn = p.dbconn
     out = getattr(p,method)(**kw)
-    # pool.put(dbconn)
     return out
 
 def instrument(req,**kw):           return __Inst(req,'show',**kw)

@@ -21,7 +21,7 @@ class Archiver:
         self.master_db = config.master_db
         self.dbname = None
         self.db = SimpleDB(dbconn=dbconn)
-
+        self.dbconn = self.db.conn
         # print 'Archiver db = ', self.db, self.db.conn
         
         ret = self.read_master("select db from info where process='archive'")
@@ -84,7 +84,10 @@ class Archiver:
 
     def get_cache_full(self,pv):
         " return full information for a cached pv"
-        return self.read_master("select * from cache where pvname='%s'" % pv)[0]
+        s = self.read_master("select * from cache where pvname='%s'" % pv)
+        if s == ():
+            s  = ({'type':None,'value':None})
+        return s[0]
 
     def sync_with_cache(self,update_vals=False):
         """ initialize pv lists, insert times, etc with cache
@@ -245,11 +248,11 @@ class Archiver:
 
 
     def add_pv(self,name,description=None,graph={},deadtime=None,deadband=None):
-        """add PV to the database"""
+        """add PV to the database: expected to take a while"""
         pvname = normalize_pvname(name)
         if not valid_pvname(pvname):
             sys.stdout.write("## Archiver add_pv invalid pvname = '%s'" % pvname)
-            return
+            return None
 
         if self.pvinfo.has_key(pvname):
             if 'yes' == self.pvinfo[pvname]['active']:
@@ -264,11 +267,17 @@ class Archiver:
             typ = pv.type
             count = pv.count
             prec  = pv.precision
+            connected = pv.connected 
         except:
             typ= 'int'
             count = 1
             prec = None
-            
+            connected = False
+
+        if not connected:
+            self.write("cannot add PV '%s': not connected")
+            return None
+
         # determine type
         dtype = 'string'
         if (typ in ('int','long','short')): dtype = 'int'
@@ -347,8 +356,14 @@ class Archiver:
 
         self.update_value(pvname,time.time(),pv.value)
 
+
+        # make sure the pv is in the cache:
+        if pvname not in self.cache_names:
+            m = MasterDB()
+            m.add_pv(pvname)
+            m.close()
+            
         pv.disconnect()
-        # should add an insert here!!
         
     def reread_db(self,pvname):
         ' re-read database settings for PV'

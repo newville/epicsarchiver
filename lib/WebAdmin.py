@@ -15,14 +15,12 @@ alerts_page = "%s/admin.py/alerts"   % config.cgi_url
 class WebAdmin(HTMLWriter):
     html_title = "PV Archive Admin Page"
     
-    def __init__(self, dbconn1=None, dbconn2=None,**kw):
+    def __init__(self, dbconn=None, **kw):
         HTMLWriter.__init__(self)
 
-        self.arch    = Archiver(dbconn=dbconn1)
-        self.master  = MasterDB(dbconn=dbconn2) 
-
-        self.arch.db.get_cursor()
-        self.master.db.get_cursor()
+        self.master = MasterDB(dbconn=dbconn) 
+        # self.master.db.get_cursor()
+        self.dbconn = self.master.db.conn
         
         self.kw  = {'form_pv':'', 'pv':'', 'inst_id':-1,'submit':''}
         self.kw.update(kw)
@@ -86,31 +84,25 @@ class WebAdmin(HTMLWriter):
         pvname = self.kw['pv']
         submit = self.kw['submit'].strip()
 
-        self.master.use_current_archive()
         if submit.startswith('Update') and len(pvname)>1:
-            pv_update = self.arch.pv_table.update
-            wr("<p>Updating data for %s!!<p><hr>" % (pvname))
-            desc  = clean_input(self.kw['description'].strip())
-            where = "name='%s'" % (pvname)
-            pv_update(where=where, description=desc)
-                                                                                   
-            kws = {}
+            self.master.use_current_archive()
+            where = "name='%s'" % pvname
+            settings = []
             for key in ('description', 'graph_hi', 'graph_lo', 'deadtime',
                         'deadband', 'active', 'graph_type'):
                 if self.kw.has_key(key):
-                    val = clean_input(self.kw[key].strip()).lower()
-                    if key in ('active','graph_type'):
+                    val = clean_input(self.kw[key].strip())
+                    if key in ('active','graph_type','description'):
                         if val != '':
-                            kws[key] = val
+                            settings.append("%s='%s'" % (key,val))
                     else:
                         try:
-                            kws[key] = float(val)
+                            settings.append("%s=%f" % (key,float(val)))
                         except:
                             pass
 
-            if len(kws)>0:
-                for k,v in kws.items():  wr("<p> update    %s :: %s </p>"  % (k,v))
-                pv_update(where=where, **kws)
+            for s in settings:
+                self.master.db.execute("update pv set %s where %s" % (s,where))
                 
             wr("<p>%s&nbsp;&nbsp;</p>" % self.link(link="%s?pv=%s" % (plotpage,pvname),
                                                    text=pvname))
@@ -124,7 +116,12 @@ class WebAdmin(HTMLWriter):
             self.endhtml()
             return self.get_buffer()            
 
-        ret = self.arch.pv_table.select(where="name='%s'" % pvname)
+        
+        self.master.use_current_archive()
+        self.master.db.execute("select * from pv where name='%s'" % pvname)
+        ret = self.master.db.fetchall()
+        self.master.use_master()
+
         if len(ret)== 0:
             wr("PV not in archive??")
             self.endhtml()
@@ -242,7 +239,7 @@ class WebAdmin(HTMLWriter):
         self.endtable()
         
     def show_all_alerts(self,**kw):
-        self.setup(formkeys=('pv','id'), helpsection='alerts', **kw)        
+        self.setup(active_tab='Alerts',formkeys=('pv','id'), helpsection='alerts', **kw)        
         self.starttable(ncol=6,cellpadding=2)
         alerts = self.master.get_alerts()
 
@@ -277,7 +274,7 @@ class WebAdmin(HTMLWriter):
         return self.get_buffer()
 
     def show_alerts(self,**kw):
-        self.setup(formkeys=('pv','id'), helpsection='alerts', **kw)
+        self.setup(active_tab='Alerts',formkeys=('pv','id'), helpsection='alerts', **kw)
 
         submit = self.kw.get('submit','').strip()
         pvname = self.kw['pv']

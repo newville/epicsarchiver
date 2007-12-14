@@ -4,6 +4,7 @@
 # from EpicsArchiver.util import SEC_DAY
 
 import config
+import time
 from util import SEC_DAY, clean_input, normalize_pvname
 
 adminpage  = "%s/admin.py" % config.cgi_url
@@ -16,41 +17,17 @@ helppage   = "%s/help.py" % config.cgi_url
 
 REFRESH_TIME = "%i" % (SEC_DAY * 7)
 
-htmlhead = """<html>
-<head><title>%s</title>
-<meta http-equiv='Pragma'  content='no-cache'>
-<meta http-equiv='Refresh' content='%s'>
-<style type='text/css'>
-pre {text-indent: 20px}
-h5 {font:bold 14px verdana,arial,sans-serif;color:#042264;}
-h4 {font:bold 18px verdana,arial,sans-serif;color:#042264;}
-h3 {font:bold 18px verdana,arial,sans-serif;color:#A42424;font-weight:bold;font-style:italic;}
-h2 {font:bold 22px verdana,arial,sans-serif;color:#044484;font-weight:bold;}
-.xtitle {font-family: verdana, arial, san-serif; font-size: 13pt;
-         font-weight:bold; font-style:italic;color:#900000}
-.xx {font-size: 3pt;}
-body {margin:10px; padding:0px;background:#FDFDFD; font:bold 14px verdana, arial, sans-serif;}
-#content {text-align:justify;  background:#FDFDFD; padding: 0px;border:4px solid #88000;
-border-top: none;  z-index: 2; }
-#tabmenu {font: bold 11px verdana, arial, sans-serif;
-border-bottom: 2px solid #880000; margin: 1px; padding: 0px 0px 4px 0px; padding-left: 20px;}
-#tabmenu li {display: inline;overflow: hidden;margin: 1px;list-style-type: none; }
-#tabmenu a, a.active {color: #4444AA;background: #EEDD88;border: 2px solid #880000;
-padding: 3px 3px 4px 3px;margin: 0px ;text-decoration: none; }
-#tabmenu a.active {color: #CC0000;background: #FCFCEA;border-bottom: 2px solid #FCFCEA;}
-#tabmenu a:hover {color: #CC0000; background: #F9F9E0;}
-</style>
-%s
-</head><body>
-"""
-conf = {'jscal_url':config.jscal_url}
+conf = {'jscal_url':config.jscal_url,'css_style':config.css_style}
 
-jscal_setup = """<link rel='stylesheet' type='text/css' media='all'
+htmlhead = """<html><head><title>%%s</title>
+<meta http-equiv='Pragma'  content='no-cache'><meta http-equiv='Refresh' content='%%s'>
+%(css_style)s
+<link rel='stylesheet' type='text/css' media='all'
  href='%(jscal_url)s/calendar-system.css' />
 <script type='text/javascript' src='%(jscal_url)s/calendar.js'></script>
 <script type='text/javascript' src='%(jscal_url)s/lang/calendar-en.js'></script>
 <script type='text/javascript' src='%(jscal_url)s/calendar-setup.js'></script>
-"""  % conf
+</head>"""  % conf
 
 
 jscal_get_2dates = """
@@ -101,7 +78,7 @@ class HTMLWriter:
 
                   
     tabledef  ="<table width=90% cellpadding=0 cellspacing=1>"
-    form_start = "<form action='%s' enctype='multipart/form-data' method='POST'>"
+    form_start = "<form action='%s' name='%s' enctype='multipart/form-data' method='POST'>"
 
     def __init__(self, **args):
         
@@ -123,7 +100,7 @@ class HTMLWriter:
             self.write("%s= '%s' <br> " % (k,v))                    
         self.write(' <p> =============== </p>')            
 
-    def setup(self,formkeys=None,debug=False, helpsection='main', **kw):
+    def setup(self,active_tab=None,formkeys=None,debug=False, helpsection='main', **kw):
         """ update self.kw with passed keywords, using
         'web form' versions as defaults (see below). Also
         starts the html and shows starting links
@@ -148,8 +125,8 @@ class HTMLWriter:
         inst = self.kw.get('inst_id',-1)
         pv = self.kw.get('pv','')
         pv = normalize_pvname(pv)
-            
-        self.show_links(pv=pv,inst=inst,help=helpsection)
+
+        self.show_links(pv=pv,inst=inst,help=helpsection,active_tab=active_tab)
         if debug: self.show_dict(self.kw)
         return 
 
@@ -157,12 +134,17 @@ class HTMLWriter:
         if self.html_title in (None,'',' '):  self.html_title = ' '
         if refresh == '' : refresh = REFRESH_TIME
         self.buffer=[]
-        self.write(htmlhead % (self.html_title,refresh,jscal_setup))
-
-    def show_links(self,pv='',inst_id=-1,**kw):
+        self.write(htmlhead % (self.html_title,refresh))
+        self.write("<body>")
+        
+    def show_links(self,pv='',inst_id=-1,active_tab=None,**kw):
         self.write("<ul id='tabmenu'>")
+        if active_tab is None:  active_tab = "Settings / Admin"
         for s in self.top_links:
             link,title  = s
+            is_active = ''
+            if active_tab == title:
+                is_active = 'class="active"'
             if link == adminpage and pv not in ('',None):
                 link = "%s?pv=%s" % (link,pv)
             if link == instpage and inst_id not in (-1,None):
@@ -170,15 +152,16 @@ class HTMLWriter:
             if link == helppage and kw.has_key('help'):
                 link = "%s?section=%s" % (link,kw['help'])
             
-            self.write("<li><a  href='%s'>%s</a></li>" % (link,title))
+            self.write("<li><a %s href='%s'>%s</a></li>" % (is_active,link,title))
+        self.write("<li id='time'>%s</li></ul>" % time.ctime())            
         self.write("</ul><br>")
 
     def endhtml(self):
         self.write("</body></html>")
 
 
-    def startform(self, action, hiddenkeys=None,**kw):
-        self.write(self.form_start % action)
+    def startform(self, action, name='form', hiddenkeys=None,**kw):
+        self.write(self.form_start % (action,name))
         if hiddenkeys is not None:
             for key in hiddenkeys:
                 self.write(self.hiddeninput(name="form_%s" % key,

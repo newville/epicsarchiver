@@ -3,7 +3,7 @@ import os
 import time
 import EpicsCA
 
-from EpicsArchiver import MasterDB, Archiver, config
+from EpicsArchiver import Archiver, config
 from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, \
      normalize_pvname, timehash, tformat
 
@@ -42,24 +42,21 @@ set style line 4 lt 4 lw 1
 set grid back ls 4
 """
     gp2_base = """set key
-set yrange [:]
-set y2range [:]
 set y2tics
 set ytics nomirror
 """
     html_title = "Epics Archiver Data Viewer"
         
-    def __init__(self, arch=None,  **kw):
+    def __init__(self, dbconn=None,  **kw):
         HTMLWriter.__init__(self)
 
-        self.arch   = arch or  Archiver()
-        self.master = MasterDB()
-
+        self.arch   = Archiver(dbconn=dbconn)
         self.arch.db.get_cursor()
-        self.master.db.get_cursor()
+
+        self.dbconn = self.arch.dbconn
         
         self._gp = Gnuplot.Gnuplot() 
-        self.kw  = {'form_pv':'', 'form_pv2':'',  'use_ylog':'', 'use_y2log': '',
+        self.kw  = {'text_pv':'', 'text_pv2':'',  'use_ylog':'', 'use_y2log': '',
                     'submit': 'Time From Present', 'time_ago': '1 day', 
                     'ymin':'', 'ymax':'', 'y2min':'', 'y2max':'',
                     'date1': '', 'date2': ''}
@@ -91,27 +88,26 @@ set ytics nomirror
         return x in self.arch.get_cache_names()
     
 
-    def draw_form(self,arg_pv1=None,arg_pv2=None,**kw):
+    def draw_form(self,pv1='',pv2='',time_ago='',date1='',date2='',**kw):
+
         action = self.kw.get('submit','Time From')
-        if action.startswith('Swap') and arg_pv2 not in (None,''):
-            arg_pv1,arg_pv2 = arg_pv2,arg_pv1
+        if date1 != '' and date2 != '':   action = 'Date Range'
 
-        pvname1 = arg_pv1 or ''
-        pvname2 = arg_pv2 or ''
-        self.write("""<table><tr valign='top'>
-                   <td><form action ="%s" enctype="multipart/form-data"  method ="POST">
-                   """ % (plotpage))
+        pvname1 = pv1 or ''
+        pvname2 = pv2 or ''
+        self.write("<table><tr valign='top'><td>")
+        self.startform(action=plotpage,name='plot')
 
-        pv1 = self.argclean(pvname1,  self.kw['form_pv'])
+        # pv1 = self.argclean(pvname1,  self.kw['text_pv'])
 
-        self.write("<h3>Epics PV Archive: %s</h3>" % (time.ctime()))
+        # self.write("<h3>Epics PV Archive: %s</h3>" % (time.ctime()))
 
-        self.starttable(ncol=6, border=0, cellpadding=2)
+        self.starttable(ncol=6, border=0, cellpadding=1)
         #
         inptext = self.textinput
 
-        self.addrow("PV 1", inptext(name='form_pv', value=pvname1),"",
-                    "PV 2", inptext(name='form_pv2',value=pvname2),"")
+        self.addrow("PV 1", inptext(name='text_pv', value=pvname1),"",
+                    "PV 2", inptext(name='text_pv2',value=pvname2),"")
                     
         self.addrow("PV (Y) range:",
                     "%s:%s" % (inptext(name='ymin',value=self.kw['ymin'],size=12),
@@ -142,24 +138,11 @@ set ytics nomirror
 
         if dval[0] in (None,'None', ''): dval[0] = self.time_sec2str( time.time()-SEC_DAY)
         if dval[1] in (None,'None', ''): dval[1] = self.time_sec2str( time.time() )
-# 
-#         self.write("<tr><td><input type='submit' name='submit'  value='Date Range'></td>")
-#         self.write("<td colspan=2> From:")
-#         dform = "<input type='text' width=22 id='%(d)s' name='%(d)s' value='%(v)s'/><button id='%(d)s_trig'>...</button>"
-#         self.write(dform % ({'d':'date1','v':d1val}))
-#         self.write("</td><td colspan=2> &nbsp;&nbsp; To:")
-#         self.write(dform % ({'d':'date2','v':d2val}))
-#         self.write("</td></tr>")
 
+        dates = ("%s <button id='date1_trig'>...</button>" % (inptext(size=22,name='date1',value=dval[0])),
+                 "%s <button id='date2_trig'>...</button>" % (inptext(size=22,name='date2',value=dval[1])))
 
-        dates =[]
-        for i in (1,2):
-            dates.append("%s %s " % (inptext(size=22,name='date%i'%i,value=dval[i-1]),
-                                     "<button id='date%i_trig'>...</button>" % i))
-                                    
-        self.addrow(self.button(text='Date Range'),
-                    "From: %s" % dates[0],
-                    "To: %s" % dates[1], spans=(1,2,3))
+        self.addrow(self.button(text='Date Range'),"From: %s &nbsp;&nbsp; To: %s" % dates, spans=(1,5))
                                          
         self.addrow("<hr>", spans=(6,0))
         self.endtable()
@@ -167,22 +150,78 @@ set ytics nomirror
 
         # main (lefthand side) of page done, 
        
-        x = self.make_related_pvs_page(arg_pv1,pvname2)
+        x = self.make_related_pvs_page(pv1,pvname2,submit=self.kw['submit'],
+                                       time_ago=self.kw['time_ago'],
+                                       date1=self.kw['date1'],
+                                       date2=self.kw['date2'])
 
-        self.draw_graph(arg_pv1,arg_pv2)
+        self.draw_graph(pvname1=pv1,pvname2=pv2)
 
         self.write("</td><td>  %s </td></tr></table></form>" % x)
 
-    def make_related_pvs_page(self,pvname,pvname2):
+    def get_related_pvs(self,pvname):
+        tmp = []  
+        npv = normalize_pvname(pvname)
+        r1 = self.arch.read_master("select * from pairs where pv1='%s' and score>1 order by score" %npv)
+        for j in r1: tmp.append((j['score'],j['pv1'],j['pv2']))
+        
+        r2 = self.arch.read_master("select * from pairs where pv2='%s' and score>1 order by score" %npv)
+        for j in r2: tmp.append((j['score'],j['pv1'],j['pv2']))
+
+        tmp.sort()
         out = []
-        r = self.master.get_related_pvs(pvname)
-        if pvname2 != '': out.append("<input type='submit' name='submit' value='Swap PV 1 and 2'><p>")        
-        out.append("<p class='xtitle'>related pvs:%s<p>" % '')  # pvname)
+        for r in tmp:
+            if   r[1] == npv:  out.append(r[2])
+            elif r[2] == npv:  out.append(r[1])
+        out.reverse()
+        return out
+
+    def __get_pvpairs(self,pv1,pv2):
+        "fix and sort 2 pvs for use in the pairs tables"
+        p = [normalize_pvname(pv1),normalize_pvname(pv2)]
+        p.sort()
+        return tuple(p)
+
+    def increment_pair_score(self,pv1,pv2):
+        # get current score:
+        pvns = self.__get_pvpairs(pv1,pv2)
+        where = "pv1='%s' and pv2='%s'" % pvns
+        o  = self.arch.read_master("select * from pairs where %s" % where)
+        try:
+            score = int(o[0]['score'])
+        except:
+            score = -1
+
+        if score < 1:
+            q = "insert into pairs set score=%i, pv1='%s', pv2='%s'"
+        else:
+            q = "update pairs set score=%i where pv1='%s' and pv2='%s'"
+            
+        score = max(1, score+1)
+        self.arch.read_master(q % (score,pvns[0],pvns[1]))
+
+        
+    def make_related_pvs_page(self,pvname,pvname2,submit='',time_ago='',date1='',date2=''):
+        out = []
+        r = self.get_related_pvs(pvname)
+
+        args = ''
+        if submit.startswith('Time From') and time_ago != '':
+            args = '&time_ago=%s'  % (time_ago)
+        elif submit.startswith('Date') and date1 != '' and date2 != '':
+            args = '&date1=%s&date2=%s'  % (date1,date2)
+            
+        out.append("<p class='xtitle'>Related pvs:%s<p><font size=-1>" % '')  # pvname)
+        if pvname2 != '':
+            pvargs = 'pv2=%s&pv=%s' % (pvname,pvname2)            
+            out.append("<a href='%s?%s%s'>Swap PV1 and 2</a></p><hr>" % (plotpage,pvargs,args))
         n = 0
         for pv2 in r:
-            out.append("<font size=-2><a href='%s?pv=%s&pv2=%s'>%s</a></font></p>" % (plotpage,pvname,pv2,pv2))
+            pvargs = 'pv=%s&pv2=%s' % (pvname,pv2)
+            out.append("<a href='%s?%s%s'>%s</a></p>" % (plotpage,pvargs,args,pv2))
             n = n + 1
             if n>20: break
+        out.append('</font>')
         return '\n'.join(out)
     
     def time_sec2str(self,sec=None):
@@ -205,9 +244,11 @@ set ytics nomirror
 
         return time.mktime((int(yr),int(mon),int(day),int(hr),int(min), int(sec),0,0,tz))
 
-    def draw_graph(self,arg_pv1=None,arg_pv2=None):
+    def draw_graph(self,pvname1='',pvname2='',time_ago=None):
+
+        # self.show_keys(title='AT Draw Graph')
         if DEBUG:
-            self.write(" GRAPH %s / %s " % (arg_pv1,arg_pv2))
+            self.write(" GRAPH %s / %s " % (pvname1,pvname2))
             self.write('<p> === Keys: === </p>')
             for key,val in self.kw.items():
                 self.write(" %s :  %s <br>" % (key,val))
@@ -215,6 +256,7 @@ set ytics nomirror
         t1 = time.time()
         t0 = t1 - SEC_DAY
         action =  self.kw.get('submit','Time From')
+
         if action.startswith('Time From'):
             n,units = self.kw['time_ago'].split()
             if   units.startswith('mi'):   mult = 60.
@@ -251,52 +293,59 @@ set ytics nomirror
 
         # get PV and related data
 
-        pv = self.arch.get_pv(arg_pv1)
-        pv.connect()
-        pvinfo = self.arch.get_info(arg_pv1)
+	epv1 = self.arch.get_pv(pvname1)
+	epv1.connect()
+        pvinfo = self.arch.get_info(pvname1)
         pv2info = pvinfo
-        ## self.write(" PV %s %s " % ( arg_pv1,pv))
+        ## self.write(" PV %s %s " % ( pvname1,epv1))
 
-        if pv is None or pvinfo=={}: return ('','')
-        if (pv.pvname in (None,'')): return ('','')
-        desc = self.get_pvdesc(pv)
-        pvlabel = pv.pvname
-        if desc!=pv.pvname: pvlabel = "%s (%s)" % (pv.pvname,desc)
-        legend,tics = self.get_enum_legend(pv)        
+        if epv1 is None or pvinfo=={}: return ('','')
+        if (epv1.pvname in (None,'')): return ('','')
+        desc = self.get_pvdesc(epv1)
+        pvlabel = epv1.pvname
+        if desc!=epv1.pvname: pvlabel = "%s (%s)" % (epv1.pvname,desc)
+        legend,tics = self.get_enum_legend(epv1)        
         file_link   = "<a href='%s'>data for %s</a>" % (l_dat,pvlabel)
 
-        tlo, thi,npts = self.save_data(pv,t0,t1,f_dat,legend)
+        tlo, thi,npts = self.save_data(epv1,t0,t1,f_dat,legend)
+        if npts < 1:
+            self.write("<br>Warning: No data for PV %s <br>" % (epv1))
         npts2 = 0
         n_dat = 1
         
         # start gnuplot session, set basic properties
-        self.gp(self.gp_base)
-
+        self.gp(self.gp_base)	 
+	
         # are we plotting a second data set?
         if DEBUG:
-            self.write("<br> arg_pv2???  %s, %s <br>" % (arg_pv2, str(arg_pv2=='')))
+             self.write("<br> pv2???  %s, %s <br>" % (pvname2, str(pvname2=='')))
             
-        if arg_pv2 != '':
-            pv2  = self.arch.get_pv(arg_pv2)
-            pv2.connect()
-            pv2info = self.arch.get_info(arg_pv2)
-            self.master.increment_pair_score(arg_pv1,arg_pv2)
+        if pvname2 != '':
+
+            epv2  = self.arch.get_pv(pvname2)
+            epv2.connect()
+            pv2info = self.arch.get_info(pvname2)
+            self.increment_pair_score(pvname1,pvname2)
             if DEBUG:
-                self.write(" PV#2  !!! %s, %s" % (str(pv2 is None), pv2.pvname))
+                 self.write(" PV#2  !!! %s, %s" % (str(pvname2 is None), epv2.pvname))
+
                 
-            if (pv2 is not None) and (pv2.pvname != ''):
-                val = pv2.get()
-                desc2 = self.get_pvdesc(pv2)
-                pv2label = pv2.pvname
-                if desc2!=arg_pv2:  pv2label = "%s (%s)" % (pv2.pvname,desc2)
+            if (epv2 is not None) and (epv2.pvname != ''):
+                val = epv2.get()
+                desc2 = self.get_pvdesc(epv2)
+                pv2label = epv2.pvname
+                if desc2!=pvname2:  pv2label = "%s (%s)" % (epv2.pvname,desc2)
 
                 file_link ="""<a href='%s'>data for %s</a><br>
                 <a href='%s'>data for %s</a>""" % (l_dat,pvlabel,l_dat2,pv2label)
 
-                leg2,tics2 = self.get_enum_legend(pv2)
-                tlo2, thi2, npts2 = self.save_data(pv2,t0,t1,f_dat2,leg2)
+                leg2,tics2 = self.get_enum_legend(epv2)
+                tlo2, thi2, npts2 = self.save_data(epv2,t0,t1,f_dat2,leg2)
+                if npts2 < 1:
+                    self.write("<br>Warning: No data for PV %s <br>" % (pv2))
+               
                 tlo = min(tlo2, tlo)
-                thi = max(thi2, thi)
+                thi = max(thi2, thi)+1
                 n_dat = 2
                 self.gp(self.gp2_base)
 
@@ -306,11 +355,11 @@ set ytics nomirror
         # now generate png plot
         self.gp("set output '%s'" % f_png)
 
-        if npts > 1 or npts2>1:
-            self.gp('set xrange ["%s":"%s"]' % (self.datestring(t0),self.datestring(t1)))
-        else:
-            self.gp('set xrange ["%s":"%s"]' % (self.datestring(tlo),self.datestring(thi)))
-
+        #         if npts > 1 or npts2>1:
+        #             self.gp('set xrange ["%s":"%s"]' % (self.datestring(t0),self.datestring(t1)))
+        #         else:
+        self.gp('set xrange ["%s":"%s"]' % (self.datestring(tlo),self.datestring(thi)))
+            
         if pvinfo['type']=='double':
             ymin = str(pvinfo['graph_lo']) or ''
             if self.kw['ymin'] != '': ymin = self.kw['ymin']
@@ -344,18 +393,18 @@ set ytics nomirror
                 self.gp("set zero 1e-14")
                 self.gp("set logscale y2")
 
-        if pv.type =='enum':
+        if epv1.type =='enum':
             self.gp("set ytics %s" % tics)
             try:
-                n_enum = len(pv.enum_strings)
+                n_enum = len(epv1.enum_strings)
             except:
                 n_enum = 8
             self.gp("set yrange [-0.2:%f]" % (n_enum-0.8))
             
-        if n_dat==2 and pv2.type =='enum':
+        if n_dat==2 and epv2.type =='enum':
             self.gp("set y2tics %s" % tics2)
             try:
-                n_enum = len(pv2.enum_strings)
+                n_enum = len(epv2.enum_strings)
             except:
                 n_enum = 8            
             self.gp("set y2range [-0.2:%f]" % (n_enum-0.8))
@@ -370,10 +419,6 @@ set ytics nomirror
             self.gp("set ylabel '%s'" % (pvlabel))
             self.gp("set y2label '%s'" % (pv2label))
             
-            self.gp("set y2range [:]")
-            self.gp("set ytics nomirror")
-            self.gp("set y2tics")
-
             self.gp("""plot '%s' u 1:4 axis x1y1 w steps ls 1 t '%s',\\
             '%s' u 1:4 axis x1y1 t '' w p 1,\\
             '%s' u 1:4 axis x1y2 w steps ls 2 t '%s',\\
@@ -404,6 +449,7 @@ set ytics nomirror
         
         self.write("<a href='%s'>gnuplot script</a> <br>" % (l_gp))
         return
+
 
     def show_keys(self,**kw):
         for k,v in kw.items():
@@ -451,13 +497,20 @@ set ytics nomirror
 
         pvname = pv.pvname
         if DEBUG:
-            self.write("<p>DATA for PV %s %i  %i #points =%i<br>\n" % (pvname,t0,t1,len(dat)))
+            self.write("<p>DATA for PV %s (%i:%i) #points =%i<br>\n" % (pvname,t0,t1,len(dat)))
             for i in stat:
                 self.write("%s<br>\n" % str(i))
 
         npts = len(dat)
-        tlo = dat[0][0]
-        thi = dat[npts-1][0]
+        errstring = ''
+        try:
+            tlo = dat[0][0]
+            thi = dat[npts-1][0]
+        except IndexError:
+            dat = [(t0,None),(t1,None)]
+            npts,tlo,thi = 0,t0,t1
+            errstring = 'No data for %s' % pv.pvname
+            
         #  now write data to gnuplot-friendly file
         dstr = self.datestring
         f = open(fout, 'w')
@@ -466,7 +519,10 @@ set ytics nomirror
         f.write("# actual    time_span:  [%s , %s] \n" % (dstr(tlo),dstr(thi)))
         if legend != '':
             f.write("# %s \n" % legend)
-        f.write("# n_points: %i \n" % npts)
+        if errstring != '':
+            f.write("# ERROR: %s \n" % legend)
+        else:
+            f.write("# n_points: %i \n" % npts)
         f.write("#-------------------------------\n")
         f.write("#  date      time          value\n")
         for j in dat:
@@ -483,34 +539,94 @@ set ytics nomirror
         if not isinstance(a,str): a = str(a)
         return a.strip()
         
-    def show_pv(self,pv=None,pv2=None):
-        arg_pv1 = self.argclean(pv,  self.kw['form_pv'])
-        arg_pv2 = self.argclean(pv2, self.kw['form_pv2'])        
+    def OLD_show_plot(self,pv=None,pv2=None,time_ago=None,date1=None,date2=None,**kw):
+        self.kw.update(kw)
+        pv1 = self.argclean(pv,  self.kw['text_pv'])
+        pv2 = self.argclean(pv2, self.kw['text_pv2'])        
 
         self.arch.db.get_cursor()
-        self.master.db.get_cursor()
 
-        # if DEBUG:
-        #    self.write('<br>:: show_pv  // %s // %s //<br>' % ( arg_pv1, arg_pv2))
+        if pv1 != '':
+            pv1 = normalize_pvname(pv1)
+            self.html_title = "%s for %s" % (self.html_title,pv1)
+            if not self.in_database(pv1):  self.arch.add_pv(pv1)
             
-        if arg_pv1 != '':
-            arg_pv1 = normalize_pvname(arg_pv1)
-            self.html_title = "%s for %s" % (self.html_title,arg_pv1)
-            if not self.in_database(arg_pv1):  self.arch.add_pv(arg_pv1)
-            
-        if arg_pv2 != '':
-            arg_pv2 = normalize_pvname(arg_pv2)
-            self.html_title = "%s and %s" % (self.html_title,arg_pv2)
-            if not self.in_database(arg_pv2):  self.arch.add_pv(arg_pv2)            
+        if pv2 != '':
+            pv2 = normalize_pvname(pv2)
+            self.html_title = "%s and %s" % (self.html_title,pv2)
+            if not self.in_database(pv2):  self.arch.add_pv(pv2)            
 # 
         self.starthtml()
-        self.show_links(pv=arg_pv1,help='plotting')
-        self.draw_form(arg_pv1,arg_pv2)
-        
+        self.show_links(pv=pv1,help='plotting',active_tab='')
+        self.draw_form(pv1=pv1,pv2=pv2,time_ago=time_ago,date1=None,date2=None)
         self.endhtml()
 
         self.arch.db.put_cursor()
-        self.master.db.put_cursor()
 
         return self.get_buffer()
 
+
+    def update_kw(self,key,arg=None):
+        if key is None: return arg
+        if key not in  self.kw: self.kw[key] = ''
+        if arg is None: arg = ''
+        if not isinstance(arg,str): arg = str(arg)
+        if arg != '': self.kw[key] = arg.strip()
+        return arg.strip()
+
+    def do_plot(self,pv='',pv2='',time_ago=None,date1=None,date2=None,**kw):
+        self.kw.update(kw)
+        self.update_kw('pv',pv)
+        self.update_kw('pv2',pv2)
+        self.update_kw('time_ago',time_ago)
+        self.update_kw('date1',date1)
+        self.update_kw('date2',date2)
+        
+        self.starthtml()
+
+        if self.kw.get('text_pv','') not in ('',None):
+            self.kw['pv'] = self.kw['text_pv']
+
+        if self.kw.get('text_pv2','') not in ('',None):
+            self.kw['pv2'] = self.kw['text_pv2']
+        
+        pv1 = self.kw.get('pv','')
+        pv2 = self.kw.get('pv2','')
+
+        self.arch.db.get_cursor()
+        warnings = []
+        if pv1 != '':
+            pv1 = normalize_pvname(pv1)
+            self.html_title = "%s for %s" % (self.html_title,pv1)
+            if not self.in_database(pv1):
+                add_ok = self.arch.add_pv(pv1)
+                if add_ok is None:
+                    warnings.append(" Warning: cannot add PV '%s'<br>" % pv1 )
+                    
+        if pv2 != '':
+            pv2 = normalize_pvname(pv2)
+            self.html_title = "%s and %s" % (self.html_title,pv2)
+            if not self.in_database(pv2):
+                add_ok = self.arch.add_pv(pv2)            
+                if add_ok is None:
+                    warnings.append(" Warning: cannot add PV '%s'<br>" % pv2 )                    
+
+# 
+        self.show_links(pv=pv1,help='plotting',active_tab='')
+        
+        for w in warnings: self.write(w)
+        
+        self.show_keys(title='AT DO PLOT')
+
+        self.draw_form(pv1=pv1,pv2=pv2,time_ago=time_ago,date1=date1,date2=date2)
+        self.endhtml()
+
+        self.arch.db.put_cursor()
+
+        return self.get_buffer()
+
+    def show_keys(self,title=''):
+        self.write('===== %s Keys: === </p>' % title)
+        for key,val in self.kw.items():
+            self.write(" %s :  %s <br>" % (key,val))
+        self.write('=====')

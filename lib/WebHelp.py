@@ -828,7 +828,7 @@ class WebHelp(HTMLWriter):
         if anchor is not None: self.anchor = anchor
         
         self.starthtml()
-        self.show_links()
+        self.show_links(active_tab='Help')
         
         if section not in section_map.keys(): section = 'overview'
         

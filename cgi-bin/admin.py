@@ -9,8 +9,8 @@ logfile = None
 if DEBUG:
     logfile = open("%s/webadmin_dbpool.log" % config.data_dir, 'a')
 
-global pool
-pool = ConnectionPool(size=8,out=logfile)
+# global pool
+# pool = ConnectionPool(size=8,out=logfile)
 
 def is_valid(user,passwd):
     passdata = {config.dbuser: config.dbpass}
@@ -25,18 +25,14 @@ def __auth__(req,user,passwd):
 def __Admin(req,method,**kw):
     try:
         dbconn = req.dbconn
-        dbconn2 = req.dbconn2
     except AttributeError:
-        dbconn = pool.get()
-        dbconn2 = pool.get()
+        dbconn = None
         req.dbconn = dbconn
-        req.dbconn2 = dbconn2
 
-    p = WebAdmin(dbconn1=dbconn,dbconn2=dbconn2)
+    p = WebAdmin(dbconn=dbconn)
+    req.dbconn = p.dbconn
 
     out = getattr(p,method)(**kw)
-    # pool.put(dbconn1)
-    # pool.put(dbconn2)
     return out
 
 def index(req,**kw):        return __Admin(req,'show_adminpage',**kw)

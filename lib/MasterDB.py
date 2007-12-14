@@ -56,7 +56,7 @@ class MasterDB:
     def __init__(self,dbconn=None, **kw):
 
         self.db = SimpleDB(dbconn=dbconn)
-
+        self.dbconn = self.db.conn
         self.db.use(master_db)
         self.db.get_cursor()
         self.db.read_table_info()
@@ -215,7 +215,8 @@ class MasterDB:
         self.db.use(self.arch_db)
         n = 0
         dt = (time.time()-minutes*60.)
-        q = "select * from pvdat%3.3i where time > %f " 
+        q = "select count(value) from pvdat%3.3i where time > %f " 
+        self.db.get_cursor()
         for i in range(1,129):
             r = self.db.exec_fetch(q % (i,dt))
             n = n + len(r)

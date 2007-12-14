@@ -15,20 +15,7 @@ helppage   = "%s/help.py?section=templates"  % config.cgi_url
 
 htmlhead = """<html>
 <head><title>%s</title><meta http-equiv='Pragma'  content='no-cache'><meta http-equiv='Refresh' content=%s>
-<style type='text/css'>
-h4 {font: bold 18px verdana, arial, sans-serif; color: #044484; font-weight: bold; font-style: italic;}
-body {margin: 20px; padding: 0px; background: #FCFCEA; font: bold 14px verdana, arial, sans-serif;}
-#content {text-align: justify;  background: #FCFCEA; padding: 0px;  border: 4px solid #88000;
-    border-top: none; z-index: 2;}
-#tabmenu {font: bold 11px verdana, arial, sans-serif; border-bottom: 2px solid #880000;  margin: 1px;
-    padding: 0px 0px 4px 0px; padding-left: 20px}
-#tabmenu li {display: inline; overflow: hidden; margin: 1px; list-style-type: none; }
-#tabmenu a, a.active {color: #4444AA; background: #EEDD88; border: 2px solid #880000;
-    padding: 3px 3px 4px 3px; margin: 0px; text-decoration: none; }
-#tabmenu a.active {color: #CC0000; background: #FCFCEA;  border-bottom: 2px solid #FCFCEA;}
-#tabmenu a:hover {color: #CC0000; background: #F9F9E0;}
-</style></head><body><h4>%s&nbsp;&nbsp;&nbsp;&nbsp; %s</h4><ul id='tabmenu'>
-""" 
+%s</head>"""
 
 class WebStatus:
     table_def   = "<table width=90% cellpadding=1 border=0 cellspacing=2>"    
@@ -40,7 +27,7 @@ class WebStatus:
     
     def __init__(self,dbconn=None,**kw):
         self.cache  = Cache(dbconn=dbconn)
-        
+        self.dbconn = self.cache.dbconn
         self.pvget  = self.cache.get_full
         self.null_pv= self.cache.null_pv_value
 
@@ -94,7 +81,7 @@ class WebStatus:
 
         return (desc,oval)
 
-    def add_pv(self,pv,format=None,desc=None,type=None):    
+    def show_pv(self,pv,format=None,desc=None,type=None):    
         desc,val = self.get_pv(pv,format=format,desc=desc,outtype=type)
         self.linked_row(desc,pv,"%s" %val)
 
@@ -214,7 +201,8 @@ class WebStatus:
     # 
     
     def begin_page(self,page,pagelist,refresh=12):
-        self.write(htmlhead % (pagetitle, refresh, pagetitle, time.ctime()))
+        self.write(htmlhead % (pagetitle, refresh,config.css_style)) #
+        self.write("<body><ul id='tabmenu'>")
         for i in pagelist:
             s = ''
             if i == page: s = 'class="active"'
@@ -224,8 +212,7 @@ class WebStatus:
         self.write("<li><a href='%s'>Alerts</a></li>" % (alertspage))
         self.write("<li><a href='%s'>Settings / Admin</a></li>" % (adminpage))
         self.write("<li><a href='%s'>Help</a></li>" % (helppage))
-
-        self.write("</ul><br>")
+        self.write("<li id='time'>%s</li></ul>" % time.ctime())
         self.start_table()
 
 
@@ -302,7 +289,7 @@ class WebStatus:
         self.table_entry_vac_title(("Component","Status", "Pressure CC (Pirani)", "Ion Pump Pressure (V,I)"))
         # BM A
         self.table_label_vac("13 BM A")
-        self.add_pv("PA:13BM:Q01:00.VAL", desc = "Station Searched")
+        self.show_pv("PA:13BM:Q01:00.VAL", desc = "Station Searched")
         self.vac_table("13BMA:ip1",label='Slit Tank',        type='GSE',  cc_pr=("13BMA",1))
         self.valve_row("13BMA:BMD_BS",'BMD White Beam Stop')
         self.valve_row("13BMA:BMC_BS",'BMC White Beam Stop')
@@ -314,22 +301,22 @@ class WebStatus:
 
         # BM B
         self.table_label_vac("13 BM B")
-        self.add_pv("PA:13BM:Q01:01.VAL", desc = "Station Searched")
+        self.show_pv("PA:13BM:Q01:01.VAL", desc = "Station Searched")
         self.vac_table("13BMA:ip7",label='BMC Slit Tank',     type='GSE',  cc_pr=("13BMA",7))
         self.valve_row("13BMA:V4C",'BMC Valve 4')
         self.vac_table("13BMA:ip8",label='BMC Mono Tank',      type='GSE2',   cc_pr=("13BMA",8))
-        self.add_pv("13BMA:eps_mbbi100.VAL")
+        self.show_pv("13BMA:eps_mbbi100.VAL")
 
         self.valve_row("13BMA:V4D",'BMD Valve 4')
         self.vac_table("13BMA:ip9",label='BMD Mirror Tank',   type='GSE2',  cc_pr=("13BMA",4))
-        self.add_pv("13BMA:eps_mbbi99.VAL")
+        self.show_pv("13BMA:eps_mbbi99.VAL")
 
         # BM C
         self.table_label_vac("13 BM C")
-        self.add_pv("PA:13BM:Q01:02.VAL", desc = "Station Searched")
+        self.show_pv("PA:13BM:Q01:02.VAL", desc = "Station Searched")
         # BM D
         self.table_label_vac("13 BM D")
-        self.add_pv("PA:13BM:Q01:03.VAL", desc = "Station Searched")
+        self.show_pv("PA:13BM:Q01:03.VAL", desc = "Station Searched")
         self.vac_table("13BMA:ip10",label='BMD Slit Tank',
                        type='GSE',  cc_pr=("13BMA",9))
         self.vac_pirani("Flight Tube","13BMA:pr10.VAL")
@@ -340,7 +327,7 @@ class WebStatus:
                              "Pressure CC (Pirani)", "Ion Pump Pressure (V,I)"))
         # ID A
         self.table_label_vac("13 ID A")
-        self.add_pv("PA:13ID:Q01:00.VAL", desc = "Station Searched")
+        self.show_pv("PA:13ID:Q01:00.VAL", desc = "Station Searched")
         self.vac_table("FE:13:ID:IP7",label="Differential Pump",type='APS')
 
         self.valve_row("13IDA:V1",'Valve 1')
@@ -357,7 +344,7 @@ class WebStatus:
 
         # ID B
         self.table_label_vac("13 ID B")
-        self.add_pv("PA:13ID:Q01:01.VAL", desc = "Station Searched")
+        self.show_pv("PA:13ID:Q01:01.VAL", desc = "Station Searched")
         self.vac_table("13IDA:ip5",label='Pumping Cross 2',    type='GSE',  cc_pr=("13IDA",5))
         self.valve_row("13IDA:V5",'Be Bypass #1')
         self.vac_table("13IDA:ip6",label='Vertical Mirror',    type='GSE2',  cc_pr=("13IDA",7))

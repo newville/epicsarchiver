@@ -354,7 +354,7 @@ class SimpleDB:
         else:
             self.write("Error: could not execute %s" % str(qlist))
         return ret
-    
+
     def __execute(self,q):
         """internal execution of a single query -- needs a valid cursor!"""
         

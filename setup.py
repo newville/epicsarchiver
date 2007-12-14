@@ -21,8 +21,8 @@ import EpicsCA
 # This is useful for debugging / re-installing:
 # a "full install" will mean that any running cache and 
 # archiver will stop (abruptly -- the _mysql.so changes)
-full_install = True
-# full_install = False
+# full_install = True
+full_install = False
 
 script_name= sys.argv[0]
 try:
