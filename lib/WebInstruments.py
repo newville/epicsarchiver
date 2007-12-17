@@ -94,9 +94,9 @@ class WebInstruments(HTMLWriter):
             # a large outer 2 column table: 
             ## self.starttable
             wr("""<table cellpadding=2 border=0 rules='cols'><tr valign='top'><td width=30%% align='top'>
-            <table bgcolor='#F8F8F0' border=0 frame='box'><tr><td>Instruments for %s:</td></tr>
+            <table bgcolor='#F9F9F5' border=0 frame='box'><tr><td>Instruments for %s:</td></tr>
             <tr><td><a href='%s/add_instrument?station=%s'>
-            &lt;add instrument&gt; </a></td></tr>""" % (station,mainpage,station))
+            &lt;add an instrument&gt; </a></td></tr>""" % (station,mainpage,station))
             
             self.instruments = {}
             for s in self.arch.list_instruments(station=station):
@@ -516,5 +516,5 @@ class WebInstruments(HTMLWriter):
             extra = ''
             if self.kw['station'] == s: extra = 'selected'
             wr("<option %s value='%s'>%s" % (extra, s, s))
-        wr("""</select> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href='%s/add_station'>&lt;add station&gt;</a></form><hr>""" % mainpage)
+        wr("""</select> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href='%s/add_station'>&lt;add a station&gt;</a></form><hr>""" % mainpage)
         

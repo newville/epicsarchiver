@@ -439,7 +439,7 @@ To set up Alerts, a mail server and "from address" must be configured at
 installation time.
 <p>
 
-Use the main <a href="%(alertpage)s">Alert Page</a> for a list of currently
+Use the main <a href="%(alertpage)s">Alert Page</a> to see a list of currently
 defined alerts.  From this page you can select a "View/Change" link to modify
 any of the settings for a particular alert.
 
@@ -451,30 +451,34 @@ multiple alerts can be set on a single PV (one person may want an alert
 when a valve closes, while another person may want an alert when it
 opens!).
 
-<p>
-Each alert consists of 3 pieces: a PV's value, a 'test condition' and a
-'test trip point'.  When the PV's value meets the test condition, the Alert
-is said to be in the 'Alarm' state.     The possible test conditions are:
+<p> Each alert consists of 3 pieces: a PV's value, a 'test condition' and a
+'trip point'.  When the PV's value meets the condition for that trip point,
+the Alert is said to be in the 'Alarm' state.  The possible test conditions
+are:
+
 <ul>
-<li> not equal to 
-<li> equal to     
-<li> less than or equal to 
-<li> less than
-<li> greater than or equal to
-<li> greater than
+   <li> not equal to 
+   <li> equal to     
+   <li> less than or equal to 
+   <li> less than
+   <li> greater than or equal to
+   <li> greater than
 </ul>
 
-Thus, if a PV's value is 1.8, the condition is 'greater than', and the trip
-point is 2.0, the Alert will be in the 'OK' state.  If the PV's value changes
-to 2.1, the Alert will be in the 'Alarm' state.
+As an example, if a PV's value is 1.8, the test condition is 'greater
+than', and the trip point is 2.0, the Alert will be in the 'OK' state.  If
+the PV's value changes to 2.1, the Alert will be in the 'Alarm' state.
 
 <p> An email notice is sent to the specified addresses when the Alert
-changes from 'OK' to 'Alarm'.  Even if the PV's value changes while in the
-'Alarm' state or stays in the 'Alarm' state indefinitely, <b> more emails
-will NOT be sent</b>.     In addition, each Alert has a 'Time Out' value. Once
-an email has been sent for an alert, no email will be sent for that alert for
-this time (in seconds).  This is provided to avoid multiple emails for a value
-that may rapidly fluctuate about its trip point.
+changes from 'OK' to 'Alarm'.  If the PV's value changes again, but still
+stay in the 'Alarm' state or if it stays in the 'Alarm' state indefinitely,
+<b> NO more emails will be sent</b>.  In order for another message to be
+sent, the Alert would have to change back to an 'OK' condition', and then
+again to an 'Alarm' condition.  In addition, each Alert has a 'Time Out'
+value (in seconds). Once an email has been sent for an alert, no email will
+be sent for that alert for this time, even if the Alert goes from 'OK' to
+'Alarm'.  This is provided to avoid multiple emails for a value that may
+rapidly fluctuate about its trip point.
 
 
 <h3>Customizing and Formatting an Alert email</h3>
@@ -498,12 +502,12 @@ following simple template format for the mail message to automatically get
 these values:
 
 <ul>
-<li> <tt>%%PV%%  </tt>:  PV Name
-<li> <tt>%%VALUE%%</tt>:  Current PV Value
-<li> <tt>%%LABEL%%</tt>:  Alert Label
-<li> <tt>%%COMP%%</tt>:  Alert Condition
-<li> <tt>%%TRIP%%</tt>:  Alert Trip Point
-<li> <tt>%%PV(XXX.VAL)%%</tt>:  Value of another PV
+  <li> <tt>%%PV%%  </tt>:  PV Name
+  <li> <tt>%%VALUE%%</tt>:  Current PV Value
+  <li> <tt>%%LABEL%%</tt>:  Alert Label
+  <li> <tt>%%COMP%%</tt>:  Alert Condition
+  <li> <tt>%%TRIP%%</tt>:  Alert Trip Point
+  <li> <tt>%%PV(XXX.VAL)%%</tt>:  Value of another PV
 </ul>
 
 With the last item, you can get the value for other PVs in the mail message.
@@ -524,17 +528,17 @@ Hello,
 
 </pre>
 
-To get a more complete report.
-
-The mail message will always have a Subject line that starts with
-<tt>[Epics Alert]</tt>, so you can set up auto-forwarding and mail sorting
-rules, and will always include a web link to the PV plot page.
+To get a more complete report.  The mail message will always have a Subject
+line that starts with <tt>[Epics Alert]</tt>, so you can set up
+auto-forwarding and mail sorting rules, and will always include a web link
+to the Plot page for the PV.
 
 <h3>Managing Alerts</h3>
 
 From the web page for Alerts, each can be set to be inactive and then be
-re-activated later.  This can be useful to temporarily suppress messages for
-PVs that are not always critical.    Alerts can also be deleted completely.
+re-activated later.  This can be useful to temporarily suppress messages
+for PVs that are not always critical.  Alerts can also be deleted
+completely.
 
 """ % conf
 
@@ -592,15 +596,18 @@ cleaned out periodically.
 templates = """
 <font size=+1>Epics PV Archiver Templates and Web Page Layout</font></p>
 
-The web status pages are automatically generated from the template 
-files in the 'web template directory', which in this installation
-are in the directory: <tt> %(template_dir)s </tt>
-
-<p>
-Each template file can list many PVs, typically grouped logically, 
-and will be shown as a separate 'Notebook Tab' in the status page, 
-with the pages title. The template format for each of these template 
-files is detailed below.
+The web status pages are automatically generated from the template files in
+the 'web template directory'.  For this installation, the directory is <tt>
+%(template_dir)s </tt>.  There, you will find a <tt>README</tt> file (which
+mostly repeats the instructions here), a unix <tt>makefile</tt>, a file
+named <tt>pages.py</tt>, a file named <tt>FileList</tt>, and possible
+several other files, each containing the template for an individual
+'Notebook Tab' web page.
+ 
+<p> Each template file can list many PVs, typically grouped logically, and
+will be shown as a separate tab in the status page, with the pages
+title. The template format for each of these template files is detailed
+below.
 
 <h3>Ordering of Pages / Overall Structure</h3>
 
@@ -624,12 +631,12 @@ and run 'make'.  This will generate pages.py which will be loaded
 by the web scripts.
 
 <p>
-You do NOT need to run 'make; when you change a template file -- 
-these are read on the fly.
-
+You do NOT need to run 'make' when you change a template file:
+these are read on the fly.  You do need to run 'make' when you want to
+add a new tabbed page, change the titles for each tab, or change the
+order in which they appear.
 
 <h3>Template Formatting:</h3>
-
 
 The status pages contain an HTML table, with each row corresponding to one
 or more Epics PVs.  The general idea is to list the PV(s) to be shown.
@@ -714,34 +721,46 @@ instruments = """
 
 Instruments are collections of PVs that can be thought of as a single
 group.  Examples of instruments are the settings for an amplifier, a
-detector, or group of motors that make up a sample stage.  For each
-of these cases, you may want to know what <i>all the PV values</i> were
-at a particular time, and optionally to "restore" the settings to a
-previous set of values.
-<p>
-This is the role of an Instrument in the Epics PV Archiver.
+detector, or group of motors that make up a sample stage.  For each of
+these cases, you may want to know <i>all the PV values</i> for a particular
+time, and you may want to "restore" the values to those of an earlier time.
+This is what an Instrument provides: a way to logically group PVs, and
+save, lookup, and restore the values for <i>all</i> PVs in that group.
+
 
 <h3>Instrument naming and hierarchy</h3>
 
-Instruments are categorized with two names, a "Station Name" and an "Instrument Name".
-This allows some separation of roles, and provides some hierarchy for finding Instruments.
-Each of the two names is a regular string.  Generally, the Station Name will be shorter,
-but this is not necessary.
+Instruments are categorized with two names, a "Station Name" and an
+"Instrument Name".  This allows some separation of roles, and provides some
+hierarchy for finding Instruments.  Each of the two names is a regular
+string.  Generally, the Station Name will be shorter, but this is not
+necessary.
 
-<p>
-In addition, each Instrument contains a list of named "Positions".  Instrument Positions are
-simply named timestamps which can be used to later get the values of all the PVs in the Instrument
-for this position.
+<p> Each Instrument is comprised of a list of PVs.  This list can be
+altered over time.  There is no limit to the number of PVs in an
+Instrument, nor is there a limit on how many different intruments a PV can
+be part of.
 
-<p><b>Important Note:</b>: The PV values are not stored themselves when naming a Position.  Rather the
-TimeStamp is used to look up Archived Values.  This has a few consequences:
+<p> Instrument has a list of named "Positions".  Instrument Positions are
+very simple: they are names for the <b>time</b> at which the Position is
+defined.  This time can then be used to later retrieve the values of all
+the PVs in the Instrument for this position.
+
+<p><b>Important Note:</b> The PV values themselves are <b>not</b> stored
+naming a Position.  Only the <b>time</b> is stored. This has a few
+consequences:
+
 <ul>
-<li> As PVs are added / subtracted to an Instrument, existing Position names do not become
-     meaningless, but do retain the meaning of "where were all these PVs at this time?".
-<li> If defining an instrument with PVs that are not currently being archived, it may take a 
-     minute before the Archive Process actually starts recording that PV.
-<li> If PVs are moving very fast, or have long "Archiving Deadtimes", the saved timestamp
-     may be slightly out-of-date.
+<li> As the PVs that make up an Instrument might chage, existing Position
+     names do not become meaningless, but do retain the meaning of "where
+     were all the PVs now defined for this Instrument at this time?".   Of
+     course, if an Instrument now contains a PV that was not archived until
+     recently, that PV's value may not be known.
+<li> If defining an instrument with PVs that are not currently being
+     archived, it may take a minute before the Archive Process actually
+     starts recording that PV.
+<li> If PVs are moving very fast, or have long "Archiving Deadtimes", the
+     saved timestamp may be slightly out-of-date.
 </ul>
 
 
@@ -752,42 +771,44 @@ of existing stations or to create a new station.  Once a Station is chosen,
 you can choose from a list of existing Instruments or add a new instrument
 to this station.
 
-<p> To add a new instrument, you can enter an Instrument Name, description, and enter
-a list of PVs.  The definition of an instrument can be modified later, so that PVs can
-be added or removed later.  There is no limit on how many PVs can make up an
-Instrument.
+<p> To add a new instrument, you can enter an Instrument Name, description,
+and enter a list of PVs.  The definition of an instrument can be modified
+later, so that PVs can be added or removed later.  There is no limit on how
+many PVs can make up an Instrument.
 
-When you define an instrument, all the PVs in that instrument are given an initial
-"Related PV score", so they will all appear as related to one another.
+When you define an instrument, all the PVs in that instrument are given an
+initial "Related PV score", so they will all appear as related to one
+another.
 
 <p> Selecting an Instrument will show a page where you can
 
 <ul>
-<li> Save the current position by name.
-<li> Lookup a position by date.
-<li> view a list of currently named positions.
-<li> view and modify the list of PVs that make up this instrument.
+   <li> Save the current position by name.
+   <li> Lookup a position by date.
+   <li> view a list of currently named positions.
+   <li> view and modify the list of PVs that make up this instrument.
 </ul>
 
 From this page you can also "Manage Positions" which will be discussed below.
 
 <h3>Named Instrument Positions and Looking up and Restoring Positions</h3>
 
-To save the current position of an instrument, simply type the name of the position
-and hit 'Save'.  You can also save an old position, by looking it up by date.
+To save the current position of an instrument, simply type the name of the
+position and hit 'Save'.  You can also save an old position, by looking it
+up by date.
 
-Choosing one of the named positions (or looking up a position by date) will bring up a
-page that shows the archived values and the current values for each PV in the
-instrument. <p>
+Choosing one of the named positions (or looking up a position by date) will
+bring up a page that shows the archived values and the current values for
+each PV in the instrument. <p>
 
-In addition, You can generate an IDL script, a Python script, or a Save/Restore file
-that you can use to restore the position settings.
+In addition, You can generate an IDL script, a Python script, or a
+Save/Restore file that you can use to restore the position settings.
 
 <h3>Managing (hiding, deleting) Instrument Positions</h3>
 
-Selecting "Manage Positions" from the Position list will bring up a list of all named
-positions for an instrument.  For each of these, you can change the status to one of
-'Active', 'Hidden', or 'Delete Forever'.
+Selecting "Manage Positions" from the Position list will bring up a list of
+all named positions for an instrument.  For each of these, you can change
+the status to one of 'Active', 'Hidden', or 'Delete Forever'.
 
 Here, an 'Active' Position is one currently in use, and that shows up on
 the main list of Positions.  A 'Hidden' Position is currently not in use,

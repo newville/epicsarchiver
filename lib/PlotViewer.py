@@ -57,7 +57,7 @@ set ytics nomirror
         
         self._gp = Gnuplot.Gnuplot() 
         self.kw  = {'text_pv':'', 'text_pv2':'',  'use_ylog':'', 'use_y2log': '',
-                    'submit': 'Time From Present', 'time_ago': '1 day', 
+                    'submit': '', 'time_ago': '1 day', 
                     'ymin':'', 'ymax':'', 'y2min':'', 'y2max':'',
                     'date1': '', 'date2': ''}
         self.kw.update(kw)
@@ -90,9 +90,7 @@ set ytics nomirror
 
     def draw_form(self,pv1='',pv2='',time_ago='',date1='',date2='',**kw):
 
-        action = self.kw.get('submit','Time From')
-        if date1 != '' and date2 != '':   action = 'Date Range'
-
+        action  = self.kw['submit']
         pvname1 = pv1 or ''
         pvname2 = pv2 or ''
         self.write("<table><tr valign='top'><td>")
@@ -255,8 +253,9 @@ set ytics nomirror
     
         t1 = time.time()
         t0 = t1 - SEC_DAY
-        action =  self.kw.get('submit','Time From')
 
+        action =  self.kw['submit']
+        
         if action.startswith('Time From'):
             n,units = self.kw['time_ago'].split()
             if   units.startswith('mi'):   mult = 60.
@@ -303,13 +302,15 @@ set ytics nomirror
         if (epv1.pvname in (None,'')): return ('','')
         desc = self.get_pvdesc(epv1)
         pvlabel = epv1.pvname
-        if desc!=epv1.pvname: pvlabel = "%s (%s)" % (epv1.pvname,desc)
+        if desc!=epv1.pvname: pvlabel = "%s (%s)" % (desc,epv1.pvname)
         legend,tics = self.get_enum_legend(epv1)        
         file_link   = "<a href='%s'>data for %s</a>" % (l_dat,pvlabel)
 
         tlo, thi,npts = self.save_data(epv1,t0,t1,f_dat,legend)
         if npts < 1:
             self.write("<br>Warning: No data for PV %s <br>" % (epv1))
+        elif npts == 1:
+            self.write("<br>Warning: One data point for PV %s <br>" % (epv1))
         npts2 = 0
         n_dat = 1
         
@@ -334,7 +335,7 @@ set ytics nomirror
                 val = epv2.get()
                 desc2 = self.get_pvdesc(epv2)
                 pv2label = epv2.pvname
-                if desc2!=pvname2:  pv2label = "%s (%s)" % (epv2.pvname,desc2)
+                if desc2!=pvname2:  pv2label = "%s (%s)" % (desc2,epv2.pvname)
 
                 file_link ="""<a href='%s'>data for %s</a><br>
                 <a href='%s'>data for %s</a>""" % (l_dat,pvlabel,l_dat2,pv2label)
@@ -410,12 +411,12 @@ set ytics nomirror
             self.gp("set y2range [-0.2:%f]" % (n_enum-0.8))
             
         if n_dat == 1:
-            self.gp("set title  '%s'" % (pvlabel))
+            self.gp("set title  '%s'" % (desc))
             self.gp("set ylabel '%s'" % (pvlabel))
             self.gp("""plot '%s' u 1:4 w steps ls 1 t '%s', \\
-            '%s' u 1:4 t '' w p 1 """ %  (f_dat,pvlabel,f_dat))
+            '%s' u 1:4 t '' w p 1 """ %  (f_dat,desc,f_dat))
         else:
-            self.gp("set title '%s | %s'" % (pvlabel,pv2label))
+            self.gp("set title '%s | %s'" % (desc,desc2))
             self.gp("set ylabel '%s'" % (pvlabel))
             self.gp("set y2label '%s'" % (pv2label))
             
@@ -423,7 +424,7 @@ set ytics nomirror
             '%s' u 1:4 axis x1y1 t '' w p 1,\\
             '%s' u 1:4 axis x1y2 w steps ls 2 t '%s',\\
             '%s' u 1:4 axis x1y2 t '' w p 2 """ %
-                    (f_dat,pvlabel,f_dat,f_dat2,pv2label,f_dat2))
+                    (f_dat,desc,f_dat,f_dat2,desc2,f_dat2))
 
         self.arch.use_currentDB()
         wait_for_pngfile = True
@@ -593,6 +594,16 @@ set ytics nomirror
         pv1 = self.kw.get('pv','')
         pv2 = self.kw.get('pv2','')
 
+        action =  self.kw.get('submit','')
+        if action == '':
+            action = 'Time From Present'
+            if (self.kw.get('date1','') != '' and
+                self.kw.get('date2','') != ''):
+                action = 'Date Range'
+                
+        if self.kw.get('submit','') == '':
+            self.kw['submit'] = action
+
         self.arch.db.get_cursor()
         warnings = []
         if pv1 != '':
@@ -609,14 +620,13 @@ set ytics nomirror
             if not self.in_database(pv2):
                 add_ok = self.arch.add_pv(pv2)            
                 if add_ok is None:
-                    warnings.append(" Warning: cannot add PV '%s'<br>" % pv2 )                    
+                    warnings.append(" Warning: cannot add PV '%s'<br>" % pv2 )
 
-# 
         self.show_links(pv=pv1,help='plotting',active_tab='')
         
         for w in warnings: self.write(w)
         
-        self.show_keys(title='AT DO PLOT')
+        # self.show_keys(title='AT DO PLOT')
 
         self.draw_form(pv1=pv1,pv2=pv2,time_ago=time_ago,date1=date1,date2=date2)
         self.endhtml()
@@ -628,5 +638,5 @@ set ytics nomirror
     def show_keys(self,title=''):
         self.write('===== %s Keys: === </p>' % title)
         for key,val in self.kw.items():
-            self.write(" %s :  %s <br>" % (key,val))
+            self.write(" %s :  '%s' <br>" % (key,val))
         self.write('=====')
