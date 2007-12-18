@@ -1,6 +1,6 @@
 Metadata-Version: 1.0
 Name: EpicsArchiver
-Version: 1.0
+Version: 1.0.1
 Summary: A library for Archiving Epics PVs.
 Home-page: UNKNOWN
 Author: Matthew Newville

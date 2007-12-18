@@ -1,0 +1,86 @@
+
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: class WebAdmin</title>
+</head><body bgcolor="#f0f0f8">
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><strong>EpicsArchiver.WebAdmin</strong> = <a name="EpicsArchiver.WebAdmin">class WebAdmin</a>(<a href="EpicsArchiver.HTMLWriter.html#HTMLWriter">EpicsArchiver.HTMLWriter.HTMLWriter</a>)</font></td></tr>
+    
+<tr><td bgcolor="#ffc8d8"><tt>&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="WebAdmin-__init__"><strong>__init__</strong></a>(self, dbconn<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-make_alerttable"><strong>make_alerttable</strong></a>(self, pvname, alerts)</dt></dl>
+
+<dl><dt><a name="WebAdmin-show_adminpage"><strong>show_adminpage</strong></a>(self, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-show_alerts"><strong>show_alerts</strong></a>(self, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-show_all_alerts"><strong>show_all_alerts</strong></a>(self, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-show_pvinfo"><strong>show_pvinfo</strong></a>(self, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-show_related_pvs"><strong>show_related_pvs</strong></a>(self, **kw)</dt></dl>
+
+<hr>
+Data and other attributes defined here:<br>
+<dl><dt><strong>html_title</strong> = 'PV Archive Admin Page'</dl>
+
+<hr>
+Methods inherited from <a href="EpicsArchiver.HTMLWriter.html#HTMLWriter">EpicsArchiver.HTMLWriter.HTMLWriter</a>:<br>
+<dl><dt><a name="WebAdmin-addrow"><strong>addrow</strong></a>(self, *args, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-button"><strong>button</strong></a>(self, text<font color="#909090">='Submit'</font>, **kw)</dt><dd><tt>sumbit&nbsp;button:&nbsp;use&nbsp;existence&nbsp;of&nbsp;keyword&nbsp;'value'&nbsp;to&nbsp;determine<br>
+which&nbsp;button&nbsp;was&nbsp;submitted</tt></dd></dl>
+
+<dl><dt><a name="WebAdmin-endform"><strong>endform</strong></a>(self, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-endhtml"><strong>endhtml</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="WebAdmin-endtable"><strong>endtable</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="WebAdmin-get_buffer"><strong>get_buffer</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="WebAdmin-hiddeninput"><strong>hiddeninput</strong></a>(self, name<font color="#909090">='text'</font>, value<font color="#909090">=''</font>, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-link"><strong>link</strong></a>(self, link<font color="#909090">=''</font>, text<font color="#909090">=''</font>, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-radio"><strong>radio</strong></a>(self, checked<font color="#909090">=False</font>, name<font color="#909090">='choice'</font>, value<font color="#909090">='choice'</font>, text<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-select"><strong>select</strong></a>(self, id<font color="#909090">='selection'</font>, name<font color="#909090">='selection'</font>, default<font color="#909090">=None</font>, choices<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-setup"><strong>setup</strong></a>(self, active_tab<font color="#909090">=None</font>, formkeys<font color="#909090">=None</font>, debug<font color="#909090">=False</font>, helpsection<font color="#909090">='main'</font>, **kw)</dt><dd><tt>update&nbsp;self.<strong>kw</strong>&nbsp;with&nbsp;passed&nbsp;keywords,&nbsp;using<br>
+'web&nbsp;form'&nbsp;versions&nbsp;as&nbsp;defaults&nbsp;(see&nbsp;below).&nbsp;Also<br>
+starts&nbsp;the&nbsp;html&nbsp;and&nbsp;shows&nbsp;starting&nbsp;links<br>
+&nbsp;<br>
+For&nbsp;each&nbsp;key&nbsp;in&nbsp;formkeys:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;the&nbsp;self.<strong>kw</strong>&nbsp;has&nbsp;an&nbsp;empty&nbsp;value&nbsp;(''&nbsp;or&nbsp;None)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;the&nbsp;'form_%s'&nbsp;%&nbsp;key&nbsp;is&nbsp;used&nbsp;as&nbsp;a&nbsp;default&nbsp;value<br>
+&nbsp;&nbsp;&nbsp;&nbsp;and&nbsp;self[key]&nbsp;is&nbsp;set&nbsp;to&nbsp;the&nbsp;'form_%s'&nbsp;version</tt></dd></dl>
+
+<dl><dt><a name="WebAdmin-show_dict"><strong>show_dict</strong></a>(self, d)</dt></dl>
+
+<dl><dt><a name="WebAdmin-show_links"><strong>show_links</strong></a>(self, pv<font color="#909090">=''</font>, inst_id<font color="#909090">=-1</font>, active_tab<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-startform"><strong>startform</strong></a>(self, action, name<font color="#909090">='form'</font>, hiddenkeys<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-starthtml"><strong>starthtml</strong></a>(self, refresh<font color="#909090">=''</font>)</dt></dl>
+
+<dl><dt><a name="WebAdmin-starttable"><strong>starttable</strong></a>(self, ncol<font color="#909090">=2</font>, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-textinput"><strong>textinput</strong></a>(self, name<font color="#909090">='text'</font>, value<font color="#909090">=''</font>, size<font color="#909090">=30</font>, nlines<font color="#909090">=1</font>, id<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="WebAdmin-write"><strong>write</strong></a>(self, s)</dt></dl>
+
+<hr>
+Data and other attributes inherited from <a href="EpicsArchiver.HTMLWriter.html#HTMLWriter">EpicsArchiver.HTMLWriter.HTMLWriter</a>:<br>
+<dl><dt><strong>form_start</strong> = "&lt;form action='%s' name='%s' enctype='multipart/form-data' method='POST'&gt;"</dl>
+
+<dl><dt><strong>tabledef</strong> = '&lt;table width=90% cellpadding=0 cellspacing=1&gt;'</dl>
+
+<dl><dt><strong>top_links</strong> = (('http://ion.cars.aps.anl.gov/cgi-bin/pvarch/show/', 'PV Status'), ('http://ion.cars.aps.anl.gov/cgi-bin/pvarch/show/instrument', 'Instruments'), ('http://ion.cars.aps.anl.gov/cgi-bin/pvarch/admin/list_alerts', 'Alerts'), ('http://ion.cars.aps.anl.gov/cgi-bin/pvarch/admin/', 'Settings / Admin'), ('http://ion.cars.aps.anl.gov/cgi-bin/pvarch/help/', 'Help'))</dl>
+
+</td></tr></table>
+</body></html>

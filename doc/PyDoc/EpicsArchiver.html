@@ -1,0 +1,71 @@
+
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: package EpicsArchiver</title>
+</head><body bgcolor="#f0f0f8">
+
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="heading">
+<tr bgcolor="#7799ee">
+<td valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial">&nbsp;<br><big><big><strong>EpicsArchiver</strong></big></big> (version 1.0.1)</font></td
+><td align=right valign=bottom
+><font color="#ffffff" face="helvetica, arial"><a href=".">index</a><br><a href="file:/usr/lib/python2.4/site-packages/EpicsArchiver/__init__.py">/usr/lib/python2.4/site-packages/EpicsArchiver/__init__.py</a></font></td></tr></table>
+    <p><tt>PV&nbsp;Archivier&nbsp;python&nbsp;module<br>
+Matthew&nbsp;Newville&nbsp;&lt;newville@cars.uchicago.edu&gt;<br>
+CARS,&nbsp;University&nbsp;of&nbsp;Chicago<br>
+&nbsp;<br>
+version:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.0.1<br>
+last&nbsp;update:&nbsp;&nbsp;18-Dec-2007<br>
+copyright:&nbsp;&nbsp;&nbsp;&nbsp;Matthew&nbsp;Newville,&nbsp;The&nbsp;University&nbsp;of&nbsp;Chicago,&nbsp;2007<br>
+license:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MIT&nbsp;/&nbsp;BSD</tt></p>
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#aa55cc">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Package Contents</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#aa55cc"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><table width="100%" summary="list"><tr><td width="25%" valign=top><a href="EpicsArchiver.ArchiveMaster.html">ArchiveMaster</a><br>
+<a href="EpicsArchiver.Archiver.html">Archiver</a><br>
+<a href="EpicsArchiver.Cache.html">Cache</a><br>
+<a href="EpicsArchiver.Daemon.html">Daemon</a><br>
+</td><td width="25%" valign=top><a href="EpicsArchiver.HTMLWriter.html">HTMLWriter</a><br>
+<a href="EpicsArchiver.Instruments.html">Instruments</a><br>
+<a href="EpicsArchiver.MasterDB.html">MasterDB</a><br>
+<a href="EpicsArchiver.PlotViewer.html">PlotViewer</a><br>
+</td><td width="25%" valign=top><a href="EpicsArchiver.SimpleDB.html">SimpleDB</a><br>
+<a href="EpicsArchiver.WebAdmin.html">WebAdmin</a><br>
+<a href="EpicsArchiver.WebHelp.html">WebHelp</a><br>
+<a href="EpicsArchiver.WebInstruments.html">WebInstruments</a><br>
+</td><td width="25%" valign=top><a href="EpicsArchiver.WebStatus.html">WebStatus</a><br>
+<a href="EpicsArchiver.config.html">config</a><br>
+<a href="EpicsArchiver.util.html">util</a><br>
+</td></tr></table></td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#eeaa77">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Functions</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#eeaa77"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><dl><dt><a name="-escape_string"><strong>escape_string</strong></a>(...)</dt><dd><tt><a href="#-escape_string">escape_string</a>(s)&nbsp;--&nbsp;quote&nbsp;any&nbsp;SQL-interpreted&nbsp;characters&nbsp;in&nbsp;string&nbsp;s.<br>
+&nbsp;<br>
+Use&nbsp;connection.<a href="#-escape_string">escape_string</a>(s),&nbsp;if&nbsp;you&nbsp;use&nbsp;it&nbsp;at&nbsp;all.<br>
+_mysql.<a href="#-escape_string">escape_string</a>(s)&nbsp;cannot&nbsp;handle&nbsp;character&nbsp;sets.&nbsp;You&nbsp;are<br>
+probably&nbsp;better&nbsp;off&nbsp;using&nbsp;connection.escape(o)&nbsp;instead,&nbsp;since<br>
+it&nbsp;will&nbsp;escape&nbsp;entire&nbsp;sequences&nbsp;as&nbsp;well&nbsp;as&nbsp;strings.</tt></dd></dl>
+ <dl><dt><a name="-string_literal"><strong>string_literal</strong></a>(...)</dt><dd><tt><a href="#-string_literal">string_literal</a>(obj)&nbsp;--&nbsp;converts&nbsp;object&nbsp;obj&nbsp;into&nbsp;a&nbsp;SQL&nbsp;string&nbsp;literal.<br>
+This&nbsp;means,&nbsp;any&nbsp;special&nbsp;SQL&nbsp;characters&nbsp;are&nbsp;escaped,&nbsp;and&nbsp;it&nbsp;is&nbsp;enclosed<br>
+within&nbsp;single&nbsp;quotes.&nbsp;In&nbsp;other&nbsp;words,&nbsp;it&nbsp;performs:<br>
+&nbsp;<br>
+"'%s'"&nbsp;%&nbsp;<a href="#-escape_string">escape_string</a>(str(obj))<br>
+&nbsp;<br>
+Use&nbsp;connection.<a href="#-string_literal">string_literal</a>(obj),&nbsp;if&nbsp;you&nbsp;use&nbsp;it&nbsp;at&nbsp;all.<br>
+_mysql.<a href="#-string_literal">string_literal</a>(obj)&nbsp;cannot&nbsp;handle&nbsp;character&nbsp;sets.</tt></dd></dl>
+</td></tr></table><p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#55aa55">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#ffffff" face="helvetica, arial"><big><strong>Data</strong></big></font></td></tr>
+    
+<tr><td bgcolor="#55aa55"><tt>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%"><strong>__version__</strong> = '1.0.1'</td></tr></table>
+</body></html>

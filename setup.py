@@ -133,7 +133,7 @@ for i in os.listdir('cgi-bin'):
 
 setup(
     name        = 'EpicsArchiver',
-    version     = '1.0',
+    version     = '1.0.1',
     author      = 'Matthew Newville',
     author_email= 'newville@cars.uchicago.edu',
     license     = 'Python',

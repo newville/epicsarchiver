@@ -1,0 +1,74 @@
+
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: class Archiver</title>
+</head><body bgcolor="#f0f0f8">
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><strong>EpicsArchiver.Archiver</strong> = <a name="EpicsArchiver.Archiver">class Archiver</a></font></td></tr>
+    
+<tr><td bgcolor="#ffc8d8"><tt>&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="Archiver-__init__"><strong>__init__</strong></a>(self, dbconn<font color="#909090">=None</font>, **args)</dt></dl>
+
+<dl><dt><a name="Archiver-add_pv"><strong>add_pv</strong></a>(self, name, description<font color="#909090">=None</font>, graph<font color="#909090">={}</font>, deadtime<font color="#909090">=None</font>, deadband<font color="#909090">=None</font>)</dt><dd><tt>add&nbsp;PV&nbsp;to&nbsp;the&nbsp;database:&nbsp;expected&nbsp;to&nbsp;take&nbsp;a&nbsp;while</tt></dd></dl>
+
+<dl><dt><a name="Archiver-check_for_new_pvs"><strong>check_for_new_pvs</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="Archiver-collect"><strong>collect</strong></a>(self)</dt><dd><tt>one&nbsp;pass&nbsp;of&nbsp;collecting&nbsp;new&nbsp;values,&nbsp;deciding&nbsp;what&nbsp;to&nbsp;archive</tt></dd></dl>
+
+<dl><dt><a name="Archiver-dbs_for_time"><strong>dbs_for_time</strong></a>(self, t0<font color="#909090">=86400.0</font>, t1<font color="#909090">=2147483647.0</font>)</dt><dd><tt>return&nbsp;list&nbsp;of&nbsp;databases&nbsp;with&nbsp;data&nbsp;in&nbsp;the&nbsp;given&nbsp;time&nbsp;range</tt></dd></dl>
+
+<dl><dt><a name="Archiver-drop_pv"><strong>drop_pv</strong></a>(self, name)</dt></dl>
+
+<dl><dt><a name="Archiver-exec_fetch"><strong>exec_fetch</strong></a>(self, sql)</dt></dl>
+
+<dl><dt><a name="Archiver-get_cache_changes"><strong>get_cache_changes</strong></a>(self, dt<font color="#909090">=30</font>)</dt><dd><tt>get&nbsp;list&nbsp;of&nbsp;name,type,value,cvalue,ts&nbsp;from&nbsp;cache</tt></dd></dl>
+
+<dl><dt><a name="Archiver-get_cache_full"><strong>get_cache_full</strong></a>(self, pv)</dt><dd><tt>return&nbsp;full&nbsp;information&nbsp;for&nbsp;a&nbsp;cached&nbsp;pv</tt></dd></dl>
+
+<dl><dt><a name="Archiver-get_cache_names"><strong>get_cache_names</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="Archiver-get_data"><strong>get_data</strong></a>(self, pvname, t0, t1, with_current<font color="#909090">=None</font>)</dt><dd><tt>get&nbsp;data&nbsp;from&nbsp;database&nbsp;for&nbsp;a&nbsp;time&nbsp;range</tt></dd></dl>
+
+<dl><dt><a name="Archiver-get_info"><strong>get_info</strong></a>(self, pvname)</dt></dl>
+
+<dl><dt><a name="Archiver-get_nchanged"><strong>get_nchanged</strong></a>(self, minutes<font color="#909090">=10</font>)</dt><dd><tt>return&nbsp;the&nbsp;number&nbsp;of&nbsp;values&nbsp;archived&nbsp;in&nbsp;the&nbsp;past&nbsp;minutes.</tt></dd></dl>
+
+<dl><dt><a name="Archiver-get_pidstatus"><strong>get_pidstatus</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="Archiver-get_pv"><strong>get_pv</strong></a>(self, pvname)</dt></dl>
+
+<dl><dt><a name="Archiver-get_value_at_time"><strong>get_value_at_time</strong></a>(self, pvname, t)</dt><dd><tt>return&nbsp;archived&nbsp;value&nbsp;of&nbsp;a&nbsp;pv&nbsp;at&nbsp;one&nbsp;time</tt></dd></dl>
+
+<dl><dt><a name="Archiver-mainloop"><strong>mainloop</strong></a>(self, verbose<font color="#909090">=False</font>)</dt></dl>
+
+<dl><dt><a name="Archiver-read_master"><strong>read_master</strong></a>(self, query)</dt></dl>
+
+<dl><dt><a name="Archiver-reread_db"><strong>reread_db</strong></a>(self, pvname)</dt><dd><tt>re-read&nbsp;database&nbsp;settings&nbsp;for&nbsp;PV</tt></dd></dl>
+
+<dl><dt><a name="Archiver-set_infotime"><strong>set_infotime</strong></a>(self, ts)</dt></dl>
+
+<dl><dt><a name="Archiver-set_pidstatus"><strong>set_pidstatus</strong></a>(self, pid<font color="#909090">=None</font>, status<font color="#909090">='unknown'</font>)</dt></dl>
+
+<dl><dt><a name="Archiver-show_changed"><strong>show_changed</strong></a>(self, l, prefix<font color="#909090">=''</font>)</dt></dl>
+
+<dl><dt><a name="Archiver-sync_with_cache"><strong>sync_with_cache</strong></a>(self, update_vals<font color="#909090">=False</font>)</dt><dd><tt>initialize&nbsp;pv&nbsp;lists,&nbsp;insert&nbsp;times,&nbsp;etc&nbsp;with&nbsp;cache<br>
+use&nbsp;update_vals&nbsp;to&nbsp;force&nbsp;insert&nbsp;of&nbsp;cache&nbsp;values&nbsp;into<br>
+the&nbsp;archive&nbsp;(as&nbsp;on&nbsp;startup)</tt></dd></dl>
+
+<dl><dt><a name="Archiver-update_value"><strong>update_value</strong></a>(self, name, ts, val)</dt><dd><tt>insert&nbsp;value&nbsp;into&nbsp;appropriate&nbsp;table</tt></dd></dl>
+
+<dl><dt><a name="Archiver-use_currentDB"><strong>use_currentDB</strong></a>(self, dbname<font color="#909090">=None</font>)</dt></dl>
+
+<dl><dt><a name="Archiver-write"><strong>write</strong></a>(self, s)</dt></dl>
+
+<hr>
+Data and other attributes defined here:<br>
+<dl><dt><strong>MIN_TIME</strong> = 100</dl>
+
+<dl><dt><strong>sql_insert</strong> = 'insert into %s (pv_id,time,value) values (%i,%f,%s)'</dl>
+
+</td></tr></table>
+</body></html>

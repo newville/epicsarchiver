@@ -1,0 +1,130 @@
+
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: class PlotViewer</title>
+</head><body bgcolor="#f0f0f8">
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><strong>EpicsArchiver.PlotViewer</strong> = <a name="EpicsArchiver.PlotViewer">class PlotViewer</a>(<a href="EpicsArchiver.HTMLWriter.html#HTMLWriter">EpicsArchiver.HTMLWriter.HTMLWriter</a>)</font></td></tr>
+    
+<tr><td bgcolor="#ffc8d8"><tt>&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="PlotViewer-OLD_show_plot"><strong>OLD_show_plot</strong></a>(self, pv<font color="#909090">=None</font>, pv2<font color="#909090">=None</font>, time_ago<font color="#909090">=None</font>, date1<font color="#909090">=None</font>, date2<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-__init__"><strong>__init__</strong></a>(self, dbconn<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-argclean"><strong>argclean</strong></a>(self, argval, formval)</dt></dl>
+
+<dl><dt><a name="PlotViewer-datestring"><strong>datestring</strong></a>(self, t)</dt><dd><tt>return&nbsp;'standard'&nbsp;date&nbsp;string&nbsp;given&nbsp;a&nbsp;unix&nbsp;timestamp</tt></dd></dl>
+
+<dl><dt><a name="PlotViewer-do_plot"><strong>do_plot</strong></a>(self, pv<font color="#909090">=''</font>, pv2<font color="#909090">=''</font>, time_ago<font color="#909090">=None</font>, date1<font color="#909090">=None</font>, date2<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-draw_form"><strong>draw_form</strong></a>(self, pv1<font color="#909090">=''</font>, pv2<font color="#909090">=''</font>, time_ago<font color="#909090">=''</font>, date1<font color="#909090">=''</font>, date2<font color="#909090">=''</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-draw_graph"><strong>draw_graph</strong></a>(self, pvname1<font color="#909090">=''</font>, pvname2<font color="#909090">=''</font>, time_ago<font color="#909090">=None</font>)</dt></dl>
+
+<dl><dt><a name="PlotViewer-fix_gpfile"><strong>fix_gpfile</strong></a>(self, fname, pattern)</dt><dd><tt>simple&nbsp;wrapper&nbsp;around&nbsp;gnuplot</tt></dd></dl>
+
+<dl><dt><a name="PlotViewer-get_enum_legend"><strong>get_enum_legend</strong></a>(self, pv)</dt></dl>
+
+<dl><dt><a name="PlotViewer-get_pvdesc"><strong>get_pvdesc</strong></a>(self, pv)</dt></dl>
+
+<dl><dt><a name="PlotViewer-get_related_pvs"><strong>get_related_pvs</strong></a>(self, pvname)</dt></dl>
+
+<dl><dt><a name="PlotViewer-gp"><strong>gp</strong></a>(self, s)</dt><dd><tt>simple&nbsp;wrapper&nbsp;around&nbsp;gnuplot</tt></dd></dl>
+
+<dl><dt><a name="PlotViewer-in_database"><strong>in_database</strong></a>(self, pvname)</dt></dl>
+
+<dl><dt><a name="PlotViewer-increment_pair_score"><strong>increment_pair_score</strong></a>(self, pv1, pv2)</dt></dl>
+
+<dl><dt><a name="PlotViewer-make_related_pvs_page"><strong>make_related_pvs_page</strong></a>(self, pvname, pvname2, submit<font color="#909090">=''</font>, time_ago<font color="#909090">=''</font>, date1<font color="#909090">=''</font>, date2<font color="#909090">=''</font>)</dt></dl>
+
+<dl><dt><a name="PlotViewer-save_data"><strong>save_data</strong></a>(self, pv, t0, t1, fout, legend)</dt><dd><tt>get&nbsp;data&nbsp;from&nbsp;database,&nbsp;save&nbsp;into&nbsp;tmp&nbsp;gnuplot-friendly&nbsp;file</tt></dd></dl>
+
+<dl><dt><a name="PlotViewer-show_keys"><strong>show_keys</strong></a>(self, title<font color="#909090">=''</font>)</dt></dl>
+
+<dl><dt><a name="PlotViewer-time_sec2str"><strong>time_sec2str</strong></a>(self, sec<font color="#909090">=None</font>)</dt></dl>
+
+<dl><dt><a name="PlotViewer-time_str2sec"><strong>time_str2sec</strong></a>(self, s)</dt></dl>
+
+<dl><dt><a name="PlotViewer-update_kw"><strong>update_kw</strong></a>(self, key, arg<font color="#909090">=None</font>)</dt></dl>
+
+<hr>
+Data and other attributes defined here:<br>
+<dl><dt><strong>ago_times</strong> = ('15 minutes', '30 minutes', '1 hour', '2 hours', '3 hours', '6 hours', '8 hours', '12 hours', '1 day', '2 days', '3 days', '1 week', '2 weeks', '1 month')</dl>
+
+<dl><dt><strong>days</strong> = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)</dl>
+
+<dl><dt><strong>file_pref</strong> = '/www/apache/html/cgi-data/pvarch'</dl>
+
+<dl><dt><strong>gp2_base</strong> = 'set key<font color="#c040c0">\n</font>set y2tics<font color="#c040c0">\n</font>set ytics nomirror<font color="#c040c0">\n</font>'</dl>
+
+<dl><dt><strong>gp_base</strong> = 'set nokey<font color="#c040c0">\n</font>set term png transparent medium xfffff... 3<font color="#c040c0">\n</font>set style line 4 lt 4 lw 1<font color="#c040c0">\n</font>set grid back ls 4<font color="#c040c0">\n</font>'</dl>
+
+<dl><dt><strong>html_title</strong> = 'Epics Archiver Data Viewer'</dl>
+
+<dl><dt><strong>link_pref</strong> = 'http://ion.cars.aps.anl.gov/cgi-data/pvarch'</dl>
+
+<dl><dt><strong>minutes</strong> = ('00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55')</dl>
+
+<dl><dt><strong>months</strong> = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']</dl>
+
+<dl><dt><strong>years</strong> = [2001, 2002, 2003, 2004, 2005, 2006, 2007]</dl>
+
+<hr>
+Methods inherited from <a href="EpicsArchiver.HTMLWriter.html#HTMLWriter">EpicsArchiver.HTMLWriter.HTMLWriter</a>:<br>
+<dl><dt><a name="PlotViewer-addrow"><strong>addrow</strong></a>(self, *args, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-button"><strong>button</strong></a>(self, text<font color="#909090">='Submit'</font>, **kw)</dt><dd><tt>sumbit&nbsp;button:&nbsp;use&nbsp;existence&nbsp;of&nbsp;keyword&nbsp;'value'&nbsp;to&nbsp;determine<br>
+which&nbsp;button&nbsp;was&nbsp;submitted</tt></dd></dl>
+
+<dl><dt><a name="PlotViewer-endform"><strong>endform</strong></a>(self, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-endhtml"><strong>endhtml</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="PlotViewer-endtable"><strong>endtable</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="PlotViewer-get_buffer"><strong>get_buffer</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="PlotViewer-hiddeninput"><strong>hiddeninput</strong></a>(self, name<font color="#909090">='text'</font>, value<font color="#909090">=''</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-link"><strong>link</strong></a>(self, link<font color="#909090">=''</font>, text<font color="#909090">=''</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-radio"><strong>radio</strong></a>(self, checked<font color="#909090">=False</font>, name<font color="#909090">='choice'</font>, value<font color="#909090">='choice'</font>, text<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-select"><strong>select</strong></a>(self, id<font color="#909090">='selection'</font>, name<font color="#909090">='selection'</font>, default<font color="#909090">=None</font>, choices<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-setup"><strong>setup</strong></a>(self, active_tab<font color="#909090">=None</font>, formkeys<font color="#909090">=None</font>, debug<font color="#909090">=False</font>, helpsection<font color="#909090">='main'</font>, **kw)</dt><dd><tt>update&nbsp;self.<strong>kw</strong>&nbsp;with&nbsp;passed&nbsp;keywords,&nbsp;using<br>
+'web&nbsp;form'&nbsp;versions&nbsp;as&nbsp;defaults&nbsp;(see&nbsp;below).&nbsp;Also<br>
+starts&nbsp;the&nbsp;html&nbsp;and&nbsp;shows&nbsp;starting&nbsp;links<br>
+&nbsp;<br>
+For&nbsp;each&nbsp;key&nbsp;in&nbsp;formkeys:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;the&nbsp;self.<strong>kw</strong>&nbsp;has&nbsp;an&nbsp;empty&nbsp;value&nbsp;(''&nbsp;or&nbsp;None)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;the&nbsp;'form_%s'&nbsp;%&nbsp;key&nbsp;is&nbsp;used&nbsp;as&nbsp;a&nbsp;default&nbsp;value<br>
+&nbsp;&nbsp;&nbsp;&nbsp;and&nbsp;self[key]&nbsp;is&nbsp;set&nbsp;to&nbsp;the&nbsp;'form_%s'&nbsp;version</tt></dd></dl>
+
+<dl><dt><a name="PlotViewer-show_dict"><strong>show_dict</strong></a>(self, d)</dt></dl>
+
+<dl><dt><a name="PlotViewer-show_links"><strong>show_links</strong></a>(self, pv<font color="#909090">=''</font>, inst_id<font color="#909090">=-1</font>, active_tab<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-startform"><strong>startform</strong></a>(self, action, name<font color="#909090">='form'</font>, hiddenkeys<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-starthtml"><strong>starthtml</strong></a>(self, refresh<font color="#909090">=''</font>)</dt></dl>
+
+<dl><dt><a name="PlotViewer-starttable"><strong>starttable</strong></a>(self, ncol<font color="#909090">=2</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-textinput"><strong>textinput</strong></a>(self, name<font color="#909090">='text'</font>, value<font color="#909090">=''</font>, size<font color="#909090">=30</font>, nlines<font color="#909090">=1</font>, id<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="PlotViewer-write"><strong>write</strong></a>(self, s)</dt></dl>
+
+<hr>
+Data and other attributes inherited from <a href="EpicsArchiver.HTMLWriter.html#HTMLWriter">EpicsArchiver.HTMLWriter.HTMLWriter</a>:<br>
+<dl><dt><strong>form_start</strong> = "&lt;form action='%s' name='%s' enctype='multipart/form-data' method='POST'&gt;"</dl>
+
+<dl><dt><strong>tabledef</strong> = '&lt;table width=90% cellpadding=0 cellspacing=1&gt;'</dl>
+
+<dl><dt><strong>top_links</strong> = (('http://ion.cars.aps.anl.gov/cgi-bin/pvarch/show/', 'PV Status'), ('http://ion.cars.aps.anl.gov/cgi-bin/pvarch/show/instrument', 'Instruments'), ('http://ion.cars.aps.anl.gov/cgi-bin/pvarch/admin/list_alerts', 'Alerts'), ('http://ion.cars.aps.anl.gov/cgi-bin/pvarch/admin/', 'Settings / Admin'), ('http://ion.cars.aps.anl.gov/cgi-bin/pvarch/help/', 'Help'))</dl>
+
+</td></tr></table>
+</body></html>

@@ -1,0 +1,78 @@
+
+<!doctype html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head><title>Python: class WebStatus</title>
+</head><body bgcolor="#f0f0f8">
+<p>
+<table width="100%" cellspacing=0 cellpadding=2 border=0 summary="section">
+<tr bgcolor="#ffc8d8">
+<td colspan=3 valign=bottom>&nbsp;<br>
+<font color="#000000" face="helvetica, arial"><strong>EpicsArchiver.WebStatus</strong> = <a name="EpicsArchiver.WebStatus">class WebStatus</a></font></td></tr>
+    
+<tr><td bgcolor="#ffc8d8"><tt>&nbsp;&nbsp;&nbsp;</tt></td><td>&nbsp;</td>
+<td width="100%">Methods defined here:<br>
+<dl><dt><a name="WebStatus-__init__"><strong>__init__</strong></a>(self, dbconn<font color="#909090">=None</font>, **kw)</dt></dl>
+
+<dl><dt><a name="WebStatus-archlink"><strong>archlink</strong></a>(self, pv, val)</dt></dl>
+
+<dl><dt><a name="WebStatus-begin_page"><strong>begin_page</strong></a>(self, page, pagelist, refresh<font color="#909090">=12</font>)</dt></dl>
+
+<dl><dt><a name="WebStatus-end_page"><strong>end_page</strong></a>(self, show_stats<font color="#909090">=False</font>, msg<font color="#909090">=''</font>)</dt></dl>
+
+<dl><dt><a name="WebStatus-end_table"><strong>end_table</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="WebStatus-get_buffer"><strong>get_buffer</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="WebStatus-get_pv"><strong>get_pv</strong></a>(self, pv, format<font color="#909090">=None</font>, desc<font color="#909090">=None</font>, outtype<font color="#909090">=None</font>)</dt><dd><tt>get&nbsp;cached&nbsp;value&nbsp;for&nbsp;a&nbsp;PV,&nbsp;formatted</tt></dd></dl>
+
+<dl><dt><a name="WebStatus-linked_row"><strong>linked_row</strong></a>(self, label, pvnames, vals)</dt></dl>
+
+<dl><dt><a name="WebStatus-remove_quotes"><strong>remove_quotes</strong></a>(self, str)</dt></dl>
+
+<dl><dt><a name="WebStatus-row"><strong>row</strong></a>(self, name, val)</dt></dl>
+
+<dl><dt><a name="WebStatus-show_bmvac"><strong>show_bmvac</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="WebStatus-show_idvac"><strong>show_idvac</strong></a>(self)</dt></dl>
+
+<dl><dt><a name="WebStatus-show_pv"><strong>show_pv</strong></a>(self, pv, format<font color="#909090">=None</font>, desc<font color="#909090">=None</font>, type<font color="#909090">=None</font>)</dt></dl>
+
+<dl><dt><a name="WebStatus-show_pvfile"><strong>show_pvfile</strong></a>(self, file)</dt></dl>
+
+<dl><dt><a name="WebStatus-start_table"><strong>start_table</strong></a>(self, title<font color="#909090">=None</font>)</dt></dl>
+
+<dl><dt><a name="WebStatus-start_table_vac"><strong>start_table_vac</strong></a>(self, title<font color="#909090">='Table'</font>)</dt><dd><tt>###<br>
+###&nbsp;Vacuum&nbsp;Tables:&nbsp;specialized&nbsp;to&nbsp;GSECARS-like&nbsp;vacuum&nbsp;system&nbsp;--&nbsp;using&nbsp;a&nbsp;4&nbsp;column&nbsp;table...<br>
+###</tt></dd></dl>
+
+<dl><dt><a name="WebStatus-table_entry"><strong>table_entry</strong></a>(self, nam, val)</dt></dl>
+
+<dl><dt><a name="WebStatus-table_entry_vac_title"><strong>table_entry_vac_title</strong></a>(self, vals)</dt></dl>
+
+<dl><dt><a name="WebStatus-table_label"><strong>table_label</strong></a>(self, label)</dt></dl>
+
+<dl><dt><a name="WebStatus-table_label_vac"><strong>table_label_vac</strong></a>(self, label)</dt></dl>
+
+<dl><dt><a name="WebStatus-vac_pirani"><strong>vac_pirani</strong></a>(self, label, pv, format<font color="#909090">='%8.2e'</font>)</dt></dl>
+
+<dl><dt><a name="WebStatus-vac_table"><strong>vac_table</strong></a>(self, pv, cc_pr<font color="#909090">=(None, None)</font>, label<font color="#909090">=None</font>, type<font color="#909090">='GSE'</font>)</dt></dl>
+
+<dl><dt><a name="WebStatus-valve_row"><strong>valve_row</strong></a>(self, pv, label)</dt></dl>
+
+<dl><dt><a name="WebStatus-write"><strong>write</strong></a>(self, s)</dt></dl>
+
+<hr>
+Data and other attributes defined here:<br>
+<dl><dt><strong>colored_row</strong> = '&lt;tr&gt;&lt;td&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;font color=%s&gt; %s &lt;/font&gt;&lt;/td&gt;&lt;/tr&gt;'</dl>
+
+<dl><dt><strong>hrule_row</strong> = '&lt;tr&gt;&lt;td colspan=2&gt; &lt;hr&gt;   &lt;/td&gt;&lt;/tr&gt;'</dl>
+
+<dl><dt><strong>normal_row</strong> = '&lt;tr&gt;&lt;td&gt;&lt;b&gt;%s&lt;/b&gt;&lt;/td&gt;&lt;td&gt;%s&lt;/td&gt;&lt;/tr&gt;'</dl>
+
+<dl><dt><strong>space_row</strong> = '&lt;tr&gt;&lt;td colspan=2&gt; &amp;nbsp; &lt;/td&gt;&lt;/tr&gt;'</dl>
+
+<dl><dt><strong>table_def</strong> = '&lt;table width=90% cellpadding=1 border=0 cellspacing=2&gt;'</dl>
+
+<dl><dt><strong>title_row</strong> = '&lt;tr&gt;&lt;th colspan=2&gt;&lt;font color=%s&gt;%s&lt;/font&gt;&lt;/tr&gt;'</dl>
+
+</td></tr></table>
+</body></html>
