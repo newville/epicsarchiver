@@ -102,6 +102,7 @@ class Archiver:
         pvtable_data = self.pv_table.select()
         # print ' This is sync with cache ', update_vals, len(self.cache_names), len(pvtable_data)
         self.db.use(self.master_db)
+        now = time.time()
         for pvdata in pvtable_data:
             name = normalize_pvname(pvdata['name'])
             
@@ -111,11 +112,14 @@ class Archiver:
 
             if name not in self.cache_names:
                 newpvs.append(name)            
-            elif update_vals:
+            elif update_vals:  
                 r = self.db.exec_fetchone("select * from cache where pvname='%s'" % name)
                 try: 
                     if r['value'] is not None and r['ts'] is not None:
-                        cache_values.append((name,r['ts'],r['value']))
+                        ts = r['ts']
+                        if now - ts > SEC_DAY:
+                            ts = now
+                        cache_values.append((name,ts,r['value']))
                 except:
                     pass
                 
