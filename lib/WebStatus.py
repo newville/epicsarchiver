@@ -6,11 +6,11 @@ from util import normalize_pvname
 pagetitle  = config.pagetitle
 footer     = config.footer
 
-statpage   = "%s/show.py/show_page"    % config.cgi_url
-instpage   = "%s/show.py/instrument"   % config.cgi_url
-dblink     = "%s/show.py/plot?pv="     % config.cgi_url
-alertspage = "%s/admin.py/list_alerts" % config.cgi_url
-adminpage  = "%s/admin.py"             % config.cgi_url
+statpage   = "%s/show/show_page"    % config.cgi_url
+instpage   = "%s/show/instrument"   % config.cgi_url
+dblink     = "%s/show/plot?pv="     % config.cgi_url
+alertspage = "%s/admin/list_alerts" % config.cgi_url
+adminpage  = "%s/admin/"             % config.cgi_url
 helppage   = "%s/help.py?section=templates"  % config.cgi_url
 
 htmlhead = """<html>

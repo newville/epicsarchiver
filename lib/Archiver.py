@@ -193,8 +193,9 @@ class Archiver:
         info   =  self.pvinfo[pvname]
         stat   = [info]
         dat    = []
-        pvquery = "select data_table,id from pv where name ='%s'" % pvname
+        pvquery= "select data_table,id from pv where name ='%s'" % pvname
         fquery = 'select time,value from %s where pv_id=%i and time<=%f order by time desc limit 1'
+        gquery = 'select time,value from %s where pv_id=%i and time>=%f order by time limit 1'       
         squery = 'select time,value from %s where pv_id=%i and time>=%f and time<=%f order by time'
 
         needs_firstpoint = True
@@ -231,8 +232,14 @@ class Archiver:
                 stat.append(q)
                 for i in self.exec_fetch(q):
                     dat.append((i['time'],i['value']))
-            # add cached value if needed
-            if add_current:
+            # add value at time just after selected time range
+            r = self.db.exec_fetchone(gquery % (table,pvid,t1))
+            try:
+                dat.append((r['time'],r['value']))
+            except:
+                pass
+            # optionally, add current value
+            if add_current: 
                 stat.append('adding cached value')
                 r= self.get_cache_full(pvname)
                 stat.append(r)

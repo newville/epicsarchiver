@@ -11,7 +11,7 @@ from HTMLWriter import HTMLWriter, jscal_get_2dates
 
 DEBUG=False
 
-plotpage   = "%s/show.py/plot" % config.cgi_url
+plotpage   = "%s/show/plot" % config.cgi_url
 
 os.environ['GNUTERM'] = 'png'
 
@@ -306,11 +306,14 @@ set ytics nomirror
         legend,tics = self.get_enum_legend(epv1)        
         file_link   = "<a href='%s'>data for %s</a>" % (l_dat,pvlabel)
 
-        tlo, thi,npts = self.save_data(epv1,t0,t1,f_dat,legend)
+        tlo, thi,npts,dat = self.save_data(epv1,t0,t1,f_dat,legend)
+        # self.write("<br> times: %s  (%i) / %i , %i / %i , %i <br>" % (epv1.pvname, npts,t0,t1,tlo,thi))
         if npts < 1:
             self.write("<br>Warning: No data for PV %s <br>" % (epv1))
-        elif npts == 1:
-            self.write("<br>Warning: One data point for PV %s <br>" % (epv1))
+        # elif npts < 3:
+            # self.write("<br>Warning: Npts = %i for PV %s <br>" % (npts,epv1))
+
+        wait_for_pngfile = npts > 1       
         npts2 = 0
         n_dat = 1
         
@@ -341,7 +344,7 @@ set ytics nomirror
                 <a href='%s'>data for %s</a>""" % (l_dat,pvlabel,l_dat2,pv2label)
 
                 leg2,tics2 = self.get_enum_legend(epv2)
-                tlo2, thi2, npts2 = self.save_data(epv2,t0,t1,f_dat2,leg2)
+                tlo2, thi2, npts2,dat2 = self.save_data(epv2,t0,t1,f_dat2,leg2)
                 if npts2 < 1:
                     self.write("<br>Warning: No data for PV %s <br>" % (pv2))
                
@@ -349,6 +352,7 @@ set ytics nomirror
                 thi = max(thi2, thi)+1
                 n_dat = 2
                 self.gp(self.gp2_base)
+                wait_for_pngfile = wait_for_pngfile and (npts2 > 1)
 
         if DEBUG:
             self.write(" # of data_sets %i" % n_dat)
@@ -359,7 +363,7 @@ set ytics nomirror
         #         if npts > 1 or npts2>1:
         #             self.gp('set xrange ["%s":"%s"]' % (self.datestring(t0),self.datestring(t1)))
         #         else:
-        self.gp('set xrange ["%s":"%s"]' % (self.datestring(tlo),self.datestring(thi)))
+        self.gp('set xrange ["%s":"%s"]' % (self.datestring(t0),self.datestring(t1)))
             
         if pvinfo['type']=='double':
             ymin = str(pvinfo['graph_lo']) or ''
@@ -427,27 +431,38 @@ set ytics nomirror
                     (f_dat,desc,f_dat,f_dat2,desc2,f_dat2))
 
         self.arch.use_currentDB()
-        wait_for_pngfile = True
         wait_count = 0
+        png_size = 0
         while wait_for_pngfile:
             try:
                 png_size   = os.stat(f_png)[6]
             except OSError:
-                png_size = 0
-                
-            wait_for_pngfile = (png_size < 4) and (wait_count < 1000)
+               pass
+            wait_for_pngfile = (png_size < 4) and (wait_count < 500)
             time.sleep(0.005)
             wait_count = wait_count + 1
 
         self.fix_gpfile(f_gp, self.file_pref)
-        # self.write("<b> fix %s, %s </b> " % (f_gp, self.file_pref))
+        # self.write("<b> fix %s, %s / wait_count  = %i</b> " % (f_gp, self.file_pref,wait_count))
 
         if png_size > 0:
             self.write("<img src='%s'><br>" % l_png)
         else:
-            self.write("<b>cannot make graph (String Data?)</b><br>")            
-        self.write("<br>%s<br>" % (file_link) )
-        
+            self.write("<p>Cannot make requested graph!<p>")
+            self.write("<br>Data for <b>%s</b>:<br>" % epv1.pvname)
+            self.write("<table border=1 padding=1><tr><td>Date</td><td>Value</td></tr>")
+            for d in dat:
+                self.write("<tr><td>%s</td><td>%s</td></tr>" % (time.ctime(d[0]),d[1]))                
+            self.write("</table>")
+            if n_dat == 2:
+                self.write("<p>Data for <b>%s</b>:<br>" % epv2.pvname)
+                self.write("<table border=1 padding=1><tr><td>Date</td><td>Value</td></tr>")
+                for d in dat2:
+                    self.write("<tr><td>%s</td><td>%s</td></tr>" % (time.ctime(d[0]),d[1]))                
+                self.write("</table>")
+
+
+        self.write("<br>%s<br>" % (file_link))
         self.write("<a href='%s'>gnuplot script</a> <br>" % (l_gp))
         return
 
@@ -529,7 +544,7 @@ set ytics nomirror
         for j in dat:
             f.write("%s %.3f %s\n" % (dstr(j[0]), j[0], j[1]))
         f.close()
-        return (tlo, thi, npts)
+        return (tlo, thi, npts,dat)
     
     def argclean(self,argval,formval):
         v = formval.strip()

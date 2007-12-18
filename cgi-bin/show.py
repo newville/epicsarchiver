@@ -3,31 +3,11 @@
 
 from mod_python import apache
 
-import sys
 from EpicsArchiver import config, WebStatus, PlotViewer, WebHelp, WebInstruments
 
-DEBUG = False
-
 # add the location of the web template file to the path 
-file_base   = config.template_dir
-sys.path.insert(0,file_base)
-
-
-# methods for public access, called with: http://.../show.py/plot?key=arg&key=arg, etc
-
-def old_plot(req,pv=None,**kw):
-    " plot viewer "
-    try:
-        dbconn = req.dbconn
-    except AttributeError:
-        dbconn = None
-        req.dbconn = dbconn
-        
-    p   = PlotViewer(dbconn=dbconn)
-    req.dbconn = p.dbconn
-    
-    out = p.show_plot(pv=pv,**kw)
-    return out
+import sys
+sys.path.insert(0, config.template_dir)
 
 def plot(req,pv=None,**kw):
     " plot viewer "

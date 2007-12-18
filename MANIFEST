@@ -34,7 +34,7 @@ lib/WebInstruments.py
 lib/WebStatus.py
 py_install/gnuplot-py-1.7.tar.gz
 py_install/MySQL-python-1.2.2.tar.gz
-py_install/EpicsCA-2.1.3.tar.gz
+py_install/EpicsCA-2.1.4.tar.gz
 templates/FileList
 templates/GSE_page1.txt
 templates/GSE_page2.txt

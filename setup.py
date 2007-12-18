@@ -97,10 +97,12 @@ httpdconf = """
 
 # 2. specify directory for mod_python scripts
 <Directory %s >
-    AllowOverride FileInfo
-    AddHandler mod_python .py
+    SetHandler mod_python
     PythonHandler mod_python.publisher
-    PythonDebug  Off
+    <Files ~ "\.(gif|html|jpg|png)$">
+        SetHandler default-handler
+    </Files>
+    PythonDebug Off
 </Directory>
 #
 # 3. restart apache.
