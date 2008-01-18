@@ -12,7 +12,7 @@ from os.path import join
 # give the mysql user name, password, and host.
 # this account does not need to have access to all tables!!
 dbuser = 'epics'
-dbpass = 'murray'
+dbpass = 'archiver'
 dbhost = 'localhost'
 
 # command for how mysql databases should be 'dumped'.
@@ -82,15 +82,15 @@ webfile_prefix = 'pv'
 
 # location for javascript calendar used by PlotViewer how this maps to a URL:
 # (setup.py will install jscalendar here):
-jscal_dir    = join(cgi_data_dir, 'jscal')
-jscal_url    = join(cgi_data_url, 'jscal')
+jscal_dir     = join(cgi_data_dir, 'jscal')
+jscal_url     = join(cgi_data_url, 'jscal')
 
 # location of editable web status template files
 #   the files in this directory should be readily editable
 #   to customize the PVs displayed in the status page
 #   directory needs to be world-readable, but can be in a user directory
-share_dir  = '/usr/local/share/pvarch/'
-template_dir  = join(share_dir, 'templates/')
+share_dir    = '/usr/local/share/pvarch/'
+template_dir = join(share_dir, 'templates/')
 
 # title for status web pages
 pagetitle = 'PV Archiver Status Page'
