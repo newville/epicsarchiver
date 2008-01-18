@@ -4,6 +4,8 @@ MANIFEST
 PKG-INFO
 README
 config.py
+config_dist.py
+config_GSECARS.py
 init_pvarch
 pvarch_init.sql
 jscalendar-1.0.zip
@@ -34,7 +36,7 @@ lib/WebInstruments.py
 lib/WebStatus.py
 py_install/gnuplot-py-1.7.tar.gz
 py_install/MySQL-python-1.2.2.tar.gz
-py_install/EpicsCA-2.1.4.tar.gz
+sql/pvarch_init.sql
 templates/FileList
 templates/GSE_page1.txt
 templates/GSE_page2.txt
