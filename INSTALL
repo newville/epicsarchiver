@@ -46,9 +46,11 @@ straightforward to use:
     you will be prompted for a MySQL username/password that can 
     grant permissions.
 
- 8. Add some PVs to be collected.
+ 8. Start data collection with the cache:
+      pvarch cache start
+      pvarch start
 
- 9. Start data collection.
+ 9. Add some PVs to be collected.
 
 10. View / Modify web page templates
 
