@@ -5,6 +5,7 @@
 import sys, os, time, getopt
 
 try:
+    
     import EpicsArchiver
 except:
     print 'cannot import EpicsArchiver'
@@ -111,7 +112,7 @@ def run_archive(action='start'):
                 print "Archive appears to be running... try 'restart'?"
                 cpool.put(dbconn)
                 return
-    
+
     startstop(stdout =sout,stderr=serr, pidfile=pidfile,
               process_name='pvarch', action=action)
 
@@ -123,7 +124,6 @@ def run_archive(action='start'):
         
     elif 'start'==action:
         a.mainloop()
-
 
 def run_cache(action=None):
 

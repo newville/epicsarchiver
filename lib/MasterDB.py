@@ -531,6 +531,8 @@ class MasterDB:
         
         if mailto in ('', None) or pvname in ('', None): return
 
+        mailto = mailto.replace('\r','').replace('\n','')
+
         trippoint = str(alarm['trippoint'])
         mailto    = tuple(mailto.split(','))
         subject   = "[Epics Alert] PV=%s, %s " % (pvname,label)
