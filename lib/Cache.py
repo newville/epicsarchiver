@@ -45,30 +45,64 @@ def add_pvfile(fname):
           on the line a 'pair score' of 10.
           
     """
-    # print 'Adding PVs listed in file ', fname
+    print 'Adding PVs listed in file ', fname
     f = open(fname,'r')
     lines = f.readlines()
     f.close()
 
     cache  = Cache()
+    pairs = []
     for line in lines:
         line[:-1].strip()
         if len(line)<2 or line.startswith('#'): continue
         words = line.replace(',',' ').split()
-        print 'Adding PVs: %s ' % (' '.join(words))
-        
-        for pvname in words:
-            cache.add_pv(pvname)
-        EpicsCA.pend_event(0.005)
-        EpicsCA.pend_io(1.0)        
-        cache.set_allpairs(words,score=10)
+        t0 = time.time()
 
+        # note that we suppress the setting of pair scores here
+        # until we have enough PVs installed.
+        for pvname in words:
+            fields = cache.add_pv(pvname,set_motor_pairs=False)
+            if len(fields) > 1:
+                pairs.append(fields)
+
+        
+        EpicsCA.pend_event(1.e-4)
+        EpicsCA.pend_io(1.0)        
+        t1 = time.time()-t0
+        if len(words) > 1:
+            pairs.append(tuple(words[:]))
+
+        t2 = time.time()-t0
+        print ' Add PVs: [ %s ] ' % (' '.join(words))
+
+        if len(pairs) > 100:
+            print 'set a few pair scores...'
+            for i in range(20):
+                words = pairs.pop(0)
+                cache.set_allpairs(words,score=10)
+        
+    print 'Waiting for all pvs requested to be put in cache....'
+    # now wait for all requests to be fulfilled, and then set the remaining pair scores
+
+    req_table= cache.db.tables['requests']
+    requests_pending = True
+    
+    while requests_pending:
+        pending_requests  = req_table.select()
+        requests_pending = len(pending_requests)> 10
+        time.sleep(1)
+        
+    print 'Finally, set remaining of pair scores:'
+    while pairs:
+        words = pairs.pop(0)
+        cache.set_allpairs(words,score=10)
     cache.close()
+
     EpicsCA.pend_event(0.01)
     EpicsCA.pend_io(10.0)
-    EpicsCA.disconnect_all()
-    EpicsCA.pend_io(10.0)
+    EpicsCA.cleanup()
     
+
 class Cache(MasterDB):
     """ class for access to Master database as the Meta table of Archive databases
     """
@@ -209,7 +243,7 @@ class Cache(MasterDB):
                     sys.stdout.write('no longer master.  Exiting !!\n')
                     self.exit()
                 tmin,tsec = time.localtime()[4:6]
-                if tsec == 0 and (tmin != mlast): # report once per minute
+                if (tsec == 0) and (tmin != mlast) and (tmin % 5 == 0): # report once per 5 minutes
                     mlast = tmin
                     sys.stdout.write(status_str % (time.ctime(),ncached,nloop))
                     sys.stdout.flush()

@@ -92,10 +92,11 @@ class MasterDB:
         
     def get_pvnames(self):
         """ generate self.pvnames: a list of pvnames in the cache"""
-        self.pvnames = []
-        for i in self.cache.select():
-            if i['pvname'] not in self.pvnames:
-                self.pvnames.append(i['pvname'])
+        self.pvnames = [i['pvname'] for i in self.cache.select()]
+        # 
+        #         for i in self.cache.select():
+        #             if i['pvname'] not in self.pvnames:
+        #                 self.pvnames.append(i['pvname'])
         return self.pvnames
     
     def request_pv_cache(self,pvname):
@@ -108,7 +109,7 @@ class MasterDB:
         cmd = "insert into requests (pvname,action,ts) values ('%s','add',%f)" % (npv,time.time())
         self.db.execute(cmd)
 
-    def add_pv(self,pvname):
+    def add_pv(self,pvname,set_motor_pairs=True):
         """adds a PV to the cache: actually requests the addition, which will
         be handled by the next process_requests in mainloop().
 
@@ -116,26 +117,48 @@ class MasterDB:
         requested together, and that the motor fields are 'related' by assigning
         a pair_score = 10.                
         """
+
         pvname = normalize_pvname(pvname.strip())
+        fields = (pvname,)
         if not valid_pvname(pvname):
             sys.stdout.write("## MasterDB add_pv invalid pvname = '%s'" % pvname)
-            return
+            return fields
         
         prefix = pvname
+        isMotor = False
         if pvname.endswith('.VAL'): prefix = pvname[:-4]
         if 'motor' == EpicsCA.caget(prefix+'.RTYP'):
-            fields = ["%s%s" % (prefix,i) for i in motor_fields]
+            fields = tuple(["%s%s" % (prefix,i) for i in motor_fields])
+            pvs = []
             for pvname in fields:
-                if EpicsCA.PV(pvname, connect=True) is not None:
-                    self.request_pv_cache(pvname)
-            time.sleep(1.0)
-            self.set_allpairs(fields)
-            EpicsCA.pend_event(0.01)
+                pvs.append(EpicsCA.PV(pvname, connect=False))
+
+            for p in pvs:
+                p.get()
+                if p.connected:
+                    self.request_pv_cache(p.pvname)
+                    
+            time.sleep(0.1)
+
+            EpicsCA.pend_event(1.e-4)
+            EpicsCA.pend_io(1.0)
+
+            isMotor = True
+
         else:
-            if EpicsCA.PV(pvname,connect=True) is not None:
+            p = EpicsCA.PV(pvname,connect=True)
+            if p.connected: 
                 self.request_pv_cache(pvname)
-        EpicsCA.pend_event(0.01)
+
+        EpicsCA.pend_event(1.e-4)
         EpicsCA.pend_io(1.0)
+
+        if isMotor and set_motor_pairs:
+            time.sleep(0.25)
+            self.set_allpairs(fields)
+            
+        return fields
+            
 
     def drop_pv(self,pvname):
         """drop a PV from the caching process -- really this 'suspends updates'
@@ -219,7 +242,7 @@ class MasterDB:
         self.db.get_cursor()
         for i in range(1,129):
             r = self.db.exec_fetch(q % (i,dt))
-            n = n + len(r)
+            n = n + r[0]['count(value)']
         self.db.use(master_db)
         return n
 
@@ -306,7 +329,7 @@ class MasterDB:
         "set pair score for 2 pvs"        
         p = self.__get_pvpairs(pv1,pv2)
         if not ((p[0] in self.pvnames) and (p[1] in self.pvnames)):
-            return 0
+            return None
         where = "pv1='%s' and pv2='%s'" % p
         score = -1
         o  = self.pairs.select_one(where=where)
@@ -316,23 +339,28 @@ class MasterDB:
     def set_pair_score(self,pv1,pv2,score=None):
         "set pair score for 2 pvs"
         p = self.__get_pvpairs(pv1,pv2)
-        for i in p:
-            if i not in self.pvnames:
-                # look for this pvname in requests -- it may have been just added
-                r = self.db.exec_fetchone("select * from requests where pvname='%s'" % i)
-                # print 'set pair score: req pv? ',i, r
-                if not r.has_key('pvname'):
-                    self.request_pv_cache(i)
-                
         
         current_score  = self.get_pair_score(p[0],p[1])
+        if current_score is None:
+            wait_count = 0
+            while current_score is None and wait_count < 10:
+                time.sleep(0.1)
+                self.get_pvnames()
+
+                current_score  = self.get_pair_score(p[0],p[1])                
+                wait_count = wait_count + 1
+                
+        # a current_score=None means the pv pairs may not be known yet.
+        if current_score is None:
+            current_score = -1
+            score  = 1
+            
         if score is None: score = 1 + current_score
        
         if current_score <= 0:
             q = "insert into pairs set score=%i, pv1='%s', pv2='%s'"
         else:
             q = "update pairs set score=%i where pv1='%s' and pv2='%s'"
-
         self.db.exec_fetch(q % (score,p[0],p[1]))
         
     def increment_pair_score(self,pv1,pv2):
@@ -344,15 +372,20 @@ class MasterDB:
         to be at least the provided score"""
         if not isinstance(pvlist,(tuple,list)): return
         _tmp = list(pvlist[:])
+
         # these may be newly added names, so may not yet be
         # in pvnames.  If not, let's give them a chance!
         newnames = False
-        for i in _tmp:
-            newnames = newnames or (i not in self.pvnames)
-        if newnames:
-            time.sleep(0.25)
+        wait_count = 0
+        while newnames and wait_count < 10:
+            newnames = False
+            for i in _tmp:
+                newnames = newnames or (i not in self.pvnames)
+
+            time.sleep(0.1)
             self.get_pvnames()
-        
+            wait_count = wait_count + 1
+
         while _tmp:
             a = _tmp.pop()
             for b in _tmp:

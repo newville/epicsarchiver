@@ -11,7 +11,7 @@ from MasterDB import MasterDB
 
 import config
 from util import normalize_pvname, get_force_update_time, tformat, \
-     escape_string, clean_string, SEC_DAY, MAX_EPOCH, valid_pvname
+     escape_string, clean_string, SEC_DAY, MAX_EPOCH, valid_pvname, motor_fields
 
 class Archiver:
     MIN_TIME = 100
@@ -94,6 +94,7 @@ class Archiver:
         use update_vals to force insert of cache values into
         the archive (as on startup)
         """
+
         self.pvinfo = {}
         self.last_insert = {}
         newpvs = []
@@ -103,6 +104,7 @@ class Archiver:
         # print ' This is sync with cache ', update_vals, len(self.cache_names), len(pvtable_data)
         self.db.use(self.master_db)
         now = time.time()
+        # print 'masterdb %s / data=%s' % ( self.master_db, len(pvtable_data))
         for pvdata in pvtable_data:
             name = normalize_pvname(pvdata['name'])
             
@@ -111,6 +113,7 @@ class Archiver:
             self.last_insert[name] = (0,None)
 
             if name not in self.cache_names:
+                # print 'newpv ', name
                 newpvs.append(name)            
             elif update_vals:  
                 r = self.db.exec_fetchone("select * from cache where pvname='%s'" % name)
@@ -122,7 +125,8 @@ class Archiver:
                         cache_values.append((name,ts,r['value']))
                 except:
                     pass
-                
+        # print 'newpvs: ', len(newpvs)
+
         if len(newpvs)>0:
             m = MasterDB()
             for p in newpvs:   m.add_pv(p)
@@ -131,14 +135,12 @@ class Archiver:
         if self.dbname is not None:
             self.db.use(self.dbname)
             for name,ts,value in cache_values: self.update_value(name,ts,value)
-                
+        # print 'checking for new pvs:'        
         self.check_for_new_pvs()
 
     def check_for_new_pvs(self):
-        # print 'check for new pvs ', len(self.cache_names), len(self.pvinfo)
         for p in self.get_cache_names():
             if not self.pvinfo.has_key(p):
-                self.write('adding %s to Archive\n' % p)
                 self.add_pv(p)
    
     def get_pv(self,pvname):
@@ -261,6 +263,8 @@ class Archiver:
     def add_pv(self,name,description=None,graph={},deadtime=None,deadband=None):
         """add PV to the database: expected to take a while"""
         pvname = normalize_pvname(name)
+
+        t0_start = time.time()
         if not valid_pvname(pvname):
             sys.stdout.write("## Archiver add_pv invalid pvname = '%s'" % pvname)
             return None
@@ -273,6 +277,7 @@ class Archiver:
                 self.pvinfo[pvname]['active'] = 'yes'
             return None
         # create an Epics PV, check that it's valid
+
         try:
             pv = EpicsCA.PV(pvname,connect=True,use_control=True)
             typ = pv.type
@@ -301,28 +306,21 @@ class Archiver:
         # determine descrption (don't try too hard!)
         if description is None:
             if pvname.endswith('.VAL'):
-                descpv  = pvname[:-4] + '.DESC'
+                descpv  = "%s.DESC" % pvname[:-4] 
             else:
-                descpv  = pvname + '.DESC'                
-            try:
-                dp = EpicsCA.PV(descpv,connect=True)
-                description = dp.char_value
-                dp.disconnect()
-            except:
-                pass
+                descpv  = "%s.DESC" % pvname 
+                for f in motor_fields:
+                    if pvname.endswith(f):
+                        descpv = None
+                        
+            if descpv is not None:
+                try:
+                    dp = EpicsCA.PV(descpv,connect=True)
+                    description = dp.char_value
+                ## dp.disconnect()
+                except:
+                    pass
         if description is None: description = ''
-
-        # device type
-        devtype = None
-        idot = pvname.find('.')
-        if idot >0:
-            try:
-                dpv = EpicsCA.PV(pvname[:idot] + '.DTYP',connect=True)
-                devtype = dpv.char_value
-                dpv.disconnect()
-            except:
-                pass            
-        if devtype     is None: devtype = ''
 
         # set graph default settings
         gr = {'high':'','low':'','type':'normal'}
@@ -349,7 +347,7 @@ class Archiver:
             if prec is not None: deadband = 10**(-(prec+1))
             if dtype in ('enum','string'):     deadband =  0.5
             
-        self.write('Archiver adding PV: %s, table: %s \n' % (pvname,table))
+        self.write('Archiver adding PV: %s, table: %s' % (pvname,table))
         
         self.pv_table.insert(name    = pvname,
                              type    = dtype,
@@ -367,14 +365,10 @@ class Archiver:
 
         self.update_value(pvname,time.time(),pv.value)
 
+        self.write(" time=%f\n" % (time.time() - t0_start))
 
-        # make sure the pv is in the cache:
-        if pvname not in self.cache_names:
-            m = MasterDB()
-            m.add_pv(pvname)
-            m.close()
-            
-        pv.disconnect()
+        sys.stdout.flush()
+        pv = None        
         
     def reread_db(self,pvname):
         ' re-read database settings for PV'
@@ -444,10 +438,12 @@ class Archiver:
                 newvals.append((str(name),str(val),ts))
                 
         # check for stale values and re-read db settings every 10 minutes or so
-        if (tnow - self.force_checktime) >= 600.0:
+        if (tnow - self.force_checktime) >= 120.0:
             self.force_checktime = tnow
             sys.stdout.write('looking for stale values, checking for new settings...\n')
-            self.check_for_new_pvs()
+
+            self.sync_with_cache(update_vals=True)
+
             for name,data in self.last_insert.items():
                 last_ts,last_val = data
                 self.reread_db(name)
@@ -546,7 +542,7 @@ class Archiver:
                 if verbose:
                     self.show_changed(newvals,prefix=' ')
                     self.show_changed(forced, prefix='(f) ')
-                elif tsec < 2 and tmin != mlast and tmin%1 == 0:
+                elif tsec < 2 and tmin != mlast and tmin % 1 == 0:
                     self.write(msg % (time.ctime(), n_changed, n_forced, n_loop))
                     sys.stdout.flush()
                     n_changed = 0
