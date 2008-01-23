@@ -400,7 +400,7 @@ class Archiver:
         dt  =  max(1.0, 3.*(tnow - self.last_collect))
         self.last_collect = tnow
         new_Changes = self.get_cache_changes(dt=dt)
-        print '====== Collect: ', len(new_Changes) 
+
         for dat in new_Changes:
             name  = dat['pvname']
             val   = dat['value']
@@ -432,7 +432,7 @@ class Archiver:
         # now look through the "limbo list" and insert the most recent change
         # iff the last insert was longer ago than the deadtime:
         tnow = time.time()
-        print '   # newvals, # limbo : ', len(newvals), len(self.dtime_limbo)
+        print '====== Collect: ', len(new_Changes) , len(newvals), len(self.dtime_limbo), time.ctime()
         for name in self.dtime_limbo.keys():
             info = self.pvinfo[name]
             if info['active'] == 'no': continue
@@ -443,7 +443,6 @@ class Archiver:
                 newvals[name] = (ts,val)
                 
         # check for stale values and re-read db settings every 10 minutes or so
-        print '  Force??  ', tnow , self.force_checktime, tnow - self.force_checktime
         if (tnow - self.force_checktime) >= 120.0:
             self.force_checktime = tnow
             sys.stdout.write('looking for stale values, checking for new settings...\n')
@@ -477,10 +476,8 @@ class Archiver:
                             self.update_value(name,tnow,r['value'])
                             forced[name] = (tnow,str(r['value']))
                             
-        print '  :: new/forced = ', len(newvals),len(forced)
         for n,x in newvals.items():
-            print n,x
-        print '===== '
+            print '   :: ',  n,x
         return newvals,forced
 
     def show_changed(self,l,prefix=''):
@@ -549,7 +546,8 @@ class Archiver:
                 newvals,forced   = self.collect()
                 n_changed = n_changed + len(newvals)
                 n_forced  = n_forced  + len(forced)
-                EpicsCA.pend_event(0.01)
+                EpicsCA.pend_event(0.03)
+                EpicsCA.pend_io(1)
                 tnow = time.time()
                 tmin,tsec = time.localtime()[4:6]
                 if verbose:
