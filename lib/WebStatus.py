@@ -30,6 +30,8 @@ class WebStatus:
         self.dbconn = self.cache.dbconn
         self.pvget  = self.cache.get_full
         self.null_pv= self.cache.null_pv_value
+        self.dat_cached = {}
+        self.dat_time   = -1
 
         self.dblink    = dblink
         self.valcolor  = '#5522DD'
@@ -46,14 +48,22 @@ class WebStatus:
 
     def get_pv(self,pv,format=None,desc=None,outtype=None):
         """ get cached value for a PV, formatted """
-        ret = self.pvget(pv,add=True)
-
-        if ret == self.null_pv:
+        if (time.time()-self.dat_time ) > 15.0:
+            self.dat_time = time.time()
+            self.dat_cached = {}
+            xx = self.cache.cache.select()
+            for i in xx:
+                self.dat_cached[i['pvname']] = i
+            
+        ret = self.dat_cached.get(pv,None)
+        if ret is None:
+            self.pvget(pv,add=True)
             if desc is None: desc = pv
             return (desc,'Unknown')
-
+            
         oval = ret['cvalue']
         val  = ret['value']
+                
         try:
             if format is not None :
                 oval = format % float(val)
@@ -64,11 +74,11 @@ class WebStatus:
             idot   = pv.find('.')
             if idot == -1: idot = len(pv)
             descpv = "%s.DESC" % pv[:idot]
-            try:
+            rx = self.dat_cached.get(descpv,None)
+            if rx is None:
                 rx = self.pvget(descpv,add=True)
                 desc = rx['cvalue']
-            except:
-                pass
+
         if desc is None: desc = pv
         if outtype=='yes/no':
             oval = 'Unknown'
@@ -77,8 +87,6 @@ class WebStatus:
                 if int(float(val.strip())) == 1: oval = 'Yes'
             except ValueError:
                 pass
-                    
-
         return (desc,oval)
 
     def show_pv(self,pv,format=None,desc=None,type=None):    
@@ -202,17 +210,19 @@ class WebStatus:
     
     def begin_page(self,page,pagelist,refresh=12):
         self.write(htmlhead % (pagetitle, refresh,config.css_style)) #
+        self.write("<p font size=+1>GSECARS Beamline Status: <font color='#4444AA'>%s</font></font></p>" % time.ctime())
         self.write("<body><ul id='tabmenu'>")
         for i in pagelist:
             s = ''
             if i == page: s = 'class="active"'
             self.write("""<li><a %s href='%s?page=%s'>%s</a></li>"""
                      % (s,statpage,i,i))
+
         self.write("<li><a href='%s'>Instruments</a></li>" % (instpage))
-        self.write("<li><a href='%s'>Alerts</a></li>" % (alertspage))
-        self.write("<li><a href='%s'>Settings / Admin</a></li>" % (adminpage))
+        # self.write("<li><a href='%s'>Alerts</a></li>" % (alertspage))
+        # self.write("<li><a href='%s'>Settings / Admin</a></li>" % (adminpage))
         self.write("<li><a href='%s'>Help</a></li>" % (helppage))
-        self.write("<li id='time'>%s</li></ul>" % time.ctime())
+        self.write("</ul>")
         self.start_table()
 
 
@@ -239,7 +249,7 @@ class WebStatus:
 
 
         tags = ionpump_pvs['GSE']
-        if (self.ionpump_pvs.has_key(type)):  tags = ionpump_pvs[type]
+        if (ionpump_pvs.has_key(type)):  tags = ionpump_pvs[type]
         vpv = "%s%s" % (pv, tags[0])
         ipv = "%s%s" % (pv, tags[1])
         ppv = "%s%s" % (pv, tags[2])
@@ -290,6 +300,7 @@ class WebStatus:
         # BM A
         self.table_label_vac("13 BM A")
         self.show_pv("PA:13BM:Q01:00.VAL", desc = "Station Searched")
+
         self.vac_table("13BMA:ip1",label='Slit Tank',        type='GSE',  cc_pr=("13BMA",1))
         self.valve_row("13BMA:BMD_BS",'BMD White Beam Stop')
         self.valve_row("13BMA:BMC_BS",'BMC White Beam Stop')
@@ -328,7 +339,9 @@ class WebStatus:
         # ID A
         self.table_label_vac("13 ID A")
         self.show_pv("PA:13ID:Q01:00.VAL", desc = "Station Searched")
+
         self.vac_table("FE:13:ID:IP7",label="Differential Pump",type='APS')
+
 
         self.valve_row("13IDA:V1",'Valve 1')
         self.vac_table("13IDA:ip1",label='Slit Tank',     type='GSE',  cc_pr=("13IDA",1))

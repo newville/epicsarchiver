@@ -251,7 +251,7 @@ set ytics nomirror
             for key,val in self.kw.items():
                 self.write(" %s :  %s <br>" % (key,val))
     
-        t1 = time.time()
+        t1 = time.time() + 10.0 # now+10seconds (make sure we don't lose "now")
         t0 = t1 - SEC_DAY
 
         action =  self.kw['submit']

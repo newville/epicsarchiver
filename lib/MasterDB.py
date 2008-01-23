@@ -238,11 +238,12 @@ class MasterDB:
         self.db.use(self.arch_db)
         n = 0
         dt = (time.time()-minutes*60.)
-        q = "select count(value) from pvdat%3.3i where time > %f " 
+        q = "select pv_id from pvdat%3.3i where time > %f " 
         self.db.get_cursor()
         for i in range(1,129):
-            r = self.db.exec_fetch(q % (i,dt))
-            n = n + r[0]['count(value)']
+            self.db.cursor.execute(q % (i,dt))
+            r =  self.db.cursor.fetchall()
+            n = n + len(r)
         self.db.use(master_db)
         return n
 

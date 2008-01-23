@@ -395,11 +395,13 @@ class Archiver:
 
     def collect(self):
         """ one pass of collecting new values, deciding what to archive"""
-        newvals, forced = [],[]
+        newvals, forced = {},[]
         tnow = time.time()
         dt  =  max(1.0, 3.*(tnow - self.last_collect))
         self.last_collect = tnow
-        for dat in self.get_cache_changes(dt=dt):
+        new_Changes = self.get_cache_changes(dt=dt)
+        print '====== Collect: ', len(new_Changes) 
+        for dat in new_Changes:
             name  = dat['pvname']
             val   = dat['value']
             ts    = dat['ts'] or time.time()
@@ -407,11 +409,13 @@ class Archiver:
 
             info = self.pvinfo[name]
             if info['active'] == 'no': continue
+            if newvals.has_key(name): continue
             
             last_ts,last_val = self.last_insert[name]
             if last_ts is None:  last_ts = 0
-
+           
             do_save = ((ts-last_ts) > info['deadtime'])
+
             if do_save and dat['type'] in ('double','float'):
                 try:
                     v,o = float(val),float(last_val)
@@ -420,14 +424,15 @@ class Archiver:
                     pass
             if do_save:
                 self.update_value(name,ts,val)
-                newvals.append((str(name),str(val),ts))
+                newvals[name] = (ts,val)
                 if self.dtime_limbo.has_key(name): self.dtime_limbo.pop(name)
-            elif (ts-last_ts) > 1.e-5:   # pv changed, but inside 'deadtime': put it in limbo!
+            elif (ts-last_ts) > 1.e-3:   # pv changed, but inside 'deadtime': put it in limbo!
                 self.dtime_limbo[name] = (ts,val)
                 
         # now look through the "limbo list" and insert the most recent change
         # iff the last insert was longer ago than the deadtime:
         tnow = time.time()
+        print '   # newvals, # limbo : ', len(newvals), len(self.dtime_limbo)
         for name in self.dtime_limbo.keys():
             info = self.pvinfo[name]
             if info['active'] == 'no': continue
@@ -435,9 +440,10 @@ class Archiver:
             if (tnow - last_ts) > info['deadtime']:
                 ts,val = self.dtime_limbo.pop(name)
                 self.update_value(name,ts,val)
-                newvals.append((str(name),str(val),ts))
+                newvals[name] = (ts,val)
                 
         # check for stale values and re-read db settings every 10 minutes or so
+        print '  Force??  ', tnow , self.force_checktime, tnow - self.force_checktime
         if (tnow - self.force_checktime) >= 120.0:
             self.force_checktime = tnow
             sys.stdout.write('looking for stale values, checking for new settings...\n')
@@ -451,6 +457,7 @@ class Archiver:
                 if info['active'] == 'no': continue
                 ftime = info['force_time']
                 if tnow-last_ts > ftime:
+                    print ' force?? ', name, last_ts, last_val, tnow, ftime, tnow-last_ts>ftime
                     r = self.get_cache_full(name)
                     if r['type'] is None and r['value'] is None: # an empty / non-cached PV?
                         try:
@@ -466,8 +473,14 @@ class Archiver:
                         except:
                             pass
                     else:
-                        self.update_value(name,tnow,r['value'])
-                        forced.append((str(name),str(r['value']),tnow))
+                        if not (newvals.has_key(name) or forces.has_key(name)):
+                            self.update_value(name,tnow,r['value'])
+                            forced[name] = (tnow,str(r['value']))
+                            
+        print '  :: new/forced = ', len(newvals),len(forced)
+        for n,x in newvals.items():
+            print n,x
+        print '===== '
         return newvals,forced
 
     def show_changed(self,l,prefix=''):

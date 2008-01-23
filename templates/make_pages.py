@@ -26,7 +26,12 @@ fout.write(")\n\n")
 
 fout.write("filemap = {\n")
 for title,fname in outlist:
-    fout.write("        '%s':'%s',\n" % (title,os.path.abspath(fname)))
+    if fname.startswith('<'):
+        out_path = fname
+    else:
+        out_path = os.path.abspath(fname)
+    fout.write("        '%s':'%s',\n" % (title,out_path))
+
 fout.write("}\n\n")
 
 fout.close()

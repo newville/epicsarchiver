@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-
-
 from mod_python import apache
 
 from EpicsArchiver import config, WebStatus, PlotViewer, WebHelp, WebInstruments
@@ -42,7 +40,15 @@ def show_page(req,page=None,**kw):
     p.begin_page(page, pagelist, refresh=30)
 
     if page in pagelist:
-        p.show_pvfile(filemap[page])
+        template = filemap[page]
+        if template.startswith('<'):
+            method = template[1:-1]
+            try:
+                getattr(p,method)()
+            except:
+                pass
+        else:
+            p.show_pvfile(template)
    
     p.end_page()
     return p.get_buffer()
