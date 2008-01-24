@@ -24,14 +24,13 @@ def plot(req,pv=None,**kw):
 
 def show_page(req,page=None,**kw):
     " status pages "
-    try:
-        dbconn = req.dbconn
-    except AttributeError:
-        dbconn = None
-        req.dbconn = dbconn
+    if not (hasattr(req,'User_cache') and hasattr(req,'User_dbconn')):
+        req.User_cache,req.User_dbconn = None,None
 
-    p = WebStatus(dbconn=dbconn)
-    req.dbconn = p.dbconn
+    p = WebStatus(cache=req.User_cache, dbconn=req.User_dbconn)
+    req.User_cache  = p.cache
+    req.User_dbconn = p.dbconn
+
     # here we import the list of pages for the web templates
     from pages import pagelist, filemap
 

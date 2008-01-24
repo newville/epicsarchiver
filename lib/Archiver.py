@@ -104,6 +104,12 @@ class Archiver:
         self.db.use(self.master_db)
         now = time.time()
         # print 'masterdb %s / data=%s' % ( self.master_db, len(pvtable_data))
+        if update_vals:
+            x = self.db.exec_fetch("select pvname,value,ts from cache")
+            current_cache = {}
+            for i in x:
+                current_cache[i['pvname']] = i
+                
         for pvdata in pvtable_data:
             name = normalize_pvname(pvdata['name'])
             
@@ -115,16 +121,11 @@ class Archiver:
                 # print 'newpv ', name
                 newpvs.append(name)            
             elif update_vals:  
-                r = self.db.exec_fetchone("select value,ts from cache where pvname='%s'" % name)
-                try: 
-                    if r['value'] is not None and r['ts'] is not None:
-                        ts = r['ts']
-                        if now - ts > SEC_DAY:
-                            ts = now
-                        cache_values.append((name,ts,r['value']))
-                except:
-                    pass
-        # print 'newpvs: ', len(newpvs)
+                r = current_cache.get(name,None)
+                if r is not None:
+                    ts = r['ts']
+                    if now - ts > SEC_DAY: ts = now
+                    cache_values.append((name,ts,r['value']))
 
         if len(newpvs)>0:
             m = MasterDB()
@@ -394,7 +395,7 @@ class Archiver:
 
     def collect(self):
         """ one pass of collecting new values, deciding what to archive"""
-        newvals, forced = {},[]
+        newvals, forced = {},{}
         tnow = time.time()
         dt  =  max(1.0, 3.*(tnow - self.last_collect))
         self.last_collect = tnow
@@ -476,8 +477,8 @@ class Archiver:
                             forced[name] = (tnow,str(r['value']))
             # print "# forced = ", len(forced),  time.ctime()
                 
-        #  for n,x in newvals.items():
-        #      print '   :: ',  n,x
+        # print '=> Collect: %i %i %i %i (%s)' %(len(new_Changes) , len(newvals),
+        #                       len(self.dtime_limbo), len(forced), time.ctime())
         return newvals,forced
 
     def show_changed(self,l,prefix=''):
@@ -546,7 +547,7 @@ class Archiver:
                 newvals,forced   = self.collect()
                 n_changed = n_changed + len(newvals)
                 n_forced  = n_forced  + len(forced)
-                EpicsCA.pend_event(0.08)
+                EpicsCA.pend_event(0.025)
                 EpicsCA.pend_io(1)
                 tnow = time.time()
                 tmin,tsec = time.localtime()[4:6]

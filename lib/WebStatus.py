@@ -25,8 +25,10 @@ class WebStatus:
     colored_row = "<tr><td><b>%s</b></td><td><font color=%s> %s </font></td></tr>"
     title_row   = "<tr><th colspan=2><font color=%s>%s</font></tr>"
     
-    def __init__(self,dbconn=None,**kw):
-        self.cache  = Cache(dbconn=dbconn)
+    def __init__(self,cache=None,dbconn=None,**kw):
+        if cache is None:
+            cache = Cache(dbconn=dbconn)
+        self.cache  = cache
         self.dbconn = self.cache.dbconn
         self.pvget  = self.cache.get_full
         self.null_pv= self.cache.null_pv_value
@@ -48,11 +50,10 @@ class WebStatus:
 
     def get_pv(self,pv,format=None,desc=None,outtype=None):
         """ get cached value for a PV, formatted """
-        if (time.time()-self.dat_time ) > 15.0:
+        if (time.time()-self.dat_time ) > 10.0:
             self.dat_time = time.time()
             self.dat_cached = {}
-            xx = self.cache.cache.select()
-            for i in xx:
+            for i in self.cache.cache.select()
                 self.dat_cached[i['pvname']] = i
             
         ret = self.dat_cached.get(pv,None)
@@ -75,10 +76,13 @@ class WebStatus:
             if idot == -1: idot = len(pv)
             descpv = "%s.DESC" % pv[:idot]
             rx = self.dat_cached.get(descpv,None)
-            if rx is None:
-                rx = self.pvget(descpv,add=True)
+            if rx is not None:
                 desc = rx['cvalue']
-
+            else:
+                rx = self.pvget(descpv,add=True)
+                if rx is not self.null_pv:
+                    desc = rx['cvalue']
+                
         if desc is None: desc = pv
         if outtype=='yes/no':
             oval = 'Unknown'
