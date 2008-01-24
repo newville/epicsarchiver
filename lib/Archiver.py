@@ -94,7 +94,6 @@ class Archiver:
         use update_vals to force insert of cache values into
         the archive (as on startup)
         """
-
         self.pvinfo = {}
         self.last_insert = {}
         newpvs = []
@@ -116,7 +115,7 @@ class Archiver:
                 # print 'newpv ', name
                 newpvs.append(name)            
             elif update_vals:  
-                r = self.db.exec_fetchone("select * from cache where pvname='%s'" % name)
+                r = self.db.exec_fetchone("select value,ts from cache where pvname='%s'" % name)
                 try: 
                     if r['value'] is not None and r['ts'] is not None:
                         ts = r['ts']
@@ -432,7 +431,7 @@ class Archiver:
         # now look through the "limbo list" and insert the most recent change
         # iff the last insert was longer ago than the deadtime:
         tnow = time.time()
-        print '====== Collect: ', len(new_Changes) , len(newvals), len(self.dtime_limbo), time.ctime()
+        # print '====== Collect: ', len(new_Changes) , len(newvals), len(self.dtime_limbo), time.ctime()
         for name in self.dtime_limbo.keys():
             info = self.pvinfo[name]
             if info['active'] == 'no': continue
@@ -443,10 +442,10 @@ class Archiver:
                 newvals[name] = (ts,val)
                 
         # check for stale values and re-read db settings every 10 minutes or so
-        if (tnow - self.force_checktime) >= 120.0:
+        if (tnow - self.force_checktime) >= 600.0:
             self.force_checktime = tnow
-            sys.stdout.write('looking for stale values, checking for new settings...\n')
-
+            sys.stdout.write('looking for stale values, checking for new settings...%s\n'  %time.ctime())
+            
             self.sync_with_cache(update_vals=True)
 
             for name,data in self.last_insert.items():
@@ -456,7 +455,7 @@ class Archiver:
                 if info['active'] == 'no': continue
                 ftime = info['force_time']
                 if tnow-last_ts > ftime:
-                    print ' force?? ', name, last_ts, last_val, tnow, ftime, tnow-last_ts>ftime
+                    # print ' force?? ', name, last_ts, last_val, tnow, ftime, tnow-last_ts>ftime
                     r = self.get_cache_full(name)
                     if r['type'] is None and r['value'] is None: # an empty / non-cached PV?
                         try:
@@ -472,12 +471,13 @@ class Archiver:
                         except:
                             pass
                     else:
-                        if not (newvals.has_key(name) or forces.has_key(name)):
+                        if not (newvals.has_key(name) or forced.has_key(name)):
                             self.update_value(name,tnow,r['value'])
                             forced[name] = (tnow,str(r['value']))
-                            
-        for n,x in newvals.items():
-            print '   :: ',  n,x
+            # print "# forced = ", len(forced),  time.ctime()
+                
+        #  for n,x in newvals.items():
+        #      print '   :: ',  n,x
         return newvals,forced
 
     def show_changed(self,l,prefix=''):
@@ -546,7 +546,7 @@ class Archiver:
                 newvals,forced   = self.collect()
                 n_changed = n_changed + len(newvals)
                 n_forced  = n_forced  + len(forced)
-                EpicsCA.pend_event(0.03)
+                EpicsCA.pend_event(0.08)
                 EpicsCA.pend_io(1)
                 tnow = time.time()
                 tmin,tsec = time.localtime()[4:6]
