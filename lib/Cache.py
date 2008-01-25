@@ -153,11 +153,13 @@ class Cache(MasterDB):
         return len(self.data)
 
     def connect_pvs(self):
+        t0 = time.time()
+
         self.get_pvnames()
         npvs = len(self.pvnames)
         n_notify = 2 + (npvs / 10)
         sys.stdout.write("connecting to %i PVs\n" %  npvs)
-        
+        # print time.time()-t0
         # print 'EpicsArchiver.Cache connecting to %i PVs ' %  npvs
         for i,pvname in enumerate(self.pvnames):
             try:
@@ -166,8 +168,9 @@ class Cache(MasterDB):
             except:
                 sys.stderr.write('connect failed for %s\n' % pvname)
 
-        EpicsCA.pend_io(10.0)
-        t0 = time.time()
+        # print 'pvs created ', time.time()-t0
+        
+        EpicsCA.pend_io(1.0)
         self.data = {}
         for i,pvname in enumerate(self.pvnames):
             xx = self.cache.select_one(where="pvname='%s'" % pvname)
@@ -189,6 +192,8 @@ class Cache(MasterDB):
                 sys.stdout.write('%.2f ' % (float(i)/npvs))
                 sys.stdout.flush()
 
+        dt = time.time()-t0
+        sys.stdout.write("\nconnected to %i PVs in %f seconds\n" %  (npvs,dt))
         self.update_cache()
 
     def set_date(self):
