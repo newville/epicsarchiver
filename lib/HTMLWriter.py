@@ -136,6 +136,11 @@ class HTMLWriter:
         self.buffer=[]
         self.write(htmlhead % (self.html_title,refresh))
         self.write("<body>")
+        self.write("""<table><tr><td align=left width=40%%>
+        <font size=+1>GSECARS Beamline Status:</font></td>
+        <td align=center width=40%%><font color='#4444AA'>%s</font></td></tr></table><p>
+        """ % (time.ctime()))
+
         
     def show_links(self,pv='',inst_id=-1,active_tab=None,**kw):
         self.write("<ul id='tabmenu'>")
@@ -153,7 +158,6 @@ class HTMLWriter:
                 link = "%s?section=%s" % (link,kw['help'])
             
             self.write("<li><a %s href='%s'>%s</a></li>" % (is_active,link,title))
-        self.write("<li id='time'>%s</li></ul>" % time.ctime())            
         self.write("</ul><br>")
 
     def endhtml(self):

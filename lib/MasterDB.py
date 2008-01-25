@@ -233,30 +233,46 @@ class MasterDB:
 
     ##
     ## Status/Activity Reports 
+    def get_npvs(self):
+        """return the number of pvs in archive"""
+        self.db.use(self.arch_db)
+        r = self.db.exec_fetch('select id from pv')
+        self.db.use(master_db)
+        return len(r)
+
+
     def arch_nchanged(self,minutes=10):
         """return the number of values archived in the past minutes. """
         self.db.use(self.arch_db)
         n = 0
+        t0 = time.time()
         dt = (time.time()-minutes*60.)
         q = "select pv_id from pvdat%3.3i where time > %f " 
         self.db.get_cursor()
         for i in range(1,129):
-            self.db.cursor.execute(q % (i,dt))
-            r =  self.db.cursor.fetchall()
-            n = n + len(r)
+            n = n + self.db.cursor.execute(q % (i,dt))
         self.db.use(master_db)
         return n
 
     def arch_report(self,minutes=10):
+        """return a report (list of text lines) for archiving process, """
+        npvs     = self.get_npvs()
+        o = ["Current Database=%s, status=%s, PID=%i, %i PVs in archive" %(self.arch_db,
+                                                                           self.get_arch_status(),
+                                                                           self.get_arch_pid(),npvs)]
+        return o
+
+    def arch_full_report(self,minutes=10):
         """return a report (list of text lines) for archiving process,
         giving the number of values archived in the past minutes.
         """
-        n = self.arch_nchanged(minutes=minutes)
-
-        o = ["Current Database=%s, status=%s, PID=%i" %(self.arch_db,
-                                                        self.get_arch_status(),
-                                                        self.get_arch_pid()),
-             "%i values archived in past %i minutes" % (n, minutes)]
+        nchanged = self.arch_nchanged(minutes=minutes)
+        npvs     = self.get_npvs()
+        
+        o = ["Current Database=%s, status=%s, PID=%i, %i PVs in archive" %(self.arch_db, 
+                                                                 self.get_arch_status(),
+                                                                 self.get_arch_pid(),npvs),
+             "%i values archived in past %i minutes" % (nchanged, minutes)]
         return o
 
     def cache_report(self,brief=False,dt=60):

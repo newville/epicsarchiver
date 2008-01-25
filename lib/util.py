@@ -51,7 +51,8 @@ def get_force_update_time():
     recorded at least once in any 24 hour period.  
     """
     from random import randint
-    return 3 * (21600  + randint(0,3600))
+    # return 3 * (21600  + randint(0,3600))
+    return (10800 + randint(0,3600))
     # return 2 * (120  + randint(0,720))
 
 def timehash():

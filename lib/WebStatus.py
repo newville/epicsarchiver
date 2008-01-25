@@ -214,7 +214,11 @@ class WebStatus:
     
     def begin_page(self,page,pagelist,refresh=12):
         self.write(htmlhead % (pagetitle, refresh,config.css_style)) #
-        self.write("<p font size=+1>GSECARS Beamline Status: <font color='#4444AA'>%s</font></font></p>" % time.ctime())
+        self.write("""<table><tr><td align=left width=40%%>
+        <font size=+1>GSECARS Beamline Status:</font></td><td align=center width=40%%><font color='#4444AA'>%s</font></td>
+        <td align=rignt><a href='%s'>Settings/Admin</a></td>
+        <td align=rignt><a href='%s'>Help</a></td></tr></table><p>""" % (time.ctime(),adminpage,helppage))
+
         self.write("<body><ul id='tabmenu'>")
         for i in pagelist:
             s = ''
@@ -224,8 +228,8 @@ class WebStatus:
 
         self.write("<li><a href='%s'>Instruments</a></li>" % (instpage))
         # self.write("<li><a href='%s'>Alerts</a></li>" % (alertspage))
-        # self.write("<li><a href='%s'>Settings / Admin</a></li>" % (adminpage))
-        self.write("<li><a href='%s'>Help</a></li>" % (helppage))
+        # self.write("<li><a href='%s'>Admin</a></li>" % (adminpage))
+        # self.write("<li><a href='%s'>Help</a></li>" % (helppage))
         self.write("</ul>")
         self.start_table()
 

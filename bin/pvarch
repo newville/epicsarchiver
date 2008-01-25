@@ -186,12 +186,21 @@ def cache_status(action='activity', dt=60):
                 print "  %s   %.29s = %s" % (stime, r['pvname']+' '*20,r['value'])
         print msg % (len(ret), int(dt), pid, status)
 
-    
-def archive_status(minutes=10):
+
+def show_archive_status(minutes=10):
     m    = MasterDB(dbconn=None)
     stat = m.arch_report(minutes=minutes)
+    for i in stat: print i
+    nchanged = m.arch_nchanged(minutes=minutes)
+    print "%i values archived in past %i minutes" % (nchanged, minutes)
     m.close()
-    return stat
+
+def archived_values(minutes=10):
+    m    = MasterDB(dbconn=None)
+    nchanged = m.arch_nchanged(minutes=minutes)
+    m.close()
+    return nchanged
+
         
 def drop_pv(pvname):
     dbconn = cpool.get()
@@ -227,10 +236,10 @@ def main():
         if read_pid(name='pvarch') is None:
             print "Archiver is not running: start with 'pvarch start'"
         else:
-            for i in archive_status(): print i
+            show_archive_status()
                 
     elif 'check' == cmd:
-        print archive_status()[1].split()[0]
+        print archived_values()
                 
     elif cmd in ('start','stop','restart'):
         if 'restart' == cmd:
