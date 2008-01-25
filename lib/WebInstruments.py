@@ -39,6 +39,7 @@ class WebInstruments(HTMLWriter):
         station = self.kw['station']
         instrument = self.kw['instrument']
 
+
         wr = self.write                
         
         self.starthtml()
@@ -51,6 +52,7 @@ class WebInstruments(HTMLWriter):
                 inst_id = int(self.kw['inst_id'])
             except:
                 pass
+
 
         newpos_name = ''
         if self.kw.has_key('newpos_name'):
@@ -88,6 +90,12 @@ class WebInstruments(HTMLWriter):
         self.show_station_choices()
 
         self.startform(action=instpage,hiddenkeys=('pv',))
+
+        if station == '':
+            station_list = self.stations.keys() ; station_list.sort()
+            station = station_list[0]
+
+
         if station == '':
             wr("Please select a station.")
         else:

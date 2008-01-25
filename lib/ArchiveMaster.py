@@ -97,7 +97,7 @@ class ArchiveMaster(MasterDB):
         self.db.execute(self.pv_init)
         for i in range(1,129):
             for q in self.dat_init: self.db.execute(q % i)
-        self.db.grant(db=dbname,user=dbuser,passwd=dbpass,host=dbhost,grant=True)
+        self.db.grant(db=dbname,user=dbuser,passwd=dbpass,host=dbhost)
         self.db.use(master_db)
 
     def make_nextdb(self,dbname=None):
