@@ -430,14 +430,18 @@ alerts = """
 <font size=+1>Epics PV Archiver Alerts</font></p>
 
 Alerts are used to send an email when a PV goes into an 'Alert' condition.
-The alert condition is set by the user, and does not need to be related to
-Alarm states for Epics Variables.  To set or change an alert, you will be
-challenged for the administrator password.  As with all administrative
-tasks for the Archiver, this is a security measure so that only trusted
-users can set up emails sent from your system.
-To set up Alerts, a mail server and "from address" must be configured at
-installation time.
-<p>
+The alert condition in the Epics Archiver is set by the user, and does not
+need to be related to Alarm states for Epics Process Variables.  Alerts are
+set for a single PV -- currently they cannot depend on complex conditions
+of PVs (say, PV1 is greater than 5 AND PV2 is not 0), though an Epics calc
+record might be able to provide such logic.<p>
+
+
+To set or change an alert, you will be challenged for the administrator
+password.  As with all administrative tasks for the Archiver, this is a
+security measure so that only trusted users can set up emails sent from
+your system.  To set up Alerts, a mail server and "from address" must be
+configured at installation time.  <p>
 
 Use the main <a href="%(alertpage)s">Alert Page</a> to see a list of currently
 defined alerts.  From this page you can select a "View/Change" link to modify
@@ -445,11 +449,11 @@ any of the settings for a particular alert.
 
 <h3>Setting an Alerts</h3>
 
-Alerts are set for a single PV.  In addition to the PV name, each alert
-also has a label which can be used to describe the alert, and so that
-multiple alerts can be set on a single PV (one person may want an alert
-when a valve closes, while another person may want an alert when it
-opens!).
+<p> In addition to the PV name, each Alert has a label to describe the
+alert, and so that multiple alerts can be set on a single PV (one person
+may want an alert when a valve closes, while another person may want an
+alert when it opens!).  The label will be used in the email sent when the
+Alert condition is met.
 
 <p> Each alert consists of 3 pieces: a PV's value, a 'test condition' and a
 'trip point'.  When the PV's value meets the condition for that trip point,
@@ -732,30 +736,29 @@ save, lookup, and restore the values for <i>all</i> PVs in that group.
 
 Instruments are categorized with two names, a "Station Name" and an
 "Instrument Name".  This allows some separation of roles, and provides some
-hierarchy for finding Instruments.  Each of the two names is a regular
-string.  Generally, the Station Name will be shorter, but this is not
-necessary.
+hierarchy for finding Instruments.  Each of the two names is simply a string.
+Typically, the Station Name will be short name to identify a group of instruments.
 
-<p> Each Instrument is comprised of a list of PVs.  This list can be
-altered over time.  There is no limit to the number of PVs in an
-Instrument, nor is there a limit on how many different intruments a PV can
-be part of.
+<p> Each Instrument is made up of a list of PVs.  There is no limit to the
+number of PVs in an Instrument, nor is there a limit on how many different
+intruments a single PV can be part of.  This list of PVs for an instrument
+can be altered over time.
 
-<p> Instrument has a list of named "Positions".  Instrument Positions are
+<p> Each Instrument has a list of named "Positions".  Instrument Positions are
 very simple: they are names for the <b>time</b> at which the Position is
 defined.  This time can then be used to later retrieve the values of all
 the PVs in the Instrument for this position.
 
-<p><b>Important Note:</b> The PV values themselves are <b>not</b> stored
-naming a Position.  Only the <b>time</b> is stored. This has a few
+<p><i>Important Note:</i> The PV values themselves are <i>not</i> stored
+naming a Position.  Only the <i>time</i> is stored. This has a few
 consequences:
 
 <ul>
 <li> As the PVs that make up an Instrument might chage, existing Position
-     names do not become meaningless, but do retain the meaning of "where
-     were all the PVs now defined for this Instrument at this time?".   Of
-     course, if an Instrument now contains a PV that was not archived until
-     recently, that PV's value may not be known.
+     names do not become meaningless, but retain the meaning of "where
+     were all the PVs currently defined for this Instrument at this time?".
+     Of course, if an Instrument now contains a PV that was not being archived
+     until  recently, that PV's value may not be known.
 <li> If defining an instrument with PVs that are not currently being
      archived, it may take a minute before the Archive Process actually
      starts recording that PV.
