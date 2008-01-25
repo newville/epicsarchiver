@@ -53,7 +53,7 @@ class WebStatus:
         if (time.time()-self.dat_time ) > 10.0:
             self.dat_time = time.time()
             self.dat_cached = {}
-            for i in self.cache.cache.select()
+            for i in self.cache.cache.select():
                 self.dat_cached[i['pvname']] = i
             
         ret = self.dat_cached.get(pv,None)

@@ -50,8 +50,9 @@ def get_force_update_time():
     This will spread out inserts, and means that every PV is
     recorded at least once in any 24 hour period.  
     """
-    from random import random
-    return 10800.0*(6 + random())
+    from random import randint
+    return 3 * (21600  + randint(0,3600))
+    # return 2 * (120  + randint(0,720))
 
 def timehash():
     """ generate a simple, 10 character hash of the timestamp:
