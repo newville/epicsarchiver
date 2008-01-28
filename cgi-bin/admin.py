@@ -3,7 +3,7 @@
 from mod_python import apache
 from EpicsArchiver import WebAdmin, config, ConnectionPool
 
-__auth_realm__ = "%s   (hint: guest password)"  % config.dbuser
+__auth_realm__ = "%s "  % config.dbuser
 
 def __auth__(req,user='',passwd=''):
     if user == config.dbuser and passwd == config.dbpass: return 1
