@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from EpicsArchiver import HTMLWriter, config
+from EpicsArchiver import HTMLWriter, config, __version__
 
 xdbname1 = config.dat_format % (config.dat_prefix,1)
 xdbname2 = config.dat_format % (config.dat_prefix,2)
@@ -25,6 +25,17 @@ conf['alertpage']  = "%s/admin/list_alerts"   % config.cgi_url
 conf['helppage']   = "%s/help.py"   % config.cgi_url
 helppage = conf['helppage']
 
+
+
+about = """
+The current version of Epics PV Archiver is %s.<p>
+
+
+The Epics PV Archiver was written by M. Newville at the University of Chicago.  The
+latest source code and documentation is available at 
+  <a href='http://millenia.cars.aps.anl.gov/~newville/Epics/PVArchiver/'>
+  http://millenia.cars.aps.anl.gov/~newville/Epics/PVArchiver/</a>.
+""" % __version__
 
 setup = """
 <font size=+1>Epics PV Archiver Setup and Management</font></p>
@@ -828,13 +839,14 @@ it.
 
 
 section_map = {'overview':overview,
-                'plotting':plotting,
-                'templates':templates,
-                'instruments':instruments,
-                'alerts':alerts,
-                'setup':setup}
+               'plotting':plotting,
+               'templates':templates,
+               'instruments':instruments,
+               'alerts':alerts,
+               'setup':setup,
+               'about':about}
 section_names  = ('overview', 'plotting', 'templates',
-                  'instruments', 'alerts',  'setup')
+                  'instruments', 'alerts',  'setup','about')
 
 
 

@@ -300,7 +300,10 @@ set ytics nomirror
 
         if epv1 is None or pvinfo=={}: return ('','')
         if (epv1.pvname in (None,'')): return ('','')
-        desc = self.get_pvdesc(epv1)
+
+        desc = pvinfo.get('description','')
+        if desc in ('',None):   desc = self.get_pvdesc(epv1)
+
         pvlabel = epv1.pvname
         if desc!=epv1.pvname: pvlabel = "%s (%s)" % (desc,epv1.pvname)
         legend,tics = self.get_enum_legend(epv1)        
@@ -326,9 +329,11 @@ set ytics nomirror
             
         if pvname2 != '':
 
+
             epv2  = self.arch.get_pv(pvname2)
             epv2.connect()
             pv2info = self.arch.get_info(pvname2)
+
             self.increment_pair_score(pvname1,pvname2)
             if DEBUG:
                  self.write(" PV#2  !!! %s, %s" % (str(pvname2 is None), epv2.pvname))
@@ -336,7 +341,9 @@ set ytics nomirror
                 
             if (epv2 is not None) and (epv2.pvname != ''):
                 val = epv2.get()
-                desc2 = self.get_pvdesc(epv2)
+                desc2 = pv2info.get('description','')
+                if desc2 in ('',None):   desc2 = self.get_pvdesc(epv2)
+
                 pv2label = epv2.pvname
                 if desc2!=pvname2:  pv2label = "%s (%s)" % (desc2,epv2.pvname)
 

@@ -14,7 +14,7 @@
 
 <dl><dt><a name="Archiver-add_pv"><strong>add_pv</strong></a>(self, name, description<font color="#909090">=None</font>, graph<font color="#909090">={}</font>, deadtime<font color="#909090">=None</font>, deadband<font color="#909090">=None</font>)</dt><dd><tt>add&nbsp;PV&nbsp;to&nbsp;the&nbsp;database:&nbsp;expected&nbsp;to&nbsp;take&nbsp;a&nbsp;while</tt></dd></dl>
 
-<dl><dt><a name="Archiver-check_for_new_pvs"><strong>check_for_new_pvs</strong></a>(self)</dt></dl>
+<dl><dt><a name="Archiver-check_for_new_pvs"><strong>check_for_new_pvs</strong></a>(self)</dt><dd><tt>read&nbsp;pvs&nbsp;in&nbsp;cache,&nbsp;make&nbsp;sure&nbsp;we&nbsp;have&nbsp;them&nbsp;all&nbsp;in&nbsp;pvinfo&nbsp;dictionary</tt></dd></dl>
 
 <dl><dt><a name="Archiver-collect"><strong>collect</strong></a>(self)</dt><dd><tt>one&nbsp;pass&nbsp;of&nbsp;collecting&nbsp;new&nbsp;values,&nbsp;deciding&nbsp;what&nbsp;to&nbsp;archive</tt></dd></dl>
 
@@ -32,7 +32,7 @@
 
 <dl><dt><a name="Archiver-get_data"><strong>get_data</strong></a>(self, pvname, t0, t1, with_current<font color="#909090">=None</font>)</dt><dd><tt>get&nbsp;data&nbsp;from&nbsp;database&nbsp;for&nbsp;a&nbsp;time&nbsp;range</tt></dd></dl>
 
-<dl><dt><a name="Archiver-get_info"><strong>get_info</strong></a>(self, pvname)</dt></dl>
+<dl><dt><a name="Archiver-get_info"><strong>get_info</strong></a>(self, pvname)</dt><dd><tt>return&nbsp;pvinfo&nbsp;dictionary&nbsp;for&nbsp;a&nbsp;pv,&nbsp;and&nbsp;also&nbsp;ensures&nbsp;that&nbsp;it&nbsp;is&nbsp;in&nbsp;the&nbsp;pvinfo&nbsp;dictionary</tt></dd></dl>
 
 <dl><dt><a name="Archiver-get_nchanged"><strong>get_nchanged</strong></a>(self, minutes<font color="#909090">=10</font>)</dt><dd><tt>return&nbsp;the&nbsp;number&nbsp;of&nbsp;values&nbsp;archived&nbsp;in&nbsp;the&nbsp;past&nbsp;minutes.</tt></dd></dl>
 
@@ -46,13 +46,12 @@
 
 <dl><dt><a name="Archiver-read_master"><strong>read_master</strong></a>(self, query)</dt></dl>
 
-<dl><dt><a name="Archiver-reread_db"><strong>reread_db</strong></a>(self, pvname)</dt><dd><tt>re-read&nbsp;database&nbsp;settings&nbsp;for&nbsp;PV</tt></dd></dl>
+<dl><dt><a name="Archiver-refresh_pv_table"><strong>refresh_pv_table</strong></a>(self)</dt><dd><tt>refresh&nbsp;the&nbsp;pvinfo&nbsp;dictionary&nbsp;&nbsp;by&nbsp;re-reading&nbsp;the&nbsp;database&nbsp;settings&nbsp;for&nbsp;pvs&nbsp;in&nbsp;the&nbsp;pv&nbsp;table<br>
+This&nbsp;will&nbsp;cause&nbsp;changes&nbsp;in&nbsp;database&nbsp;settings&nbsp;(deadtime,&nbsp;etc)&nbsp;to&nbsp;be&nbsp;updated.</tt></dd></dl>
 
 <dl><dt><a name="Archiver-set_infotime"><strong>set_infotime</strong></a>(self, ts)</dt></dl>
 
 <dl><dt><a name="Archiver-set_pidstatus"><strong>set_pidstatus</strong></a>(self, pid<font color="#909090">=None</font>, status<font color="#909090">='unknown'</font>)</dt></dl>
-
-<dl><dt><a name="Archiver-show_changed"><strong>show_changed</strong></a>(self, l, prefix<font color="#909090">=''</font>)</dt></dl>
 
 <dl><dt><a name="Archiver-sync_with_cache"><strong>sync_with_cache</strong></a>(self, update_vals<font color="#909090">=False</font>)</dt><dd><tt>initialize&nbsp;pv&nbsp;lists,&nbsp;insert&nbsp;times,&nbsp;etc&nbsp;with&nbsp;cache<br>
 use&nbsp;update_vals&nbsp;to&nbsp;force&nbsp;insert&nbsp;of&nbsp;cache&nbsp;values&nbsp;into<br>

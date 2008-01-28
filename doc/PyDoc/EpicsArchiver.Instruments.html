@@ -63,17 +63,19 @@ instruments&nbsp;in&nbsp;that&nbsp;station</tt></dd></dl>
 Methods inherited from <a href="EpicsArchiver.MasterDB.html#MasterDB">EpicsArchiver.MasterDB.MasterDB</a>:<br>
 <dl><dt><a name="Instruments-add_alert"><strong>add_alert</strong></a>(self, pvname<font color="#909090">=None</font>, name<font color="#909090">=None</font>, mailto<font color="#909090">=None</font>, mailmsg<font color="#909090">=None</font>, timeout<font color="#909090">=30</font>, compare<font color="#909090">='ne'</font>, trippoint<font color="#909090">=None</font>, **kw)</dt><dd><tt>add&nbsp;&nbsp;a&nbsp;new&nbsp;alert</tt></dd></dl>
 
-<dl><dt><a name="Instruments-add_pv"><strong>add_pv</strong></a>(self, pvname)</dt><dd><tt>adds&nbsp;a&nbsp;PV&nbsp;to&nbsp;the&nbsp;cache:&nbsp;actually&nbsp;requests&nbsp;the&nbsp;addition,&nbsp;which&nbsp;will<br>
+<dl><dt><a name="Instruments-add_pv"><strong>add_pv</strong></a>(self, pvname, set_motor_pairs<font color="#909090">=True</font>)</dt><dd><tt>adds&nbsp;a&nbsp;PV&nbsp;to&nbsp;the&nbsp;cache:&nbsp;actually&nbsp;requests&nbsp;the&nbsp;addition,&nbsp;which&nbsp;will<br>
 be&nbsp;handled&nbsp;by&nbsp;the&nbsp;next&nbsp;process_requests&nbsp;in&nbsp;mainloop().<br>
 &nbsp;<br>
 Here,&nbsp;we&nbsp;check&nbsp;for&nbsp;'Motor'&nbsp;PV&nbsp;typs&nbsp;and&nbsp;make&nbsp;sure&nbsp;all&nbsp;motor&nbsp;fields&nbsp;are<br>
 requested&nbsp;together,&nbsp;and&nbsp;that&nbsp;the&nbsp;motor&nbsp;fields&nbsp;are&nbsp;'related'&nbsp;by&nbsp;assigning<br>
 a&nbsp;pair_score&nbsp;=&nbsp;10.</tt></dd></dl>
 
+<dl><dt><a name="Instruments-arch_full_report"><strong>arch_full_report</strong></a>(self, minutes<font color="#909090">=10</font>)</dt><dd><tt>return&nbsp;a&nbsp;report&nbsp;(list&nbsp;of&nbsp;text&nbsp;lines)&nbsp;for&nbsp;archiving&nbsp;process,<br>
+giving&nbsp;the&nbsp;number&nbsp;of&nbsp;values&nbsp;archived&nbsp;in&nbsp;the&nbsp;past&nbsp;minutes.</tt></dd></dl>
+
 <dl><dt><a name="Instruments-arch_nchanged"><strong>arch_nchanged</strong></a>(self, minutes<font color="#909090">=10</font>)</dt><dd><tt>return&nbsp;the&nbsp;number&nbsp;of&nbsp;values&nbsp;archived&nbsp;in&nbsp;the&nbsp;past&nbsp;minutes.</tt></dd></dl>
 
-<dl><dt><a name="Instruments-arch_report"><strong>arch_report</strong></a>(self, minutes<font color="#909090">=10</font>)</dt><dd><tt>return&nbsp;a&nbsp;report&nbsp;(list&nbsp;of&nbsp;text&nbsp;lines)&nbsp;for&nbsp;archiving&nbsp;process,<br>
-giving&nbsp;the&nbsp;number&nbsp;of&nbsp;values&nbsp;archived&nbsp;in&nbsp;the&nbsp;past&nbsp;minutes.</tt></dd></dl>
+<dl><dt><a name="Instruments-arch_report"><strong>arch_report</strong></a>(self, minutes<font color="#909090">=10</font>)</dt><dd><tt>return&nbsp;a&nbsp;report&nbsp;(list&nbsp;of&nbsp;text&nbsp;lines)&nbsp;for&nbsp;archiving&nbsp;process,</tt></dd></dl>
 
 <dl><dt><a name="Instruments-cache_report"><strong>cache_report</strong></a>(self, brief<font color="#909090">=False</font>, dt<font color="#909090">=60</font>)</dt><dd><tt>return&nbsp;a&nbsp;report&nbsp;(list&nbsp;of&nbsp;text&nbsp;lines)&nbsp;for&nbsp;caching&nbsp;process,<br>
 giving&nbsp;number&nbsp;of&nbsp;values&nbsp;cached&nbsp;in&nbsp;the&nbsp;past&nbsp;dt&nbsp;seconds.<br>
@@ -103,6 +105,8 @@ will&nbsp;take&nbsp;effect&nbsp;once&nbsp;a&nbsp;'process_requests'&nbsp;is&nbsp
 
 <dl><dt><a name="Instruments-get_instruments_with_pv"><strong>get_instruments_with_pv</strong></a>(self, pv)</dt><dd><tt>return&nbsp;a&nbsp;list&nbsp;of&nbsp;(instrument&nbsp;ids,&nbsp;inst&nbsp;name,&nbsp;station&nbsp;name)&nbsp;for<br>
 instruments&nbsp;which&nbsp;&nbsp;contain&nbsp;a&nbsp;named&nbsp;pv</tt></dd></dl>
+
+<dl><dt><a name="Instruments-get_npvs"><strong>get_npvs</strong></a>(self)</dt><dd><tt>return&nbsp;the&nbsp;number&nbsp;of&nbsp;pvs&nbsp;in&nbsp;archive</tt></dd></dl>
 
 <dl><dt><a name="Instruments-get_pair_score"><strong>get_pair_score</strong></a>(self, pv1, pv2)</dt><dd><tt>set&nbsp;pair&nbsp;score&nbsp;for&nbsp;2&nbsp;pvs</tt></dd></dl>
 
