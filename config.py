@@ -12,7 +12,7 @@ from os.path import join
 # give the mysql user name, password, and host.
 # this account does not need to have access to all tables!!
 dbuser = 'epics'
-dbpass = 'hellocars'
+dbpass = 'archiver'
 dbhost = 'localhost'
 
 # command for how mysql databases should be 'dumped'.
@@ -52,26 +52,26 @@ pv_deadtime_enum = 1
 ## Email setup for email alerts
 ##
 mailserver = 'localhost'
-mailfrom   = 'gsecars@millenia.cars.aps.anl.gov'
+mailfrom   = 'pvarchiver@aps.anl.gov'
 
 ######################################################
 ##
 ## Web setup section
 ##
 #  apache root directory, and the URL 
-apache_root = '/www/apache/'
-url_root    = 'http://millenia.cars.aps.anl.gov/'
+apache_root = '/var/www/'
+url_root    = 'http://test.aps.anl.gov/'
 
 # apache user / group -- these should be the same as in your httpd.conf
-apache_user = 'nobody'
-apache_group= 'nobody'
+apache_user = 'apache'
+apache_group= 'apache'
 
 # location for python web scripts, and how this maps to a URL:
 cgi_bin   = join(apache_root, 'cgi-bin/pvarch')
 cgi_url   = join(url_root   , 'cgi-bin/pvarch')
 
 # location for output data files from PlotViewer and how this maps to a URL:
-cgi_data_dir = join(apache_root , 'htdocs/cgi-data/')
+cgi_data_dir = join(apache_root , 'html/cgi-data/')
 cgi_data_url = join(url_root    , 'cgi-data/')
 
 data_dir     = join(cgi_data_dir, 'pvarch')
@@ -89,7 +89,7 @@ jscal_url     = join(cgi_data_url, 'jscal')
 #   the files in this directory should be readily editable
 #   to customize the PVs displayed in the status page
 #   directory needs to be world-readable, but can be in a user directory
-share_dir    = '/www/apache/htdocs/gsecars/pvarchiver/'
+share_dir    = '/usr/local/share/pvarch/'
 template_dir = join(share_dir, 'templates/')
 
 # title for status web pages
@@ -97,9 +97,7 @@ pagetitle = 'PV Archiver Status Page'
 
 # footer for status web pages
 footer = """<hr>[
-<a href=http://cars9.uchicago.edu/gsecars>GSECARS</a> |
-<a href=http://cars9.uchicago.edu/gsecars/webcam/>Beamline Web Cameras</a> |
-<a href=http://www.aps.anl.gov/aod/blops/plots/smallStatusPlot.png>APS Storage Ring Status</a> |
+<a href=http://www.aps.anl.gov/asd/blops/status/smallHistory.html>APS Storage Ring Status</a> |
 <a href=http://www.aps.anl.gov/Facility/>APS Facility Page</a>|
 <a href=http://www.aps.anl.gov/Accelerator_Systems_Division/Operations_Analysis/logging/MonitorDataReview.html>APS OAG Data</a>
 ]"""
@@ -128,7 +126,6 @@ body {margin:10px; padding:0px;background:#FDFDFD; font:bold 14px verdana, arial
              padding: 3px 3px 4px 3px;margin: 0px ;text-decoration: none; }
 #tabmenu a.active {color: #CC0000;background: #FCFCEA;border-bottom: 2px solid #FCFCEA;}
 #tabmenu a:hover {color: #CC0000; background: #F9F9E0;}
-
 #time {font: bold 12px verdana, arial, sans-serif; border: 2px; color: #4444AA; margin: 1px;}
 </style>
 """
