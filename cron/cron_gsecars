@@ -1,0 +1,9 @@
+# cron entries for pvarch processes
+PVARCH=/usr/bin/pvarch
+WEEKLY=/usr/local/bin/weekly
+NULL=/dev/null
+08,38  * * * * $PVARCH cache start    > $NULL 2>&1
+11,41  * * * * $PVARCH start          > $NULL 2>&1
+01    05 * * * $PVARCH clean          > $NULL 2>&1
+# rotate to next archive at 10:18am on the first tuesday of each month
+18  10 * * 2   $WEEKLY 1 $PVARCH next >> /var/log/pvarch/rotate.log 2>&1

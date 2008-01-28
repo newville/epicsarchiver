@@ -22,7 +22,7 @@ import EpicsCA
 # a "full install" will mean that any running cache and 
 # archiver will stop (abruptly -- the _mysql.so changes)
 full_install = True
-## full_install = False
+full_install = False
 
 script_name= sys.argv[0]
 try:
@@ -129,11 +129,9 @@ for i in os.listdir('cgi-bin'):
     f = os.path.join('cgi-bin',i)
     if f.endswith('.py') and os.path.isfile(f): cgifiles.append(f)
 
-# print 'CGI: ', cgifiles
-
 setup(
     name        = 'EpicsArchiver',
-    version     = '1.0.1',
+    version     = '1.0.2',
     author      = 'Matthew Newville',
     author_email= 'newville@cars.uchicago.edu',
     license     = 'Python',
