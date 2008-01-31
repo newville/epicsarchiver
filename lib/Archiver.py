@@ -245,8 +245,11 @@ class Archiver:
                 self.db.use(db)
                 stat.append(pvquery)
                 r     = self.db.exec_fetchone(pvquery)
-                table = r['data_table']
-                pvid  = r['id']
+                try:
+                    table = r['data_table']
+                    pvid  = r['id']
+                except KeyError:  # this db doesn't know about this PV -- maybe it's a recent addition?
+                    continue
                 stat.append((db,table, pvid))
                 if needs_firstpoint:
                     q = fquery % (table,pvid,t0)
