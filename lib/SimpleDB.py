@@ -6,7 +6,6 @@ import MySQLdb
 import os
 import array
 import time
-import types
 from Queue import Queue, Empty, Full
 
 import warnings

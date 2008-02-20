@@ -240,6 +240,8 @@ class Archiver:
         else:
             add_current = with_current
             
+        # print 'get data for ' ,pvname, t0,t1
+        # print 'dbs: ', self.dbs_for_time(t0,t1)
         try:
             for db in self.dbs_for_time(t0,t1):
                 self.db.use(db)
@@ -268,7 +270,7 @@ class Archiver:
             r = self.db.exec_fetchone(gquery % (table,pvid,t1))
             try:
                 dat.append((r['time'],r['value']))
-            except:
+            except KeyError:
                 pass
             # optionally, add current value
             if add_current: 

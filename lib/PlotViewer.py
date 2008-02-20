@@ -7,16 +7,20 @@ from EpicsArchiver import Archiver, config
 from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, \
      normalize_pvname, timehash, tformat
 
-from HTMLWriter import HTMLWriter, jscal_get_2dates
+from EpicsArchiver.HTMLWriter import HTMLWriter, jscal_get_2dates
 
 DEBUG=False
-
+HAS_GNUPLOT = False
 plotpage   = "%s/show/plot" % config.cgi_url
 
 os.environ['GNUTERM'] = 'png'
 
-import Gnuplot
-Gnuplot.GnuplotOpts.default_term='png'
+try:
+    import Gnuplot
+    Gnuplot.GnuplotOpts.default_term='png'
+    HAS_GNUPLOT = True
+except:
+    HAS_GNUPLOT = False
 
 class PlotViewer(HTMLWriter):
     ago_times = ('15 minutes', '30 minutes',
@@ -55,7 +59,8 @@ set ytics nomirror
 
         self.dbconn = self.arch.dbconn
         
-        self._gp = Gnuplot.Gnuplot() 
+        self._gp = None
+        if HAS_GNUPLOT:  self._gp = Gnuplot.Gnuplot() 
         self.kw  = {'text_pv':'', 'text_pv2':'',  'use_ylog':'', 'use_y2log': '',
                     'submit': '', 'time_ago': '1 day', 
                     'ymin':'', 'ymax':'', 'y2min':'', 'y2max':'',
@@ -66,7 +71,7 @@ set ytics nomirror
     def gp(self,s):
         " simple wrapper around gnuplot "
         self.gpfile.write("%s\n" % s)
-        self._gp(s)
+        if HAS_GNUPLOT:  self._gp(s)
 
     def fix_gpfile(self,fname,pattern):
         " simple wrapper around gnuplot "
