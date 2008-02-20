@@ -384,16 +384,21 @@ class Cache(MasterDB):
         self.db.set_autocommit(1)
         for pvname,pvdata in self.data.items():
             if self.alert_data.has_key(pvname):
+                debug = 'XRM' in pvname
                 alarm = self.alert_data[pvname]
-
+                if debug: print 'Process Alert for ', pvname, alarm['last_notice'], alarm['timeout']
+                
                 sendmail = (time.time() - alarm['last_notice']) > alarm['timeout']
+                if debug: print '  >>Sendmail?? ', sendmail
                 ok, notified = self.check_alert(alarm['id'],
                                                 pvdata[0],
                                                 sendmail=sendmail)
+                if debug: print '  >>check_alert result value ok?  ', ok, ' notification sent? ', notified
                 if notified:
                     self.alert_data[pvname]['last_notice'] = time.time()
                     sys.stdout.write(msg % (pvname, alarm['name'],alarm['mailto'],time.ctime()))
-
+                if debug: print '  >>process_alert done ', self.alert_data[pvname]['last_notice']
+                
         self.db.set_autocommit(0)                
 
                 

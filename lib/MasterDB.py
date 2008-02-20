@@ -504,6 +504,7 @@ class MasterDB:
         check alert status, sending mail if necessary.
         returns two boolean values: (Value_OK, Mail_Was_Sent)
         """
+        # print '## check_alert with sendmail=True', id, value
         where = "id=%i"% id
         alarm = self.alerts.select_one(where=where)
         
@@ -533,6 +534,7 @@ class MasterDB:
             if notify:
                 self.sendmail(alarm,value)
 
+        # if sendmail: print '##check_alert: ' , value_ok, notify
         return value_ok, notify
             
     
@@ -552,7 +554,7 @@ class MasterDB:
 
         trippoint = str(alarm['trippoint'])
         mailto    = tuple(mailto.split(','))
-        subject   = "[Epics Alert] PV=%s, %s " % (pvname,label)
+        subject   = "[Epics Alert] %s" % (label)
 
         if msg in ('', None):  msg = self.def_alert_msg
         
