@@ -50,6 +50,15 @@ def show_usage():
     sys.exit()
 
 
+def set_runinfo():
+    master  = ArchiveMaster()
+    for i in master.runs.select(where='1=1 order by start_time desc limit 2'):
+        dbname = i['db']
+        if dbname != master.arch_db:
+            master.set_runinfo(dbname)
+    master.close()
+    
+    
 def next_archive():
     master  = ArchiveMaster()
     old_dbname  = master.arch_db
@@ -58,9 +67,6 @@ def next_archive():
     master.stop_archiver()
     master.set_currentDB(next_db)
 
-    time.sleep(0.5)
-    master.set_runinfo(old_dbname)
-    time.sleep(0.5)
     master.close()
     run_archive(action='start')
 
@@ -251,6 +257,9 @@ def main():
             
     elif 'next' == cmd:
         next_archive()
+        print 'now setting run information for old database (may take awhile)'
+        time.sleep(3.0)
+        set_runinfo()
 
     elif 'save' == cmd:
         save_archives(args)
@@ -260,6 +269,9 @@ def main():
 
     elif 'list' == cmd:
         list_archives()
+
+    elif 'setinfo' == cmd:
+        set_runinfo()
         
     elif 'add_pv' == cmd:
         c    = Cache()
