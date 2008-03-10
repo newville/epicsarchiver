@@ -229,6 +229,7 @@ class Cache(MasterDB):
         pend_event = EpicsCA.pend_event
         pend_io    = EpicsCA.pend_io
         self.db.set_autocommit(0)
+        alert_timer_on = True
         while True:
             try:
                 self.db.begin_transaction()
@@ -241,13 +242,25 @@ class Cache(MasterDB):
                 self.set_date()
                 self.db.commit_transaction()
 
-                self.process_requests()
-                self.process_alerts()
-                sys.stdout.flush()                
+                tmin,tsec = time.localtime()[4:6]
+
+                # make sure updates and alerts get processed often,
+                # but not on every cycle.  Here they get processed
+                # once every 15 seconds.
+
+                if (tsec % 15) > 7:
+                    alert_timer_on = True
+                elif (tsec % 15) < 3 and alert_timer_on:
+                    self.process_requests()
+                    self.process_alerts()
+                    alert_timer_on = False
+
+                
+                sys.stdout.flush()
                 if self.get_pid() != self.pid:
                     sys.stdout.write('no longer master.  Exiting !!\n')
                     self.exit()
-                tmin,tsec = time.localtime()[4:6]
+
                 if (tsec == 0) and (tmin != mlast) and (tmin % 5 == 0): # report once per 5 minutes
                     mlast = tmin
                     sys.stdout.write(status_str % (time.ctime(),ncached,nloop))
@@ -380,6 +393,7 @@ class Cache(MasterDB):
         # sys.stdout.flush()
                          
     def process_alerts(self):
+        # sys.stdout.write('processing alerts at %s\n' % time.ctime())
         msg = 'Alert sent for PV=%s / Label=%s to %s at %s\n'
         self.db.set_autocommit(1)
         for pvname,pvdata in self.data.items():
@@ -389,14 +403,18 @@ class Cache(MasterDB):
                 if debug: print 'Process Alert for ', pvname, alarm['last_notice'], alarm['timeout']
                 
                 sendmail = (time.time() - alarm['last_notice']) > alarm['timeout']
-                if debug: print '  >>Sendmail?? ', sendmail
-                ok, notified = self.check_alert(alarm['id'],
-                                                pvdata[0],
-                                                sendmail=sendmail)
-                if debug: print '  >>check_alert result value ok?  ', ok, ' notification sent? ', notified
-                if notified:
-                    self.alert_data[pvname]['last_notice'] = time.time()
-                    sys.stdout.write(msg % (pvname, alarm['name'],alarm['mailto'],time.ctime()))
+                active   = alarm['active'] == 'yes'
+                if sendmail and active:
+                    if debug: print '  >>Sendmail?? ', sendmail
+                    ok, notified = self.check_alert(alarm['id'],
+                                                    pvdata[0],
+                                                    sendmail=sendmail)
+                    if debug: print '  >>check_alert: val ok? ', ok, ' notified? ', notified
+                    if notified:
+                        self.alert_data[pvname]['last_notice'] = time.time()
+                        sys.stdout.write(msg % (pvname, alarm['name'],alarm['mailto'],time.ctime()))
+                    
+
                 if debug: print '  >>process_alert done ', self.alert_data[pvname]['last_notice']
                 
         self.db.set_autocommit(0)                
