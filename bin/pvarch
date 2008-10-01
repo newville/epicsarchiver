@@ -31,6 +31,7 @@ def show_usage():
     pvarch stop          stop the archiving process
     pvarch restart       restart the archiving process
     pvarch next          restart with 'next run' of data archives
+    pvarch setinfo       set the run information for the most recent run
 
     pvarch add_pv        add a PV to the cache and archive
     pvarch add_pvfile    read a file of PVs to add to the Archiver
@@ -55,7 +56,9 @@ def set_runinfo():
     for i in master.runs.select(where='1=1 order by start_time desc limit 2'):
         dbname = i['db']
         if dbname != master.arch_db:
+            print 'setting run information for ', dbname
             master.set_runinfo(dbname)
+            print 'done.'
     master.close()
     
     
@@ -257,9 +260,8 @@ def main():
             
     elif 'next' == cmd:
         next_archive()
-        print 'now setting run information for old database (may take awhile)'
-        time.sleep(3.0)
-        set_runinfo()
+        print "should now run 'pvarch setinfo'"
+        # set_runinfo()
 
     elif 'save' == cmd:
         save_archives(args)

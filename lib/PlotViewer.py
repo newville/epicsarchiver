@@ -5,7 +5,7 @@ import EpicsCA
 
 from EpicsArchiver import Archiver, config
 from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, \
-     normalize_pvname, timehash, tformat
+     normalize_pvname, timehash, time_sec2str, time_str2sec
 
 from EpicsArchiver.HTMLWriter import HTMLWriter, jscal_get_2dates
 
@@ -139,8 +139,8 @@ set ytics nomirror
         self.addrow('','')
         dval = [self.kw.get('date1',''),self.kw.get('date2','')]
 
-        if dval[0] in (None,'None', ''): dval[0] = self.time_sec2str( time.time()-SEC_DAY)
-        if dval[1] in (None,'None', ''): dval[1] = self.time_sec2str( time.time() )
+        if dval[0] in (None,'None', ''): dval[0] = time_sec2str( time.time()-SEC_DAY)
+        if dval[1] in (None,'None', ''): dval[1] = time_sec2str( time.time() )
 
         dates = ("%s <button id='date1_trig'>...</button>" % (inptext(size=22,name='date1',value=dval[0])),
                  "%s <button id='date2_trig'>...</button>" % (inptext(size=22,name='date2',value=dval[1])))
@@ -227,25 +227,6 @@ set ytics nomirror
         out.append('</font>')
         return '\n'.join(out)
     
-    def time_sec2str(self,sec=None):
-        return tformat(t=sec,format="%Y-%m-%d %H:%M:%S")
-        
-    def time_str2sec(self,s):
-        xdat,xtim=s.split(' ')
-        dates = xdat.split('-')
-        times = xtim.split(':')
-
-        (yr,mon,day,hr,min,sec,x,y,tz) = time.localtime()
-        if   len(dates)>=3:  yr,mon,day = dates
-        elif len(dates)==2:  mon,day = dates
-        elif len(dates)==1:  day = dates[0]        
-
-        min,sec = 0,0
-        if   len(times)>=3:  hr,min,sec = times
-        elif len(times)==2:  hr,min  = times
-        elif len(times)==1:  hr  = times[0]
-
-        return time.mktime((int(yr),int(mon),int(day),int(hr),int(min), int(sec),0,0,tz))
 
     def draw_graph(self,pvname1='',pvname2='',time_ago=None):
 
@@ -271,8 +252,8 @@ set ytics nomirror
             t0 = t1 - int(n) * mult
         else:
             dx = time.localtime()
-            t0 = self.time_str2sec(self.kw['date1'])
-            t1 = self.time_str2sec(self.kw['date2'])
+            t0 = time_str2sec(self.kw['date1'])
+            t1 = time_str2sec(self.kw['date2'])
             if t1 < t0:
                 t1,t0 = t0,t1
                 

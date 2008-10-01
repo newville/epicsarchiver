@@ -1,0 +1,201 @@
+#!/usr/bin/env python
+
+"""get_pvarch:  extract archived data from Epics PV Archiver
+
+This writes out ASCII column data for a set of PVs over a specified time range.
+
+Usage:
+   get_pvarch -o save.dat --start START_TIME --stop STOP_TIME  PV1 PV2 PV3
+
+where
+     -o filename         output file name (default is standard output)
+     -g                  write a gnuplot script file (will be filename.gp
+                         or 'pvarch.gp' for standard output
+     --start START_TIME  start time (format: YYYY-MM-DD_HH:MM:SS, see Note)
+     --stop  STOP_TIME   stop time  (format: YYYY-MM-DD_HH:MM:SS, see Note)
+    
+     PV1, PV2, ...       list of PVs to save
+
+   data will be written to a simple data file with format (similar to
+   that used by the Web interface) that consistes of a set of header lines
+   (all lines starting with '#'), followed by data with 1 line per timestamp:
+        date time  timestamp  val1  val2 val3 ....
+
+Note 1 (time formats):
+     Formates for the START_TIME and STOP_TIME should be of the form
+         YYYY-MM-DD_HH:MM:SS 
+
+Note 2 (repeated data):
+     Because data for different PVs are archived at different times (that is,
+     when changes occur), the dates and timestamps listed here will be the
+     full set of date/times for all PVs.  Data for some PVs may show many
+     repeated values.
+       
+"""
+
+# report_data --start --stop  PV1 PV2 PV3 PV4
+
+from EpicsArchiver import Archiver
+from EpicsArchiver.util import time_str2sec
+
+from EpicsCA import caget
+import time
+import os
+import sys
+import getopt
+
+        
+gp_script_top = """
+set nokey
+# set term png transparent medium xffffff x000000 xe8e8e8 xdd0000 xdd00dd xf2f2f2 x0000dd 
+set timefmt "%Y%m%d %H%M%S"
+set xdata time
+set format x "%H:%M\\n%b-%d"
+set style line 1 lt 1 lw 3
+set style line 2 lt 2 lw 3
+set style line 3 lt 3 lw 3
+set style line 4 lt 4 lw 3
+set style line 5 lt 5 lw 3
+set style line 6 lt 6 lw 3
+set style line 7 lt 7 lw 1
+set grid back ls 7
+set yrange [:]
+"""
+
+    
+
+
+def dstr(ts):
+    "return 'standard' date string given a unix timestamp"
+    return time.strftime("%Y%m%d %H%M%S", time.localtime(ts))
+
+def show_usage():
+    print __doc__
+    sys.exit()
+
+def process_args(args):
+    " process command-line arguments"
+    valid = True
+    opts, args = getopt.getopt(sys.argv[1:], "hgo:s:e:",
+                               ["help", "gnuplot","output=", "start=","stop="])
+    
+    if len(args)<1: show_usage()
+    
+    stop_time  = time.time()
+    start_time = stop_time - 86400.0
+    outfile = None
+    withgp  = False
+    for (k,v) in opts:
+        if k in ("-h", "--help"):   show_usage()
+        if k in ("-o", "--output"): outfile = v
+        if k in ("-g", "--gnuplot"): withgp = True
+        if k in ("-s", "--start"):
+            try:
+                start_time = time_str2sec(v)
+            except:
+                print 'invalid format for start time: ', v
+                valid = False
+        if k in ("-e", "--stop"):
+            try:
+                stop_time  = time_str2sec(v)
+            except:
+                print 'invalid format for stop time: ', v
+                valid = False
+
+    if not valid: sys.exit()
+    return outfile, start_time, stop_time, withgp, args
+    
+def get_outfile(outfile):
+    fout = sys.stdout
+    if outfile is not None:
+        try:
+            fout = open(outfile,'w')
+        except:
+            print 'cannot open %s for writing.' % (outfile)
+            sys.exit()
+    return fout
+
+def get_data(pvlist,start_time,stop_time):
+    a = Archiver()
+    pvdata = {}
+    pvdesc = {}
+    times  = [start_time,stop_time]
+    for pv in pvlist:
+        dat,info = a.get_data(pv,start_time,stop_time)
+        vals = {}
+        for ts,v in dat:
+            vals[ts] = v
+            times.append(ts)
+        pvdata[pv] = vals
+        pvdesc[pv] = info[0]['description']
+    times.sort()
+    return times,pvdata,pvdesc
+
+def main(args):
+    outfile,start_time,stop_time,with_gp,pvlist = process_args(args)
+    
+    # try opening a file before looking up data
+    fout = get_outfile(outfile)
+
+
+        
+    # get data
+    times,pvdata,pvdesc = get_data(pvlist,start_time,stop_time)
+    
+    # keep cache of 'last values' so that values are known for
+    # times that reported changes in other PVs
+    cache = dict.fromkeys(pvdesc,None)
+    
+    # write header
+    fout.write("# Data from Epics PV Archiver\n")
+    legend = ["# date   time   timestamp "]
+    for pv in pvlist:
+        fout.write("# %s (%s)\n" % (pv,pvdesc[pv]))
+        legend.append(pv)
+    fout.write("# requested time_span:  [%s , %s] \n" % (dstr(start_time),dstr(stop_time)))
+
+    fout.write("# n_points: %i \n" % len(times))
+    fout.write("#-------------------------------------------\n")
+    fout.write("%s\n" % ' '.join(legend))
+    
+    # for each time, keep cache of most recent data,
+    for ts in times:
+        olist = [dstr(ts), "%.1f" % ts]
+        for pv in pvlist:
+            if ts in pvdata[pv].keys(): cache[pv] = pvdata[pv][ts]
+            olist.append(cache[pv])
+
+        # check that we have all the data and we're between the requested times
+        if None not in olist and ts>=start_time and ts<=stop_time:
+            fout.write("%s\n" % ' '.join(olist))
+    # done!
+    fout.close()
+
+    if with_gp:
+        gpfile = 'pvarch.gp'
+        if outfile is not None:
+            gpfile = outfile 
+            idot = outfile.find('.')
+            if idot > 0: gpfile = outfile[:idot]
+            gpfile = gpfile + '.gp'
+        else:
+            outfile = 'pvarch.dat'
+        gout = open(gpfile,'w')
+        gout.write("## gnuplot file to accompany %s\n" % outfile)
+        gout.write(gp_script_top)
+        gout.write('set xrange["%s":"%s"]\n' % (dstr(start_time),dstr(stop_time)))
+
+        cmd = 'plot'
+        id = 3
+        for pv in pvlist:
+            id = id + 1
+            steps  = "'%s' u 1:%i w steps ls 1 t '%s'" % (outfile,id,pvdesc[pv])
+            points = "'%s' u 1:%i t '%s' w p 1"   % (outfile,id,pvdesc[pv])
+            gout.write("%s %s, %s \\\n" % (cmd,steps, points))
+            cmd = '  , '
+        gout.write("")
+    
+# 
+if __name__ == '__main__':
+    args = sys.argv[1:]
+    main(args)

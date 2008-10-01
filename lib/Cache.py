@@ -247,13 +247,16 @@ class Cache(MasterDB):
                 # make sure updates and alerts get processed often,
                 # but not on every cycle.  Here they get processed
                 # once every 15 seconds.
-
-                if (tsec % 15) > 7:
-                    alert_timer_on = True
-                elif (tsec % 15) < 3 and alert_timer_on:
-                    self.process_requests()
-                    self.process_alerts()
-                    alert_timer_on = False
+# 
+#                 if (tsec % 15) > 7:
+#                     alert_timer_on = True
+#                 elif (tsec % 15) < 3 and alert_timer_on:
+#                     self.process_requests()
+#                     self.process_alerts()
+#                     alert_timer_on = False
+                self.process_requests()
+                self.process_alerts()
+                
 
                 
                 sys.stdout.flush()

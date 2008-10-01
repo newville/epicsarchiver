@@ -67,7 +67,11 @@ def tformat(t=None,format="%Y-%m-%d %H:%M:%S"):
     if t is None: t = time.time()
     return time.strftime(format, time.localtime(t))
 
+def time_sec2str(sec=None):
+    return tformat(t=sec,format="%Y-%m-%d %H:%M:%S")
+        
 def time_str2sec(s):
+    s = s.replace('_',' ')
     xdat,xtim=s.split(' ')
     dates = xdat.split('-')
     times = xtim.split(':')
@@ -76,13 +80,13 @@ def time_str2sec(s):
     if   len(dates)>=3:  yr,mon,day = dates
     elif len(dates)==2:  mon,day = dates
     elif len(dates)==1:  day = dates[0]        
-
-    minu,sec = 0,0
-    if   len(times)>=3:  hr,minu,sec = times
-    elif len(times)==2:  hr,minu  = times
+    
+    min,sec = 0,0
+    if   len(times)>=3:  hr,min,sec = times
+    elif len(times)==2:  hr,min  = times
     elif len(times)==1:  hr  = times[0]
 
-    return time.mktime((int(yr),int(mon),int(day),int(hr),int(minu),int(sec),0,0,tz))
+    return time.mktime((int(yr),int(mon),int(day),int(hr),int(min), int(sec),0,0,tz))
 
 def valid_pvname(pvname):
     for c in pvname:
