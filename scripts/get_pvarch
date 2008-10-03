@@ -105,7 +105,9 @@ def process_args(args):
                 valid = False
 
     if not valid: sys.exit()
-    return outfile, start_time, stop_time, withgp, verbose, args
+    out = {'outfile':outfile,'t1':start_time,'t2':stop_time,'with_gp':withgp, 'verbose':verbose}
+
+    return out, args
     
 def get_outfile(outfile):
     fout = sys.stdout
@@ -134,21 +136,31 @@ def get_data(pvlist,start_time,stop_time):
     return times,pvdata,pvdesc
 
 def main(args):
-    outfile,start_time,stop_time,with_gp,verbose,pvlist = process_args(args)
+    opts, pvlist = process_args(args)
+    outfile = opts['outfile']
+    t1 = opts['t1']
+    t2 = opts['t2']
     
     # try opening a file before looking up data
     fout = get_outfile(outfile)
 
     # get data
-    if verbose: print '#Getting Data: '
-
+    if opts['verbose']: print '#Getting Data: '
     t0 = time.time()
-    times,pvdata,pvdesc = get_data(pvlist,start_time,stop_time)
+    times,pvdata,pvdesc = get_data(pvlist, t1, t2)
 
-    if verbose: print '# Got Data in  %.2f seconds ' %( time.time()-t0)
-    # keep cache of 'last values' so that values are known for
-    # times that reported changes in other PVs
-    cache = dict.fromkeys(pvdesc,None)
+    if opts['verbose']: print '# Got Data in  %.2f seconds ' %( time.time()-t0)
+
+    # for each pv, keep 
+    #   a) a cache of previous values so that values at all times are known.
+    #   b) a sorted list of archived times for faster searching
+    #   c) index of place in sorted list of times for most recent time point
+    cache, pvtimes, pvindex = {}, {}, {}
+    for pv in pvlist:
+        cache[pv]   = None
+        pvtimes[pv] = pvdata[pv].keys()
+        pvtimes[pv].sort()
+        pvindex[pv] = 0
     
     # write header
     fout.write("# Data from Epics PV Archiver\n")
@@ -156,47 +168,32 @@ def main(args):
     for pv in pvlist:
         fout.write("# %s (%s)\n" % (pv,pvdesc[pv]))
         legend.append(pv)
-    fout.write("# requested time span:  [%s : %s] \n" % (dstr(start_time),dstr(stop_time)))
-
+    fout.write("# requested time span:  [%s : %s] \n" % (dstr(t1),dstr(t2)))
     fout.write("# n_points: %i \n" % len(times))
     fout.write("#-------------------------------------------\n")
     fout.write("%s\n" % ' '.join(legend))
     
-    if verbose: print '# Writing %i time points ' %( len(times) )
-    # for each time, keep cache of most recent data,
-    ix = 0
-    pvtimes = {}
-    pvindex = {}
-    for pv in pvlist:
-        pvtimes[pv] = pvdata[pv].keys()
-        pvtimes[pv].sort()
-        pvindex[pv] = 0
-        
-    olines = []
+    if opts['verbose']: print '# Writing %i time points ' %( len(times) )
+
     for ts in times:
-        ix = ix + 1
         olist = [dstr(ts), "%.1f" % ts]
         for pv in pvlist:
-            i = pvindex[pv]
-            j1 = i - 2
-            if j1 < 0: j1 = 0
-            if ts in pvtimes[pv][j1:j1+5]:
+            i  = pvindex[pv]
+            j1 = max(0, i - 3)
+            j2 = j1 + 5
+            if ts in pvtimes[pv][j1:j2]:
                 cache[pv] = pvdata[pv][ts]
-                pvindex[pv] = pvtimes[pv][j1:j1+5].index(ts) + j1
+                pvindex[pv] = pvtimes[pv][j1:j2].index(ts) + j1
             olist.append(cache[pv])
 
         # check that we have all the data and we're between the requested times
-        if None not in olist and ts>=start_time and ts<=stop_time:
-            olines.append(' '.join(olist))
-        if ix % 100 == 0:
-            fout.write("\n".join(olines))
-            olines = []
+        if None not in olist and ts>=t1 and ts<=t2:
+            fout.write("%s\n" % ' '.join(olist))
 
-    fout.write("\n".join(olines))
     # done!
     fout.close()
 
-    if with_gp:
+    if opts['with_gp']:
         gpfile = 'pvarch.gp'
         if outfile is not None:
             gpfile = outfile 
@@ -208,7 +205,7 @@ def main(args):
         gout = open(gpfile,'w')
         gout.write("## gnuplot file to accompany %s\n" % outfile)
         gout.write(gp_script_top)
-        gout.write('set xrange["%s":"%s"]\n' % (dstr(start_time),dstr(stop_time)))
+        gout.write('set xrange["%s":"%s"]\n' % (dstr(t1),dstr(t2)))
 
         cmd = 'plot'
         id = 3
