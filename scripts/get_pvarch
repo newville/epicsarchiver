@@ -76,7 +76,7 @@ def show_usage():
 def process_args(args):
     " process command-line arguments"
     valid = True
-    opts, args = getopt.getopt(sys.argv[1:], "hgo:s:e:",
+    opts, args = getopt.getopt(sys.argv[1:], "hgvo:s:e:",
                                ["help", "gnuplot","output=", "start=","stop="])
     
     if len(args)<1: show_usage()
@@ -85,10 +85,12 @@ def process_args(args):
     start_time = stop_time - 86400.0
     outfile = None
     withgp  = False
+    verbose = False
     for (k,v) in opts:
         if k in ("-h", "--help"):   show_usage()
-        if k in ("-o", "--output"): outfile = v
         if k in ("-g", "--gnuplot"): withgp = True
+        if k in ("-v", "--verbose"): verbose = True
+        if k in ("-o", "--output"): outfile = v
         if k in ("-s", "--start"):
             try:
                 start_time = time_str2sec(v)
@@ -103,7 +105,7 @@ def process_args(args):
                 valid = False
 
     if not valid: sys.exit()
-    return outfile, start_time, stop_time, withgp, args
+    return outfile, start_time, stop_time, withgp, verbose, args
     
 def get_outfile(outfile):
     fout = sys.stdout
@@ -132,16 +134,18 @@ def get_data(pvlist,start_time,stop_time):
     return times,pvdata,pvdesc
 
 def main(args):
-    outfile,start_time,stop_time,with_gp,pvlist = process_args(args)
+    outfile,start_time,stop_time,with_gp,verbose,pvlist = process_args(args)
     
     # try opening a file before looking up data
     fout = get_outfile(outfile)
 
-
-        
     # get data
+    if verbose: print '#Getting Data: '
+
+    t0 = time.time()
     times,pvdata,pvdesc = get_data(pvlist,start_time,stop_time)
-    
+
+    if verbose: print '# Got Data in  %.2f seconds ' %( time.time()-t0)
     # keep cache of 'last values' so that values are known for
     # times that reported changes in other PVs
     cache = dict.fromkeys(pvdesc,None)
@@ -152,22 +156,43 @@ def main(args):
     for pv in pvlist:
         fout.write("# %s (%s)\n" % (pv,pvdesc[pv]))
         legend.append(pv)
-    fout.write("# requested time_span:  [%s , %s] \n" % (dstr(start_time),dstr(stop_time)))
+    fout.write("# requested time span:  [%s : %s] \n" % (dstr(start_time),dstr(stop_time)))
 
     fout.write("# n_points: %i \n" % len(times))
     fout.write("#-------------------------------------------\n")
     fout.write("%s\n" % ' '.join(legend))
     
+    if verbose: print '# Writing %i time points ' %( len(times) )
     # for each time, keep cache of most recent data,
+    ix = 0
+    pvtimes = {}
+    pvindex = {}
+    for pv in pvlist:
+        pvtimes[pv] = pvdata[pv].keys()
+        pvtimes[pv].sort()
+        pvindex[pv] = 0
+        
+    olines = []
     for ts in times:
+        ix = ix + 1
         olist = [dstr(ts), "%.1f" % ts]
         for pv in pvlist:
-            if ts in pvdata[pv].keys(): cache[pv] = pvdata[pv][ts]
+            i = pvindex[pv]
+            j1 = i - 2
+            if j1 < 0: j1 = 0
+            if ts in pvtimes[pv][j1:j1+5]:
+                cache[pv] = pvdata[pv][ts]
+                pvindex[pv] = pvtimes[pv][j1:j1+5].index(ts) + j1
             olist.append(cache[pv])
 
         # check that we have all the data and we're between the requested times
         if None not in olist and ts>=start_time and ts<=stop_time:
-            fout.write("%s\n" % ' '.join(olist))
+            olines.append(' '.join(olist))
+        if ix % 100 == 0:
+            fout.write("\n".join(olines))
+            olines = []
+
+    fout.write("\n".join(olines))
     # done!
     fout.close()
 
