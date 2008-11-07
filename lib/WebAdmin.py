@@ -447,6 +447,7 @@ class WebAdmin(HTMLWriter):
 
                 for pv2 in related_pvs:
                     score = get_score(pv2,pvname)                    
+                    if score is None or score < 0: score = 0
                     self.addrow("%s &nbsp;" % pv2,
                                 "%i &nbsp;" %score,
                                 "%s &nbsp; %s" % (self.radio(name=pv2, value='setval_%i' % (score+5), text='+5'),

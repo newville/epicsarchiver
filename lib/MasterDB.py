@@ -345,12 +345,10 @@ class MasterDB:
     def get_pair_score(self,pv1,pv2):
         "set pair score for 2 pvs"        
         p = self.__get_pvpairs(pv1,pv2)
-        if not ((p[0] in self.pvnames) and (p[1] in self.pvnames)):
-            return None
-        where = "pv1='%s' and pv2='%s'" % p
         score = -1
-        o  = self.pairs.select_one(where=where)
-        if o.has_key('score'): score = int(o['score'])
+        if (p[0] in self.pvnames) and (p[1] in self.pvnames):
+            o  = self.pairs.select_one(where= "pv1='%s' and pv2='%s'" % p)
+            score = int(o.get('score',-1))
         return score
 
     def set_pair_score(self,pv1,pv2,score=None):
