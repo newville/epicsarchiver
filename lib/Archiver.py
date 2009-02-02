@@ -1,3 +1,4 @@
+
 #!/usr/bin/python
 
 import time
@@ -28,11 +29,9 @@ class Archiver:
         self.dbname = ret[0]['db']
         # print 'Archiver:: current dbname = ', self.dbname
         # self.use_currentDB()
-
-
         self.db.use(self.dbname)        
-        self.db.use(self.dbname)        
-        time.sleep(0.1)
+
+        time.sleep(0.01)
         self.db.read_table_info()
 
         self.pv_table = self.db.tables['pv']
@@ -49,9 +48,12 @@ class Archiver:
             if   (k == 'debug'):      self.debug     = v
             elif (k == 'messenger'):  self.messenger = v
 
-        # build pvinfo dictionary
-        for pvdata in self.pv_table.select():
-            self.get_info(pvdata['name'])
+                
+        for d in self.db.exec_fetch('select * from pv'):
+            self.pvinfo[d['name']] = d.update({'last_ts': 0,'last_value':None,
+                                               'force_time': get_force_update_time() })
+
+      
 
 
     def exec_fetch(self,sql):
