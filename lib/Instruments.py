@@ -1,6 +1,7 @@
 import time
 
 from MasterDB import MasterDB
+from Archiver import Archiver
 from util import normalize_pvname
 
 class Instruments(MasterDB):
@@ -100,6 +101,7 @@ class Instruments(MasterDB):
             print 'must provide list of PVs for instrument %s' % (name)
             return None
         inst_id = insts[0]['id']
+
         self.get_pvnames()
         for pvname in pvlist:
             pvn = normalize_pvname(pvname)
@@ -209,7 +211,6 @@ class Instruments(MasterDB):
 
         data = dict.fromkeys(pvs,None)
 
-        from Archiver import Archiver
         a = Archiver()
 
         for pvname in pvs:
@@ -252,7 +253,7 @@ class Alerts(MasterDB):
         
         pvname = normalize_pvname(pvname)        
         if name is None: name = pvname
-           
+        if len(self.pvnames)== 0: self.get_pvnames()
         if pvname not in self.pvnames: self.add_pv(pvname)
 
         active = 'yes'

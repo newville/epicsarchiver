@@ -270,8 +270,7 @@ class WebInstruments(HTMLWriter):
             
             if position == self.POS_DATE: position = '(not named : retrieved by date)'
             headers = ["station / instrument: %s / %s" % (station,instrument),
-                       "position name: %s " % position,
-                       "saved: %s " % save_ctime]
+                       "position name: %s " % position, "saved: %s " % save_ctime]
             wr(write_saverestore(pv_vals,format=form,header=headers))
             return self.get_buffer()
 
@@ -304,21 +303,13 @@ class WebInstruments(HTMLWriter):
         wr("<tr><td colspan =3 ><hr></td></tr></table>")
 
         if pname == 'Position':  #(this is an unsaved position!)
-            wr("""Save this position as:
-            <input type='text'   name='newpos_name' value='' size=35/>
+            wr("""Save this position as:<input type='text'   name='newpos_name' value='' size=35/>
             <input type='submit' name='save_position' value='Save'/><p>""")
 
         wr("""To restore to these settings, select one of these output formats:<p>
-        <input type='submit' name='submit' value='IDL script'>
-        <input type='submit' name='submit' value='Python script'>
-        <input type='submit' name='submit' value='Save/Restore file'><p>
-        and run the script. <br>
-        <a href='%s?station=%s&instrument=%s'>View All Positions for %s</a>""" % (instpage,
-                                                                                  station,
-                                                                                  instrument,
-                                                                                  instrument))
-
-        
+        <input type='submit' name='submit' value='IDL script'> <input type='submit' name='submit' value='Python script'>
+        <input type='submit' name='submit' value='Save/Restore file'><p> and run the script. <br>
+        <a href='%s?station=%s&instrument=%s'>View All Positions for %s</a>""" % (instpage, station, instrument, instrument))
         self.endhtml()
         return self.get_buffer()    
 

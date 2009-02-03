@@ -301,6 +301,7 @@ class Cache(MasterDB):
     def get_full(self,pv,add=False):
         " return full information for a cached pv"
         npv = normalize_pvname(pv)
+        if len(self.pvnames)== 0: self.get_pvnames()
         if add and (npv not in self.pvnames):
             self.add_pv(npv)
             sys.stdout.write('adding PV.....\n')
@@ -339,10 +340,10 @@ class Cache(MasterDB):
             sys.stdout.write("processing %i requests at %s\n" % (len(req), time.ctime()))
             sys.stdout.flush()
         es = clean_string
-        now = time.time()
+        if len(self.pvnames)== 0: self.get_pvnames()
         
+        now = time.time()
         self.db.set_autocommit(1)
-
         for r in req:
             nam,action,ts = r['pvname'],r['action'],r['ts']
             drop_req = True

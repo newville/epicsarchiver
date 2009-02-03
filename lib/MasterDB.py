@@ -71,8 +71,7 @@ class MasterDB:
         self.alerts = self.db.tables['alerts']
         
         self.arch_db = self._get_info('db',  process='archive')
-
-        self.get_pvnames()
+        self.pvnames = []
         
     def use_master(self):
         "point db cursor to use master database"
@@ -104,6 +103,7 @@ class MasterDB:
         will take effect once a 'process_requests' is executed."""
         self.db.use(master_db)
         npv = normalize_pvname(pvname)
+        if len(self.pvnames)== 0: self.get_pvnames()
         if npv in self.pvnames: return
 
         cmd = "insert into requests (pvname,action,ts) values ('%s','add',%f)" % (npv,time.time())
@@ -164,6 +164,7 @@ class MasterDB:
         """drop a PV from the caching process -- really this 'suspends updates'
         will take effect once a 'process_requests' is executed."""
         npv = normalize_pvname(pvname)
+        if len(self.pvnames)== 0: self.get_pvnames()
         if not npv in self.pvnames: return
 
         cmd = "insert into requests (pvname,action) values ('%s','suspend')" % npv
@@ -323,6 +324,7 @@ class MasterDB:
         out = []
         tmp = []
         npv = normalize_pvname(pv)
+        if len(self.pvnames)== 0: self.get_pvnames()
         if npv not in self.pvnames: return out
         for i in ('pv1','pv2'):
             where = "%s='%s' and score>=%i order by score" 
@@ -346,6 +348,7 @@ class MasterDB:
         "set pair score for 2 pvs"        
         p = self.__get_pvpairs(pv1,pv2)
         score = -1
+        if len(self.pvnames)== 0: self.get_pvnames()
         if (p[0] in self.pvnames) and (p[1] in self.pvnames):
             o  = self.pairs.select_one(where= "pv1='%s' and pv2='%s'" % p)
             score = int(o.get('score',-1))
@@ -392,6 +395,7 @@ class MasterDB:
         # in pvnames.  If not, let's give them a chance!
         newnames = False
         wait_count = 0
+        if len(self.pvnames)== 0: self.get_pvnames()
         while newnames and wait_count < 10:
             newnames = False
             for i in _tmp:
@@ -456,6 +460,7 @@ class MasterDB:
         
         pvname = normalize_pvname(pvname)        
         if name is None: name = pvname
+        if len(self.pvnames)== 0: self.get_pvnames()
         if pvname not in self.pvnames: self.add_pv(pvname)
 
         active = 'yes'
