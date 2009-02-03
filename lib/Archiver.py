@@ -48,12 +48,11 @@ class Archiver:
             if   (k == 'debug'):      self.debug     = v
             elif (k == 'messenger'):  self.messenger = v
 
-                
+               
         for d in self.db.exec_fetch('select * from pv'):
-            self.pvinfo[d['name']] = d.update({'last_ts': 0,'last_value':None,
-                                               'force_time': get_force_update_time() })
-
-      
+            d.update({'last_ts': 0,'last_value':None,
+                      'force_time': get_force_update_time() })
+            self.pvinfo[d['name']] = d
 
 
     def exec_fetch(self,sql):
