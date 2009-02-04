@@ -11,7 +11,7 @@ from EpicsArchiver.HTMLWriter import HTMLWriter, jscal_get_2dates
 
 DEBUG=False
 HAS_GNUPLOT = False
-plotpage   = "%s/show/plot" % config.cgi_url
+plotpage   = "%s/show.py/plot" % config.cgi_url
 
 os.environ['GNUTERM'] = 'png'
 

@@ -5,12 +5,12 @@ from HTMLWriter import HTMLWriter
 
 DEBUG = False
 
-plotpage   = "%s/show/plot" % config.cgi_url
-instpage   = "%s/show/show_instrument" % config.cgi_url
-adminpage  = "%s/admin/" % config.cgi_url
-pvinfopage = "%s/admin/pvinfo"      % config.cgi_url
-relpv_page = "%s/admin/related_pvs" % config.cgi_url
-alerts_page = "%s/admin/alerts"   % config.cgi_url
+plotpage   = "%s/show.py/plot" % config.cgi_url
+instpage   = "%s/show.py/show_instrument" % config.cgi_url
+adminpage  = "%s/admin.py/" % config.cgi_url
+pvinfopage = "%s/admin.py/pvinfo"      % config.cgi_url
+relpv_page = "%s/admin.py/related_pvs" % config.cgi_url
+alerts_page = "%s/admin.py/alerts"   % config.cgi_url
 
 class WebAdmin(HTMLWriter):
     html_title = "PV Archive Admin Page"

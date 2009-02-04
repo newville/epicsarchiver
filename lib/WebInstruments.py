@@ -11,9 +11,9 @@ from util import normalize_pvname,  clean_input, \
 pagetitle  = config.pagetitle
 
 footer     = config.footer
-mainpage   = "%s/show/"  % config.cgi_url
-instpage   = "%s/show/instrument"  % config.cgi_url
-pvinfopage = "%s/admin/pvinfo" % config.cgi_url
+mainpage   = "%s/show.py/"  % config.cgi_url
+instpage   = "%s/show.py/instrument"  % config.cgi_url
+pvinfopage = "%s/admin.py/pvinfo" % config.cgi_url
 
 DEBUG = False
 

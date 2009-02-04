@@ -7,13 +7,13 @@ import config
 import time
 from util import SEC_DAY, clean_input, normalize_pvname
 
-adminpage  = "%s/admin/" % config.cgi_url
-pvinfopage = "%s/admin/pvinfo"       % config.cgi_url
-relpv_page = "%s/admin/related_pvs"  % config.cgi_url
-instpage   = "%s/show/instrument"  % config.cgi_url
-alertspage = "%s/admin/list_alerts"   % config.cgi_url
-statuspage = "%s/show/" % config.cgi_url
-helppage   = "%s/help/" % config.cgi_url
+adminpage  = "%s/admin.py/" % config.cgi_url
+pvinfopage = "%s/admin.py/pvinfo"       % config.cgi_url
+relpv_page = "%s/admin.py/related_pvs"  % config.cgi_url
+instpage   = "%s/show.py/instrument"  % config.cgi_url
+alertspage = "%s/admin.py/list_alerts"   % config.cgi_url
+statuspage = "%s/show.py/" % config.cgi_url
+helppage   = "%s/help.py/" % config.cgi_url
 
 REFRESH_TIME = "%i" % (SEC_DAY * 7)
 
