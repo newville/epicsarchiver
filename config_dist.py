@@ -12,7 +12,7 @@ from os.path import join
 # give the mysql user name, password, and host.
 # this account does not need to have access to all tables!!
 dbuser = 'epics'
-dbpass = 'archiver'
+dbpass = 'ChangeThisPassword!!'
 dbhost = 'localhost'
 
 # command for how mysql databases should be 'dumped'.

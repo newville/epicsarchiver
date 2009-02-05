@@ -51,11 +51,11 @@ def extract_mysqlso(tmpdir='.foo'):
 
 try: 
     x = config.dbpass[1:2].lower()
-    if config.dbpass == 'Change Me!!':
-        raise TypeError('Password must be set ("dbpass" in config.py)!')
-    if len(config.dbpass)<3:
+    if config.dbpass.lower().startwith('changethispassword'):
+        raise TypeError('Forgot to change password ("dbpass" in config.py)!')
+    if len(config.dbpass)<2:
         raise TypeError('Password too short ("dbpass" in config.py)!')
-    if len(config.dat_prefix)<2:
+    if len(config.dat_prefix)<1:
         raise TypeError('Need a Data Table Prefix ("dat_prefix" in config.py)!')
 except:
     xtype, errmsg, tb = sys.exc_info()
