@@ -51,7 +51,7 @@ def extract_mysqlso(tmpdir='.foo'):
 
 try: 
     x = config.dbpass[1:2].lower()
-    if config.dbpass.lower().startwith('changethispassword'):
+    if config.dbpass.lower().startswith('changethispassword'):
         raise TypeError('Forgot to change password ("dbpass" in config.py)!')
     if len(config.dbpass)<2:
         raise TypeError('Password too short ("dbpass" in config.py)!')
