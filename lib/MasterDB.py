@@ -489,7 +489,9 @@ class MasterDB:
         for k,v in kw.items():
             if k in ('pvname','name','mailto','mailmsg','timeout',
                      'trippoint','compare','status','active'):
-                v = clean_input(v)
+                maxlen = 1024
+                if k == 'mailmsg': maxlen = 32768
+                v = clean_input(v,maxlen=maxlen)
                 if 'compare' == k:
                     if not v in self.optokens:  v = 'ne'
                 elif 'status' == k:

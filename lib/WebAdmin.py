@@ -395,7 +395,7 @@ class WebAdmin(HTMLWriter):
                                                    size=65, nlines=4,
                                                    value=a['mailto']))
         self.addrow("Mail Message", self.textinput(name='mailmsg',
-                                                   size=65, nlines=8,
+                                                   size=65, nlines=10,
                                                    value=clean_mail_message(a['mailmsg'])))
 
         self.addrow('&nbsp;')

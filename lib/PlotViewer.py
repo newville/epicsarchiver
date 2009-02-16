@@ -287,6 +287,7 @@ set ytics nomirror
         if epv1 is None or pvinfo=={}: return ('','')
         if (epv1.pvname in (None,'')): return ('','')
 
+        # print pvinfo
         desc = pvinfo.get('description','')
         if desc in ('',None):   desc = self.get_pvdesc(epv1)
 
