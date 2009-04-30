@@ -531,18 +531,23 @@ class Archiver:
         self.db.use(self.dbname)
         return ret['pid'], ret['status']
 
-    def get_nchanged(self,minutes=10):
-        """return the number of values archived in the past minutes. """
+    def get_nchanged(self,minutes=10,limit=None):
+        """return the number of values archived in the past minutes.
+        if limit is set, return as  soon as this limit is seen to be exceeded
+        this is useful when checking if any values have been cached."""
         n = 0
         dt = (time.time()-minutes*60.0)
-        q = "select * from pvdat%3.3i where time > %f " 
+        q = "select count(time) from pvdat%3.3i where time > %f " 
         for i in range(1,129):
             r = self.exec_fetch(q % (i,dt))
-            i = len(r)
-            if i == 1 and r[0] == {}: i = 0
-            n = n + i
+            try:
+                n += r[0]['count(time)']
+            except:
+                pass
+            if limit is not None and n>limit:
+                break
         return n
-        
+
     def mainloop(self,verbose=False):
         t0 = time.time()
         self.db.get_cursor()
