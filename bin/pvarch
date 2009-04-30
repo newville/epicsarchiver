@@ -116,7 +116,7 @@ def run_archive(action='start'):
     if 'start'==action:
         pid,status = a.get_pidstatus()
         if (pid != 0 and status != 'offline'):
-            ret = a.get_nchanged(minutes=2)
+            ret = a.get_nchanged(minutes=2,limit=10)
             if ret >  5:
                 print "Archive appears to be running... try 'restart'?"
                 cpool.put(dbconn)
