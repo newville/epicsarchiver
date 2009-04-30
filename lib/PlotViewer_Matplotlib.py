@@ -11,7 +11,7 @@ from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, \
 from EpicsArchiver.HTMLWriter import HTMLWriter, jscal_get_2dates
 
 ##
-
+##
 os.environ['MPLCONFIGDIR'] = '/tmp'
 import matplotlib
 matplotlib.use('Agg')
@@ -338,7 +338,6 @@ set ytics nomirror
         n_dat = 1
         
         # start gnuplot session, set basic properties
-        self.gp(self.gp_base)	 
 	
         # are we plotting a second data set?
         if DEBUG:
@@ -375,14 +374,11 @@ set ytics nomirror
                 tlo = min(tlo2, tlo)
                 thi = max(thi2, thi)+1
                 n_dat = 2
-                self.gp(self.gp2_base)
-                wait_for_pngfile = wait_for_pngfile and (npts2 > 1)
 
         if DEBUG:
             self.write(" # of data_sets %i" % n_dat)
 
         # now generate png plot
-        self.gp("set output '%s'" % f_png)
 
 
         #         if npts > 1 or npts2>1:
@@ -390,6 +386,8 @@ set ytics nomirror
         #         else:
         self.gp('set xrange ["%s":"%s"]' % (self.datestring(t0),self.datestring(t1)))
             
+        self.axis.set_xlim((t0, t1) )
+
         if pvinfo['type']=='double':
             ymin = str(pvinfo['graph_lo']) or ''
             if self.kw['ymin'] != '': ymin = self.kw['ymin']
@@ -398,6 +396,11 @@ set ytics nomirror
             if self.kw['ymax'] != '': ymax = self.kw['ymax']
 
             self.gp("set yrange [%s:%s]" % (ymin,ymax))
+            try:
+                self.axis.set_ylim((float(ymin),float(ymax))) # ,emit=False)
+            except:
+                pass
+                
 
             use_ylog = self.kw['use_ylog']
             if use_ylog == 'Auto' and pvinfo['type']=='double':
@@ -445,6 +448,7 @@ set ytics nomirror
             self.gp("""plot '%s' u 1:4 w steps ls 1 t '%s', \\
             '%s' u 1:4 t '' w p 1 """ %  (f_dat,desc,f_dat))
             
+
             self.axis.set_title(desc,     fontproperties=self.titlefont)
             self.axis.set_ylabel(pvlabel, fontproperties=self.labelfont)
             self.axis.xaxis.set_major_formatter(ticker.FuncFormatter(self.format_date))
