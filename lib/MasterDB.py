@@ -168,7 +168,7 @@ class MasterDB:
         if not npv in self.pvnames: return
 
         cmd = "insert into requests (pvname,action) values ('%s','suspend')" % npv
-        self.sql_exec(cmd)
+        self.db.execute(cmd)
 
     def get_recent(self,dt=60):
         """get recent additions to the cache, those

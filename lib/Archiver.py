@@ -324,7 +324,7 @@ class Archiver:
             connected = False
 
         if not connected:
-            self.write("cannot add PV '%s': not connected")
+            self.write("cannot add PV '%s': not connected" % pvname)
             return None
 
         # determine type
