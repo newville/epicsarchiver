@@ -66,7 +66,7 @@ set ytics nomirror
                     'ymin':'', 'ymax':'', 'y2min':'', 'y2max':'',
                     'date1': '', 'date2': ''}
         self.kw.update(kw)
-        for i in ('use_ylog', 'use_ylog2'):
+        for i in ('use_ylog', 'use_y2log'):
             if self.kw[i] not in  ('Yes', 'No'):
                 self.kw[i] = 'Auto'
                 
