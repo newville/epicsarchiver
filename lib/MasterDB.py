@@ -241,8 +241,7 @@ class MasterDB:
         self.db.use(master_db)
         return len(r)
 
-
-    def arch_nchanged(self,minutes=10):
+    def arch_nchanged(self,minutes=10,max = None):
         """return the number of values archived in the past minutes. """
         self.db.use(self.arch_db)
         n = 0
@@ -252,6 +251,7 @@ class MasterDB:
         self.db.get_cursor()
         for i in range(1,129):
             n = n + self.db.cursor.execute(q % (i,dt))
+            if max is not None and n > max: break
         self.db.use(master_db)
         return n
 

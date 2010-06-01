@@ -14,7 +14,6 @@ from os.path import join
 dbuser = 'epics'
 dbpass = 'hellocars'
 dbhost = 'localhost'
-# dbhost = 'millenia.cars.aps.anl.gov'
 
 # command for how mysql databases should be 'dumped'.
 mysqldump = '/usr/bin/mysqldump --opt -p%s -u%s' % (dbpass,dbuser)

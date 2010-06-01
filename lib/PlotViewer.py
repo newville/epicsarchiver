@@ -66,6 +66,10 @@ set ytics nomirror
                     'ymin':'', 'ymax':'', 'y2min':'', 'y2max':'',
                     'date1': '', 'date2': ''}
         self.kw.update(kw)
+        for i in ('use_ylog', 'use_ylog2'):
+            if self.kw[i] not in  ('Yes', 'No'):
+                self.kw[i] = 'Auto'
+                
         if not self.file_pref.endswith('/'): self.file_pref = "%s/" % self.file_pref
 
     def gp(self,s):
