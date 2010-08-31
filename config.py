@@ -12,21 +12,21 @@ from os.path import join
 # give the mysql user name, password, and host.
 # this account does not need to have access to all tables!!
 dbuser = 'epics'
-dbpass = 'hellocars'
+dbpass = 'epics'
 dbhost = 'localhost'
 
 # command for how mysql databases should be 'dumped'.
 mysqldump = '/usr/bin/mysqldump --opt -p%s -u%s' % (dbpass,dbuser)
 
 # location of log directories
-logdir = '/var/log/pvarch'
+logdir = '/var/log/pvtest'
 
 # name of 'master' database
-master_db = 'pvarch_master'
+master_db = 'pvtest_master'
 
 # prefix used for sequentially named databases
 # this *MUST* contain lowercase letters only
-dat_prefix = 'pvdata'
+dat_prefix = 'pvtest'
 
 # format string used for sequentially named databases
 # please don't change this without care: the '_' is
@@ -67,15 +67,15 @@ apache_user = 'nobody'
 apache_group= 'nobody'
 
 # location for python web scripts, and how this maps to a URL:
-cgi_bin   = join(apache_root, 'cgi-bin/pvarch')
-cgi_url   = join(url_root   , 'cgi-bin/pvarch')
+cgi_bin   = join(apache_root, 'cgi-bin/pvtest')
+cgi_url   = join(url_root   , 'cgi-bin/pvtest')
 
 # location for output data files from PlotViewer and how this maps to a URL:
 cgi_data_dir = join(apache_root , 'htdocs/cgi-data/')
 cgi_data_url = join(url_root    , 'cgi-data/')
 
-data_dir     = join(cgi_data_dir, 'pvarch')
-data_url     = join(cgi_data_url, 'pvarch')
+data_dir     = join(cgi_data_dir, 'pvtest')
+data_url     = join(cgi_data_url, 'pvtest')
 
 # temporary datafiles should have this prefix:
 webfile_prefix = 'pv'
@@ -89,7 +89,7 @@ jscal_url     = join(cgi_data_url, 'jscal')
 #   the files in this directory should be readily editable
 #   to customize the PVs displayed in the status page
 #   directory needs to be world-readable, but can be in a user directory
-share_dir    = '/www/apache/htdocs/gsecars/pvarchiver/'
+share_dir    = '/www/apache/htdocs/gsecars/pvtest/'
 template_dir = join(share_dir, 'templates/')
 
 # title for status web pages

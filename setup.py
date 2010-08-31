@@ -19,7 +19,8 @@ try:
     import Gnuplot
 except:
     pass
-import EpicsCA
+
+import epics
     
 # This is useful for debugging / re-installing:
 # a "full install" will mean that any running cache and 
@@ -142,7 +143,7 @@ setup(
     description = 'A library for Archiving Epics PVs.',
     package_dir = {'EpicsArchiver': 'lib'},
     packages    = ['EpicsArchiver'], 
-    data_files  = [(bin_dir, ['bin/pvarch']),
+    data_files  = [(bin_dir, ['bin/pvtest']),
 #                    (config.cgi_bin, cgifiles),
 #                    (config.template_dir, template_files)
                    ]

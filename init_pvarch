@@ -17,7 +17,8 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from EpicsArchiver import config
+    ## from EpicsArchiver import config
+    import config
 except ImportError:
     xx, yy, zz = sys.exc_info()
     sys.excepthook(xx,yy,zz)
@@ -99,7 +100,7 @@ def initialize(config):
                                time.time(), util.MAX_EPOCH))
     
     print 'done.\ncreating database %s...' % firstdb,
-    from EpicsArchiver.ArchiveMaster import ArchiveMaster
+    from lib.ArchiveMaster import ArchiveMaster
     m = ArchiveMaster()
     m.create_emptydb(dbname=firstdb)
 

@@ -5,7 +5,7 @@ import re
 import time
 import smtplib
 
-import EpicsCA
+import epics
 from SimpleDB import SimpleDB, SimpleTable
 from config import dbuser, dbpass, dbhost, master_db, \
      mailserver, mailfrom, cgi_url
@@ -16,6 +16,7 @@ from util import normalize_pvname, tformat, clean_input, \
 re_showpv = re.compile(r".*%PV\((.*)\)%.*").match
 
 def clean_mail_message(s):
+
     "cleans a stored escaped mail message for real delivery"
     s = s.strip()
     s = s.replace("\\r","\r").replace("\\n","\n")
@@ -127,31 +128,30 @@ class MasterDB:
         prefix = pvname
         isMotor = False
         if pvname.endswith('.VAL'): prefix = pvname[:-4]
-        if 'motor' == EpicsCA.caget(prefix+'.RTYP'):
+        if 'motor' == epics.caget(prefix+'.RTYP'):
             fields = tuple(["%s%s" % (prefix,i) for i in motor_fields])
             pvs = []
             for pvname in fields:
-                pvs.append(EpicsCA.PV(pvname, connect=False))
+                pvs.append(epics.PV(pvname))
 
+            epics.poll()
             for p in pvs:
                 p.get()
                 if p.connected:
                     self.request_pv_cache(p.pvname)
                     
-            time.sleep(0.1)
-
-            EpicsCA.pend_event(1.e-4)
-            EpicsCA.pend_io(1.0)
+            time.sleep(0.01)
+            epics.poll()
 
             isMotor = True
 
         else:
-            p = EpicsCA.PV(pvname,connect=True)
+            p = epics.PV(pvname)
+            p.connect()
             if p.connected: 
                 self.request_pv_cache(pvname)
 
-        EpicsCA.pend_event(1.e-4)
-        EpicsCA.pend_io(1.0)
+        epics.poll()
 
         if isMotor and set_motor_pairs:
             time.sleep(0.25)
@@ -475,7 +475,7 @@ class MasterDB:
                            compare=compare, trippoint=trippoint)
                   
         for a in self.get_alerts(pvname=pvname,name=name):
-            val =EpicsCA.caget(pvname)
+            val = epics.caget(pvname)
             self.check_alert(a['id'],val)
         
     def update_alert(self,id=None,**kw):
@@ -501,7 +501,7 @@ class MasterDB:
                 mykw[k]=v
         self.alerts.update(where=where,**mykw)
         a   = self.get_alert_with_id(id)
-        val = EpicsCA.caget(a['pvname'])
+        val = epics.caget(a['pvname'])
         self.check_alert(id,val)
 
     def check_alert(self,id,value,sendmail=False):

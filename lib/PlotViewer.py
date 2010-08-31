@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import os
 import time
-import EpicsCA
+import epics
 
 from EpicsArchiver import Archiver, config
 from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, \
@@ -472,7 +472,7 @@ set ytics nomirror
         try:
             xpv = pv.pvname
             if xpv.endswith('.VAL'):  xpv = xpv[:-4]
-            desc = EpicsCA.caget("%s.DESC" %  xpv)
+            desc = epics.caget("%s.DESC" %  xpv)
         except:
             desc = None
         if desc in ('',None,' '):  desc = pv.pvname

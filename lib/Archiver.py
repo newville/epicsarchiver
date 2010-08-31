@@ -6,7 +6,7 @@ import sys
 import os
 import getopt
 
-import EpicsCA
+import epics
 from SimpleDB import SimpleDB
 from MasterDB import MasterDB
 
@@ -182,7 +182,7 @@ class Archiver:
         " "
         if self.pvs.has_key(pvname): return self.pvs[pvname]
         try:
-            p = self.pvs[pvname] = EpicsCA.PV(pvname,connect=True)
+            p = self.pvs[pvname] = epics.PV(pvname)
             return p
         except:
             return None
@@ -312,7 +312,9 @@ class Archiver:
         # create an Epics PV, check that it's valid
 
         try:
-            pv = EpicsCA.PV(pvname,connect=True,use_control=True)
+            pv = epics.PV(pvname)
+            pv.connect()
+            pv.get_ctrlvars()
             typ = pv.type
             count = pv.count
             prec  = pv.precision
@@ -348,8 +350,8 @@ class Archiver:
                         
             if descpv is not None:
                 try:
-                    dp = EpicsCA.PV(descpv,connect=True)
-                    description = dp.char_value
+                    dp = epics.PV(descpv)
+                    description = dp.get(as_string=True)
                 ## dp.disconnect()
                 except:
                     pass
@@ -488,7 +490,8 @@ class Archiver:
                     r = self.get_cache_full(name)
                     if r['type'] is None and r['value'] is None: # an empty / non-cached PV?
                         try:
-                            test_pv = EpicsCA.PV(name,connect=True)
+                            test_pv = epics.PV(name)
+                            test_pv.connect()
                             # if PV is still not connected, set time
                             # to wait 2 hours before checking again.
                             if (test_pv is None or not test_pv.connected):
@@ -579,8 +582,8 @@ class Archiver:
                 n_changed = n_changed + n1
                 n_forced  = n_forced  + n2
                 
-                EpicsCA.pend_event(0.1)
-                EpicsCA.pend_io(1)
+                epics.poll()
+
                 tnow = time.time()
                 tmin,tsec = time.localtime()[4:6]
 

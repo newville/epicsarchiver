@@ -115,7 +115,7 @@ def write_saverestore(pvvals,format='plain',header=None):
     elif format.startswith('py'):
         out.append("#!/usr/bin/env python")
         out.append("#  Python save restore script")
-        out.append("from EpicsCA import caput")
+        out.append("from epics import caput")
         xfmt = "caput('%s', %s)"        
     else:
         out.append("# Plain Save/Restore script")

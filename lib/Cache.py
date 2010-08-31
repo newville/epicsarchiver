@@ -4,7 +4,7 @@ import os
 import time
 import sys
 
-import EpicsCA
+import epics
 
 from MasterDB import MasterDB
 
@@ -65,9 +65,8 @@ def add_pvfile(fname):
             if len(fields) > 1:
                 pairs.append(fields)
 
-        
-        EpicsCA.pend_event(1.e-4)
-        EpicsCA.pend_io(1.0)        
+        epics.poll()
+
         t1 = time.time()-t0
         if len(words) > 1:
             pairs.append(tuple(words[:]))
@@ -98,9 +97,8 @@ def add_pvfile(fname):
         cache.set_allpairs(words,score=10)
     cache.close()
 
-    EpicsCA.pend_event(0.01)
-    EpicsCA.pend_io(10.0)
-    EpicsCA.cleanup()
+    time.sleep(0.01)
+    epics.poll(evt=0.01,io=5.0)
     
 
 class Cache(MasterDB):
@@ -127,15 +125,14 @@ class Cache(MasterDB):
     def epics_connect(self,pvname):
         if self.pvs.has_key(pvname): return self.pvs[pvname]
         
-        p = EpicsCA.PV(pvname,connect=True,connect_time=1.0)
-        EpicsCA.pend_event(0.01)
-        EpicsCA.pend_io(10.0)
-        if p.connected:  self.pvs[pvname] = p
+        p = epics.PV(pvname)
+        epics.poll()
+        if p.connected:
+            self.pvs[pvname] = p
         return p
 
-    def onChanges(self,pv=None):
-        if not isinstance(pv,EpicsCA.PV): return 
-        self.data[pv.pvname] = (pv.value,pv.char_value,time.time(),pv.pvname)
+    def onChanges(self, pvname=None, value=None, char_value=None, **kw):
+        self.data[pvname] = (value, char_value, time.time(), pvname)
 
     def update_cache(self):
         fmt = "update cache set value=%s,cvalue='%s',ts=%f where pvname='%s'"
@@ -159,28 +156,27 @@ class Cache(MasterDB):
         npvs = len(self.pvnames)
         n_notify = 2 + (npvs / 10)
         sys.stdout.write("connecting to %i PVs\n" %  npvs)
-        # print time.time()-t0
-        # print 'EpicsArchiver.Cache connecting to %i PVs ' %  npvs
+        print time.time()-t0
+        print 'EpicsArchiver.Cache connecting to %i PVs ' %  npvs
         for i,pvname in enumerate(self.pvnames):
             try:
-                pv = EpicsCA.PV(pvname,connect=False)
+                pv = epics.PV(pvname)
                 self.pvs[pvname] = pv
             except:
                 sys.stderr.write('connect failed for %s\n' % pvname)
 
         # print 'pvs created ', time.time()-t0
         
-        EpicsCA.pend_io(1.0)
+        epics.pend_io(1.0)
         self.data = {}
-        for i,pvname in enumerate(self.pvnames):
+        for i, pvname in enumerate(self.pvnames):
             xx = self.cache.select_one(where="pvname='%s'" % pvname)
-            if xx.has_key('active'):
+            if 'active' in xx:
                 if 'no' == xx['active']:  continue                
             try:
                 pv = self.pvs[pvname]
-                pv.connect(connect_time=1.00)
                 pv.get()
-                pv.set_callback(self.onChanges)
+                pv.add_callback(self.onChanges)
                 self.data[pvname] = (pv.value, pv.char_value, time.time(),pvname)
             except KeyboardInterrupt:
                 self.exit()
@@ -188,7 +184,6 @@ class Cache(MasterDB):
                 sys.stderr.write('connect failed for %s\n' % pvname)
 
             if i % n_notify == 0:
-                EpicsCA.pend_io(1.0)
                 sys.stdout.write('%.2f ' % (float(i)/npvs))
                 sys.stdout.flush()
 
@@ -226,15 +221,13 @@ class Cache(MasterDB):
         ncached = 0
         nloop   = 0
         mlast   = -1
-        pend_event = EpicsCA.pend_event
-        pend_io    = EpicsCA.pend_io
         self.db.set_autocommit(0)
         alert_timer_on = True
         while True:
             try:
                 self.db.begin_transaction()
                 self.data = {}
-                pend_event(1.e-3)
+                epics.poll()
 
                 n = self.update_cache()
                 ncached = ncached + n
@@ -271,7 +264,6 @@ class Cache(MasterDB):
                     self.read_alert_settings()
                     ncached = 0
                     nloop = 0
-                    pend_io(5.0)                    
 
             except KeyboardInterrupt:
                 return
@@ -280,8 +272,9 @@ class Cache(MasterDB):
 
     def exit(self):
         self.close()
-        for i in self.pvs.values(): i.disconnect()
-        EpicsCA.pend_io(10.0)
+        for i in self.pvs.values():
+            i.disconnect()
+
         sys.exit()
 
     def shutdown(self):
