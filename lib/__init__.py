@@ -18,9 +18,10 @@ os.environ['PYTHON_EGG_CACHE'] = config.share_dir
 sys.path.insert(0, config.share_dir)
 import MySQLdb
     
-from util import string_literal, clean_input, escape_string, timehash, tformat, clean_mail_message
+from util import string_literal, clean_input, escape_string, \
+     timehash, tformat, clean_mail_message
 
-from SimpleDB import SimpleDB, SimpleTable,ConnectionPool
+from SimpleDB import SimpleDB, SimpleTable, ConnectionPool
 
 from MasterDB       import MasterDB
 from Instruments    import Instruments, Alerts

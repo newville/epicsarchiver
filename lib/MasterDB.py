@@ -16,7 +16,6 @@ from util import normalize_pvname, tformat, clean_input, \
 re_showpv = re.compile(r".*%PV\((.*)\)%.*").match
 
 def clean_mail_message(s):
-
     "cleans a stored escaped mail message for real delivery"
     s = s.strip()
     s = s.replace("\\r","\r").replace("\\n","\n")
@@ -35,8 +34,8 @@ class MasterDB:
     Alerts, but this allows many processes to have exactly one
     database connection.    
     """
-    runs_title= '|  database         |       date range          | duration (days)|'
-    runs_line = '|-------------------|---------------------------|----------------|'
+    runs_title = '|  database         |       date range          | duration (days)|'
+    runs_line  = '|-------------------|---------------------------|----------------|'
 
     def_alert_msg ="""Hello,
   An alarm labeled  %LABEL%
@@ -54,7 +53,7 @@ class MasterDB:
            'le':'__le__', 'lt':'__lt__', 
            'ge':'__ge__', 'gt':'__gt__'}
            
-    def __init__(self,dbconn=None, **kw):
+    def __init__(self, dbconn=None, **kw):
 
         self.db = SimpleDB(dbconn=dbconn)
         self.dbconn = self.db.conn
@@ -71,7 +70,7 @@ class MasterDB:
         self.inst_pvs  = self.db.tables['instrument_pvs']
         self.alerts = self.db.tables['alerts']
         
-        self.arch_db = self._get_info('db',  process='archive')
+        self.arch_db = self._get_info('db', process='archive')
         self.pvnames = []
         
     def use_master(self):
@@ -80,10 +79,10 @@ class MasterDB:
 
     def use_current_archive(self):
         "point db cursor to use current archive database"
-        self.arch_db = self._get_info('db',  process='archive')        
+        self.arch_db = self._get_info('db', process='archive')        
         self.db.use(self.arch_db)
 
-    def save_db(self,dbname=None):
+    def save_db(self, dbname=None):
         if dbname is None: dbname = self.arch_db
         sys.stdout.write('saving %s\n' % dbname)
         self.db.use(dbname)
@@ -99,7 +98,7 @@ class MasterDB:
         #                 self.pvnames.append(i['pvname'])
         return self.pvnames
     
-    def request_pv_cache(self,pvname):
+    def request_pv_cache(self, pvname):
         """request a PV to be included in caching.
         will take effect once a 'process_requests' is executed."""
         self.db.use(master_db)
@@ -107,10 +106,10 @@ class MasterDB:
         if len(self.pvnames)== 0: self.get_pvnames()
         if npv in self.pvnames: return
 
-        cmd = "insert into requests (pvname,action,ts) values ('%s','add',%f)" % (npv,time.time())
-        self.db.execute(cmd)
+        cmd = "insert into requests (pvname,action,ts) values ('%s','add',%f)"
+        self.db.execute(cmd % (npv, time.time()))
 
-    def add_pv(self,pvname,set_motor_pairs=True):
+    def add_pv(self, pvname, set_motor_pairs=True):
         """adds a PV to the cache: actually requests the addition, which will
         be handled by the next process_requests in mainloop().
 
@@ -129,7 +128,7 @@ class MasterDB:
         isMotor = False
         if pvname.endswith('.VAL'): prefix = pvname[:-4]
         if 'motor' == epics.caget(prefix+'.RTYP'):
-            fields = tuple(["%s%s" % (prefix,i) for i in motor_fields])
+            fields = tuple(["%s%s" % (prefix, i) for i in motor_fields])
             pvs = []
             for pvname in fields:
                 pvs.append(epics.PV(pvname))
@@ -140,11 +139,8 @@ class MasterDB:
                 if p.connected:
                     self.request_pv_cache(p.pvname)
                     
-            time.sleep(0.01)
-            epics.poll()
-
+            time.sleep(0.001)
             isMotor = True
-
         else:
             p = epics.PV(pvname)
             p.connect()
@@ -154,23 +150,26 @@ class MasterDB:
         epics.poll()
 
         if isMotor and set_motor_pairs:
-            time.sleep(0.25)
+            print 'motor...'
+            time.sleep(0.05)
             self.set_allpairs(fields)
             
         return fields
             
 
-    def drop_pv(self,pvname):
+    def drop_pv(self, pvname):
         """drop a PV from the caching process -- really this 'suspends updates'
         will take effect once a 'process_requests' is executed."""
         npv = normalize_pvname(pvname)
-        if len(self.pvnames)== 0: self.get_pvnames()
-        if not npv in self.pvnames: return
+        if len(self.pvnames)== 0:
+            self.get_pvnames()
+        if not npv in self.pvnames:
+            return
 
         cmd = "insert into requests (pvname,action) values ('%s','suspend')" % npv
         self.db.execute(cmd)
 
-    def get_recent(self,dt=60):
+    def get_recent(self, dt=60):
         """get recent additions to the cache, those
         inserted in the last  dt  seconds."""
         where = "ts>%f order by ts" % (time.time() - dt)
@@ -189,14 +188,14 @@ class MasterDB:
         "close db connection"
         self.db.close()
     
-    def _get_info(self,name='db',process='archive'):
+    def _get_info(self, name='db', process='archive'):
         " get value from info table"
         try:
             return self.info.select_one(where="process='%s'" % process)[name]
         except:
             return None
 
-    def _set_info(self,process='archive',**kw):
+    def _set_info(self, process='archive', **kw):
         " set value(s) in the info table"        
         self.info.update("process='%s'" % process, **kw)
 
@@ -208,29 +207,29 @@ class MasterDB:
         " get status of archiving process"
         return self._get_info('status', process='archive')
 
-    def set_cache_status(self,status):
+    def set_cache_status(self, status):
         " set status of caching process"                
-        return self._set_info(status=status,  process='cache')
+        return self._set_info(status=status, process='cache')
 
     def set_arch_status(self,status):
         " set status of archiving process"        
-        return self._set_info(status=status,  process='archive')
+        return self._set_info(status=status, process='archive')
 
     def get_cache_pid(self):
         " get pid of caching process"
-        return self._get_info('pid',    process='cache')
+        return self._get_info('pid', process='cache')
 
     def get_arch_pid(self):
         " get pid of archiving process"        
-        return self._get_info('pid',    process='archive')
+        return self._get_info('pid',  process='archive')
 
-    def set_cache_pid(self,pid):
+    def set_cache_pid(self, pid):
         " set pid of caching process"
-        return self._set_info(pid=pid,  process='cache')
+        return self._set_info(pid=pid, process='cache')
 
-    def set_arch_pid(self,pid):
+    def set_arch_pid(self, pid):
         " set pid of archiving process"        
-        return self._set_info(pid=pid,  process='archive')
+        return self._set_info(pid=pid, process='archive')
 
     ##
     ## Status/Activity Reports 
@@ -241,7 +240,7 @@ class MasterDB:
         self.db.use(master_db)
         return len(r)
 
-    def arch_nchanged(self,minutes=10,max = None):
+    def arch_nchanged(self, minutes=10, max=None):
         """return the number of values archived in the past minutes. """
         self.db.use(self.arch_db)
         n = 0
@@ -249,34 +248,34 @@ class MasterDB:
         dt = (time.time()-minutes*60.)
         q = "select pv_id from pvdat%3.3i where time > %f " 
         self.db.get_cursor()
-        for i in range(1,129):
-            n = n + self.db.cursor.execute(q % (i,dt))
-            if max is not None and n > max: break
+        for i in range(1, 129):
+            n = n + self.db.cursor.execute(q % (i, dt))
+            if max is not None and n > max:
+                break
         self.db.use(master_db)
         return n
 
     def arch_report(self,minutes=10):
         """return a report (list of text lines) for archiving process, """
         npvs     = self.get_npvs()
-        o = ["Current Database=%s, status=%s, PID=%i, %i PVs in archive" %(self.arch_db,
-                                                                           self.get_arch_status(),
-                                                                           self.get_arch_pid(),npvs)]
+        msg = "Current Database=%s, status=%s, PID=%i, %i PVs in archive"
+        o = [msg % (self.arch_db, self.get_arch_status(),
+                    self.get_arch_pid(), npvs)]
         return o
 
-    def arch_full_report(self,minutes=10):
+    def arch_full_report(self, minutes=10):
         """return a report (list of text lines) for archiving process,
         giving the number of values archived in the past minutes.
         """
         nchanged = self.arch_nchanged(minutes=minutes)
         npvs     = self.get_npvs()
-        
-        o = ["Current Database=%s, status=%s, PID=%i, %i PVs in archive" %(self.arch_db, 
-                                                                 self.get_arch_status(),
-                                                                 self.get_arch_pid(),npvs),
+        msg = "Current Database=%s, status=%s, PID=%i, %i PVs in archive"
+        o = [msg % (self.arch_db, self.get_arch_status(),
+                    self.get_arch_pid(), npvs),
              "%i values archived in past %i minutes" % (nchanged, minutes)]
         return o
 
-    def cache_report(self,brief=False,dt=60):
+    def cache_report(self, brief=False, dt=60):
         """return a report (list of text lines) for caching process,
         giving number of values cached in the past dt seconds.
         Use 'brief=False' to show which PVs have been cached.
@@ -287,11 +286,11 @@ class MasterDB:
         fmt = "  %s %.25s = %s"
         if not brief:
             for r in ret:
-                out.append(fmt % (tformat(t=r['ts'],format="%H:%M:%S"),
+                out.append(fmt % (tformat(t=r['ts'], format="%H:%M:%S"),
                                   r['pvname']+' '*20, r['value']) )
                     
         fmt = '%i PVs had values updated in the past %i seconds. pid=%i'
-        out.append(fmt % (len(ret),dt,pid))
+        out.append(fmt % (len(ret), dt, pid))
         return out
         
     def runs_report(self):
@@ -305,12 +304,12 @@ class MasterDB:
                 timefmt = "%6.1f*"
                 i['stop_time'] = time.time()
             days = timefmt % ((i['stop_time'] - i['start_time'])/(24*3600.0))
-            drange = "%s to %s" %(tformat(i['start_time'],format="%Y-%m-%d"),
-                                  tformat(i['stop_time'],format="%Y-%m-%d"))
+            drange = "%s to %s" %(tformat(i['start_time'], format="%Y-%m-%d"),
+                                  tformat(i['stop_time'], format="%Y-%m-%d"))
             
-            r.append("| %16s  | %24s  |   %10s   |" % (i['db'],drange,days))
+            r.append("| %16s  | %24s  |   %10s   |" % (i['db'], drange, days))
         r.reverse()
-        out = [self.runs_line,self.runs_title,self.runs_line]
+        out = [self.runs_line, self.runs_title,self.runs_line]
         for i in r: out.append(i)
         out.append(self.runs_line)
         return out
