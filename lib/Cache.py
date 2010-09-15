@@ -136,19 +136,32 @@ class Cache(MasterDB):
 
     def update_cache(self):
         fmt = "update cache set value=%s,cvalue='%s',ts=%f where pvname='%s'"
-        for (val,cval,ts,nam) in self.data.values():
-            if val is None:
-                pv   = self.pvs[nam]
-                val  = pv.get()
-                cval = pv.char_value
-                ts   = time.time()
-                if val is None:
-                    sys.stdout.write("why does %s have value 'None'\n" % nam)
+        for val, cval, ts, nam in self.data.values():
+            # if val is None:
+            #    pv   = self.pvs[nam]
+            #    val  = pv.get()
+            #    cval = pv.char_value
+            #    ts   = time.time()
+            #    if val is None:
+            #        sys.stdout.write("why does %s have value 'None'\n" % nam)
             if val is not None:
                 sval = clean_string(str(val))
+                cval = clean_string(str(cval))
                 self.db.execute(fmt % (sval,cval,ts,nam))
         return len(self.data)
 
+    def look_for_unconnected_pvs(self):
+        """ look for PVs that have no callbacks defined --
+        must have been unconnected -- but are now connected"""
+        for pvname in self.pvnames:
+            try:
+                pv = self.pvs[pvname]
+                if pv.connected and len(pv.callbacks) < 1:
+                    pv.add_callback(self.onChanges)
+                    self.data[pvname] = (pv.value, pv.char_value, time.time(), pvname)
+            except:
+                pass
+        
     def connect_pvs(self):
         t0 = time.time()
 
@@ -156,7 +169,6 @@ class Cache(MasterDB):
         npvs = len(self.pvnames)
         n_notify = 2 + (npvs / 10)
         sys.stdout.write("connecting to %i PVs\n" %  npvs)
-        print time.time()-t0
         print 'EpicsArchiver.Cache connecting to %i PVs ' %  npvs
         for i,pvname in enumerate(self.pvnames):
             try:
@@ -165,19 +177,23 @@ class Cache(MasterDB):
             except:
                 sys.stderr.write('connect failed for %s\n' % pvname)
 
-        # print 'pvs created ', time.time()-t0
-        
-        epics.pend_io(1.0)
+        print 'Created %i PVs in %.3f sec' % (len(self.pvs), time.time()-t0)
+
+        epics.ca.pend_io(1.0)
         self.data = {}
         for i, pvname in enumerate(self.pvnames):
-            xx = self.cache.select_one(where="pvname='%s'" % pvname)
-            if 'active' in xx:
-                if 'no' == xx['active']:  continue                
+            # xx = self.cache.select_one(where="pvname='%s'" % pvname)
+            # if 'active' in xx:
+            #    if 'no' == xx['active']:  continue                
             try:
                 pv = self.pvs[pvname]
-                pv.get()
-                pv.add_callback(self.onChanges)
-                self.data[pvname] = (pv.value, pv.char_value, time.time(),pvname)
+                #if not pv.connected:
+                #    pv.get()
+                # self.data[pvname] = (None, None, None, None) # signifies Not Connected
+                if pv is not None and pv.connected: # is not None:
+                    pv.add_callback(self.onChanges)
+                    self.data[pvname] = (pv.value, pv.char_value, time.time(), pvname)
+                    
             except KeyboardInterrupt:
                 self.exit()
             except:
@@ -186,6 +202,7 @@ class Cache(MasterDB):
             if i % n_notify == 0:
                 sys.stdout.write('%.2f ' % (float(i)/npvs))
                 sys.stdout.flush()
+
 
         dt = time.time()-t0
         sys.stdout.write("\nconnected to %i PVs in %f seconds\n" %  (npvs,dt))
@@ -235,22 +252,18 @@ class Cache(MasterDB):
                 self.set_date()
                 self.db.commit_transaction()
 
-                tmin,tsec = time.localtime()[4:6]
+                tmin, tsec = time.localtime()[4:6]
 
                 # make sure updates and alerts get processed often,
                 # but not on every cycle.  Here they get processed
                 # once every 15 seconds.
-# 
-#                 if (tsec % 15) > 7:
-#                     alert_timer_on = True
-#                 elif (tsec % 15) < 3 and alert_timer_on:
-#                     self.process_requests()
-#                     self.process_alerts()
-#                     alert_timer_on = False
-                self.process_requests()
-                self.process_alerts()
                 
-
+                if (tsec % 15) > 7:
+                    alert_timer_on = True
+                elif (tsec % 15) < 3 and alert_timer_on:
+                    self.process_requests()
+                    self.process_alerts()
+                    alert_timer_on = False
                 
                 sys.stdout.flush()
                 if self.get_pid() != self.pid:
@@ -262,6 +275,7 @@ class Cache(MasterDB):
                     sys.stdout.write(status_str % (time.ctime(),ncached,nloop))
                     sys.stdout.flush()
                     self.read_alert_settings()
+                    self.look_for_unconnected_pvs()
                     ncached = 0
                     nloop = 0
 

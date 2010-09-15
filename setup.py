@@ -143,7 +143,7 @@ setup(
     description = 'A library for Archiving Epics PVs.',
     package_dir = {'EpicsArchiver': 'lib'},
     packages    = ['EpicsArchiver'], 
-    data_files  = [(bin_dir, ['bin/pvtest']),
+    data_files  = [(bin_dir, ['bin/pvarch']),
 #                    (config.cgi_bin, cgifiles),
 #                    (config.template_dir, template_files)
                    ]
