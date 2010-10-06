@@ -5,7 +5,7 @@ import time
 import sys
 
 import epics
-
+from debugtime import debugtime
 from MasterDB import MasterDB
 
 from util import clean_input, clean_string, motor_fields, \
@@ -91,7 +91,7 @@ def add_pvfile(fname):
         requests_pending = len(pending_requests)> 10
         time.sleep(1)
         
-    print 'Finally, set remaining of pair scores:'
+    # print 'Finally, set remaining of pair scores:'
     while pairs:
         words = pairs.pop(0)
         cache.set_allpairs(words,score=10)
@@ -108,17 +108,20 @@ class Cache(MasterDB):
     null_pv_value = {'value':None,'ts':0,'cvalue':None,'type':None}
     q_getfull     = "select value,cvalue,type,ts from cache where pvname='%s'"
 
-    def __init__(self,dbconn=None,**kw):
+    def __init__(self,dbconn=None,pidfile='/tmp/cache.pid', **kw):
         # use of Master assumes that there are not a lot of new PVs being
         # added to the cache so that this lookup of PVs can be done once.
         MasterDB.__init__(self,dbconn=dbconn,**kw)
 
         self.db.set_autocommit(1)
         self.pid   = self.get_cache_pid()
+        self.pidfile = pidfile
         self._table_alerts = self.db.tables['alerts']
         self.pvs   = {}
         self.data  = {}
-
+        self.db.set_autocommit(0)
+        self.last_update = 0
+        
     def status_report(self,brief=False,dt=60):
         return self.cache_report(brief=brief,dt=dt)
     
@@ -131,92 +134,113 @@ class Cache(MasterDB):
             self.pvs[pvname] = p
         return p
 
-    def onChanges(self, pvname=None, value=None, char_value=None, **kw):
-        self.data[pvname] = (value, char_value, time.time(), pvname)
+    def onChanges(self, pvname=None, value=None, char_value=None,
+                  timestamp=None, **kw):
+        if value is not None and pvname is not None:
+            if timestamp is None:
+                timestamp = time.time()
+            self.data[pvname] = (value, char_value, timestamp)
 
     def update_cache(self):
-        fmt = "update cache set value=%s,cvalue='%s',ts=%f where pvname='%s'"
-        for val, cval, ts, nam in self.data.values():
-            # if val is None:
-            #    pv   = self.pvs[nam]
-            #    val  = pv.get()
-            #    cval = pv.char_value
-            #    ts   = time.time()
-            #    if val is None:
-            #        sys.stdout.write("why does %s have value 'None'\n" % nam)
-            if val is not None:
-                sval = clean_string(str(val))
-                cval = clean_string(str(cval))
-                self.db.execute(fmt % (sval,cval,ts,nam))
-        return len(self.data)
+        t0 = time.time()
+        fmt = "update cache set value=%s,cvalue=%s,ts=%s where pvname=%s"
+        self.db.cursor.execute("start transaction")
+        updates = []
+        # take keys as of right now, and pop off the latest values for these pvs
+        #
+        # Be careful to NOT set self.data = {} as this can blow away any changes
+        # that occur during this i/io
+
+        for nam in self.data.keys():
+            val, cval, ts = self.data.pop(nam)
+            sval = clean_string(str(val))
+            updates.append((val, cval, ts, nam))
+
+        self.db.cursor.executemany(fmt, updates)
+        self.set_date()
+        self.db.cursor.execute("commit")
+        print 'Cache ran in %.2f sec ' % (time.time()-t0)
+        
+        return len(updates)
 
     def look_for_unconnected_pvs(self):
         """ look for PVs that have no callbacks defined --
         must have been unconnected -- but are now connected"""
+        nout = 0
         for pvname in self.pvnames:
-            try:
-                pv = self.pvs[pvname]
-                if pv.connected and len(pv.callbacks) < 1:
-                    pv.add_callback(self.onChanges)
-                    self.data[pvname] = (pv.value, pv.char_value, time.time(), pvname)
-            except:
-                pass
+            pv = self.pvs[pvname]
+            if pv is None:
+                nout = nout + 1
+                continue
+            if not pv.connected:
+                nout = nout + 1
+                pv.connect(timeout=0.1)
+
+            if pv.connected and len(pv.callbacks) < 1:
+                pv.add_callback(self.onChanges)
+                self.data[pvname] = (pv.value, pv.char_value, time.time())
+        return nout
         
-    def connect_pvs(self):
-        t0 = time.time()
+    def connect_pvs(self, npvs=None):
+        d = debugtime()
 
         self.get_pvnames()
-        npvs = len(self.pvnames)
-        n_notify = 2 + (npvs / 10)
-        sys.stdout.write("connecting to %i PVs\n" %  npvs)
-        print 'EpicsArchiver.Cache connecting to %i PVs ' %  npvs
-        for i,pvname in enumerate(self.pvnames):
+        if npvs is None:
+            npvs = len(self.pvnames)
+        elif npvs < len(self.pvnames):
+            self.pvnames = self.pvnames[:npvs]
+        n_notify = npvs / 10
+        d.add("connecting to %i PVs" %  npvs)
+        for pvname in self.pvnames:
             try:
-                pv = epics.PV(pvname)
-                self.pvs[pvname] = pv
-            except:
-                sys.stderr.write('connect failed for %s\n' % pvname)
-
-        print 'Created %i PVs in %.3f sec' % (len(self.pvs), time.time()-t0)
-
-        epics.ca.pend_io(1.0)
+                self.pvs[pvname] = epics.PV(pvname,
+                                            connection_timeout=1.0)
+            except epics.ca.ChannelAccessException:                
+                sys.stderr.write(' Could not create PV %s \n' % pvname)
+        d.add('Created %i PV Objects' % len(self.pvs), verbose=True)
+        
+        epics.ca.poll()
+        unconn = 0
+        for pv in self.pvs.values():
+            if not pv.connected:
+                try:
+                    pv.connect(timeout=0.5)
+                except epics.ca.ChannelAccessException:
+                    sys.stderr.write(' Could not connect PV %s \n' % pvname)
+                unconn =  unconn + 1
+        epics.ca.poll()
+        d.add("Connected to PVs (%i not connected)" %  unconn, verbose=True)
         self.data = {}
-        for i, pvname in enumerate(self.pvnames):
-            # xx = self.cache.select_one(where="pvname='%s'" % pvname)
-            # if 'active' in xx:
-            #    if 'no' == xx['active']:  continue                
-            try:
-                pv = self.pvs[pvname]
-                #if not pv.connected:
-                #    pv.get()
-                # self.data[pvname] = (None, None, None, None) # signifies Not Connected
-                if pv is not None and pv.connected: # is not None:
-                    pv.add_callback(self.onChanges)
-                    self.data[pvname] = (pv.value, pv.char_value, time.time(), pvname)
-                    
-            except KeyboardInterrupt:
-                self.exit()
-            except:
-                sys.stderr.write('connect failed for %s\n' % pvname)
+        for pv in self.pvs.values():
+            if pv is not None and pv.connected:
+                cval = pv.get(as_string=True)
+                self.data[pv.pvname] = (pv.value, cval, time.time())
 
-            if i % n_notify == 0:
-                sys.stdout.write('%.2f ' % (float(i)/npvs))
-                sys.stdout.flush()
-
-
-        dt = time.time()-t0
-        sys.stdout.write("\nconnected to %i PVs in %f seconds\n" %  (npvs,dt))
+        d.add("got initial values for PVs", verbose=True)
+        #for pvname, vals in self.data.items():
+        #    print pvname, vals
+        self.last_update = 0
         self.update_cache()
-
+        d.add("Entered values for %i PVs to Db" %  npvs)
+        for i, pv in enumerate(self.pvs.values()):        
+            if pv is not None and pv.connected:
+                pv.add_callback(self.onChanges)
+        d.add("added callbacks for PVs")
+        #
+        unconn =self.look_for_unconnected_pvs()
+        d.add("looked for unconnected pvs: %i not connected" % unconn)
+        d.show()
+        
+        
     def set_date(self):
-        t = time.time()
+        self.last_update = t = time.time()
         s = time.ctime()
         self.info.update("process='cache'", datetime=s,ts=t)
 
     def get_pid(self):
         return self.get_cache_pid()
 
-    def mainloop(self):
+    def mainloop(self, npvs=None):
         " "
         sys.stdout.write('Starting Epics PV Archive Caching: \n')
         self.db.get_cursor()
@@ -225,59 +249,58 @@ class Cache(MasterDB):
         self.pid = os.getpid()
         self.set_cache_status('running')
         self.set_cache_pid(self.pid)
-        self.set_date()
 
-        self.connect_pvs()
+        fout = open(self.pidfile, 'w')
+        fout.write('%i\n' % self.pid)
+        fout.close()
+
+        self.connect_pvs(npvs=npvs)
+
+        fmt = 'pvs connected, ready to run. Cache Process ID= %i\n'
+        sys.stdout.write(fmt % self.pid)
+        
+
         self.read_alert_settings()
         self.db.get_cursor()        
-        fmt = 'pvs connected in %.1f seconds, Cache Process ID= %i\n'
-        sys.stdout.write(fmt % (time.time()-t0, self.pid))
-        sys.stdout.flush()
 
         status_str = '%s: %i values cached since last notice %i loops\n'
         ncached = 0
-        nloop   = 0
+        nloop_count = 0
         mlast   = -1
         self.db.set_autocommit(0)
         alert_timer_on = True
         while True:
             try:
-                self.db.begin_transaction()
-                self.data = {}
-                epics.poll()
-
+                # self.db.begin_transaction()
+                epics.poll(evt=1.e-4, iot=1.0)
                 n = self.update_cache()
-                ncached = ncached + n
-                nloop   = nloop + 1
-                self.set_date()
-                self.db.commit_transaction()
-
+                ncached +=  n
+                nloop_count   +=  1
+                # self.db.commit_transaction()
                 tmin, tsec = time.localtime()[4:6]
 
                 # make sure updates and alerts get processed often,
                 # but not on every cycle.  Here they get processed
                 # once every 15 seconds.
-                
-                if (tsec % 15) > 7:
+                if (tsec % 15) > 10:
                     alert_timer_on = True
-                elif (tsec % 15) < 3 and alert_timer_on:
+                elif (tsec % 15) < 2 and alert_timer_on:
                     self.process_requests()
                     self.process_alerts()
                     alert_timer_on = False
-                
+
                 sys.stdout.flush()
                 if self.get_pid() != self.pid:
-                    sys.stdout.write('no longer master.  Exiting !!\n')
+                    sys.stdout.write('  No longer master! Exiting %i / %i !!\n' % (self.pid, self.get_pid()))
                     self.exit()
-
                 if (tsec == 0) and (tmin != mlast) and (tmin % 5 == 0): # report once per 5 minutes
                     mlast = tmin
-                    sys.stdout.write(status_str % (time.ctime(),ncached,nloop))
+                    sys.stdout.write(status_str % (time.ctime(),ncached,nloop_count))
                     sys.stdout.flush()
                     self.read_alert_settings()
                     self.look_for_unconnected_pvs()
                     ncached = 0
-                    nloop = 0
+                    nloop_count = 0
 
             except KeyboardInterrupt:
                 return
@@ -370,7 +393,7 @@ class Cache(MasterDB):
                         if pv.connected:         
                             self.add_epics_pv(pv) 
                             self.set_value(pv=pv) 
-                            self.pvs[nam].set_callback(self.onChanges)                    
+                            self.pvs[nam].add_callback(self.onChanges)                    
                         else:
                             drop_req = False
                             sys.stdout.write('could not connect to PV %s\n' % nam)
@@ -398,6 +421,7 @@ class Cache(MasterDB):
         self.alert_data = {}
         for i in self._table_alerts.select(where="active='yes'"):
             i['last_notice'] = -1.
+            # sys.stdout.write('PV ALERT %s\n' % repr(i['pvname']))
             pvname = i.pop('pvname')
             self.alert_data[pvname] = i
         # sys.stdout.write("read alerts: %i \n" % len(self.alert_data))
@@ -407,7 +431,7 @@ class Cache(MasterDB):
         # sys.stdout.write('processing alerts at %s\n' % time.ctime())
         msg = 'Alert sent for PV=%s / Label=%s to %s at %s\n'
         self.db.set_autocommit(1)
-        for pvname,pvdata in self.data.items():
+        for pvname, pvdata in self.data.items():
             if self.alert_data.has_key(pvname):
                 debug = 'XRM' in pvname
                 alarm = self.alert_data[pvname]

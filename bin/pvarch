@@ -3,6 +3,7 @@
 # main pvarch application
 
 import sys, os, time, getopt
+from threading import Thread
 
 try:
     
@@ -134,37 +135,72 @@ def run_archive(action='start'):
     elif 'start'==action:
         a.mainloop()
 
-def run_cache(action=None):
+def run_archive(action='start'):
 
     if not os.path.exists(logdir):   os.mkdir(logdir)
-    sout    = os.path.join(logdir, "cache.log")
-    serr    = os.path.join(logdir, "cache.err")
-    pidfile = os.path.join(logdir, "cache.pid")
+    sout    = os.path.join(logdir, "pvarch.log")
+    serr    = os.path.join(logdir, "pvarch.err")
+    pidfile = os.path.join(logdir, "pvarch.pid")
 
     dbconn  = cpool.get()
-    c = Cache(dbconn=dbconn)
+    a = Archiver(dbconn=dbconn)
     if 'start'==action:
-        status = c.get_cache_status()
-        pid    = c.get_cache_pid()
-        if  (pid != 0 and status != 'offline'):
-            ret = c.cache.select(where="ts> %i order by ts" % (time.time()-30.0))
-            if len(ret) >  5:
+        pid,status = a.get_pidstatus()
+        if (pid != 0 and status != 'offline'):
+            ret = a.get_nchanged(minutes=2,limit=10)
+            if ret >  5:
                 print "Archive appears to be running... try 'restart'?"
                 cpool.put(dbconn)
                 return
 
     startstop(stdout =sout,stderr=serr, pidfile=pidfile,
-              process_name='pvcache', action=action)
+              process_name='pvarch', action=action)
 
     dbconn  = cpool.get()
-    c = Cache(dbconn=dbconn)
+    a = Archiver(dbconn=dbconn)
     if 'stop'==action:
-        c.set_cache_status('stopping')
-        c.set_cache_pid(0)
-        time.sleep(1.0)        
+        a.set_pidstatus(pid=0,status='stopping')
+        time.sleep(1.0)
         
     elif 'start'==action:
-        c.mainloop()
+        a.mainloop()
+
+def run_cache(action=None):
+    # not that cache is best run in it's own thread!
+    
+    if not os.path.exists(logdir):
+        os.mkdir(logdir)
+    sout    = os.path.join(logdir, "cache.log")
+    serr    = os.path.join(logdir, "cache.err")
+    pidfile = os.path.join(logdir, "cache.pid")
+
+    dbconn  = cpool.get()
+    c = Cache(dbconn=dbconn, pidfile=pidfile)
+    
+    if 'start'==action:
+        status = c.get_cache_status()
+        print 'Current Status ', status,  c.get_pid()
+        if status == 'running':
+            ret = c.cache.select(where="ts> %i order by ts" % (time.time()-30.0))
+            if len(ret) >  5:
+                print "Archive appears to be running... try 'restart'?"
+                cpool.put(dbconn)
+                return
+   
+    def cache_thread(fcn_action='start'):
+        dbconn  = cpool.get()
+        c = Cache(dbconn=dbconn)
+        if 'stop'==fcn_action:
+            c.set_cache_status('stopping')
+            c.set_cache_pid(0)
+            time.sleep(1.0)        
+        else:
+            sys.stdout.write('Starting Cache Mainloop\n')
+            c.mainloop()
+
+    startstop(stdout =sout,stderr=serr, pidfile=pidfile,
+              process_name='pvcache', action=action,
+              func=cache_thread, fcn_action=action)
 
 
 def read_pid(name='cache'):
@@ -182,10 +218,11 @@ def cache_status(action='activity', dt=60):
     cache = Cache()
     ret   = cache.get_recent(dt=dt)
     status= 'running'
-    if pid != cache.get_pid(): status = 'not running!'
+    if pid != cache.get_pid():
+        status = 'not running!'
     pid = cache.get_pid()
     cache.close()        
-    msg = '%i changed PVs cached in past %i seconds.  PID=%i  Status=%s'
+    msg = '%i changed PVs cached in past %i seconds.  PID=%i  Status=%s?'
     if 'check' == action:            
         print len(ret)
     else:

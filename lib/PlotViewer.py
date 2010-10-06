@@ -281,9 +281,7 @@ set ytics nomirror
         self.gpfile = open(f_gp,'w')
 
         # get PV and related data
-
 	epv1 = self.arch.get_pv(pvname1)
-	epv1.connect()
         pvinfo = self.arch.get_info(pvname1)
         pv2info = pvinfo
         ## self.write(" PV %s %s " % ( pvname1,epv1))
@@ -291,20 +289,22 @@ set ytics nomirror
         if epv1 is None or pvinfo=={}: return ('','')
         if (epv1.pvname in (None,'')): return ('','')
 
-        desc = pvinfo.get('description','')
-        if desc in ('',None):   desc = self.get_pvdesc(epv1)
 
-        pvlabel = epv1.pvname
-        if desc!=epv1.pvname: pvlabel = "%s (%s)" % (desc,epv1.pvname)
-        legend,tics = self.get_enum_legend(epv1)        
+        pvlabel = pvname1
+        legend, tics = self.get_enum_legend(epv1)
+        
+        desc = pvinfo.get('description','')
+        if desc in ('',None):
+            desc = self.get_pvdesc(epv1)
+
+        if desc != epv1.pvname:
+            pvlabel = "%s (%s)" % (desc,epv1.pvname)
+
         file_link   = "<a href='%s'>data for %s</a>" % (l_dat,pvlabel)
 
         tlo, thi,npts,dat = self.save_data(epv1,t0,t1,f_dat,legend)
-        # self.write("<br> times: %s  (%i) / %i , %i / %i , %i <br>" % (epv1.pvname, npts,t0,t1,tlo,thi))
         if npts < 1:
             self.write("<br>Warning: No data for PV %s <br>" % (epv1))
-        # elif npts < 3:
-            # self.write("<br>Warning: Npts = %i for PV %s <br>" % (npts,epv1))
 
         wait_for_pngfile = npts > 1       
         npts2 = 0
@@ -318,8 +318,6 @@ set ytics nomirror
              self.write("<br> pv2???  %s, %s <br>" % (pvname2, str(pvname2=='')))
             
         if pvname2 != '':
-
-
             epv2  = self.arch.get_pv(pvname2)
             epv2.connect()
             pv2info = self.arch.get_info(pvname2)
@@ -329,18 +327,21 @@ set ytics nomirror
                  self.write(" PV#2  !!! %s, %s" % (str(pvname2 is None), epv2.pvname))
 
                 
-            if (epv2 is not None) and (epv2.pvname != ''):
+            if epv2 is not None and epv2.pvname != '':
                 val = epv2.get()
+                leg2, tics2 = self.get_enum_legend(epv2)
+                
                 desc2 = pv2info.get('description','')
-                if desc2 in ('',None):   desc2 = self.get_pvdesc(epv2)
+                if desc2 in ('',None):
+                    desc2 = self.get_pvdesc(epv2)
 
-                pv2label = epv2.pvname
-                if desc2!=pvname2:  pv2label = "%s (%s)" % (desc2,epv2.pvname)
+                pv2label = pvname2
+                if desc2 != pvname2:
+                    pv2label = "%s (%s)" % (desc2, pvname2)
 
                 file_link ="""<a href='%s'>data for %s</a><br>
                 <a href='%s'>data for %s</a>""" % (l_dat,pvlabel,l_dat2,pv2label)
 
-                leg2,tics2 = self.get_enum_legend(epv2)
                 tlo2, thi2, npts2,dat2 = self.save_data(epv2,t0,t1,f_dat2,leg2)
                 if npts2 < 1:
                     self.write("<br>Warning: No data for PV %s <br>" % (pv2))
@@ -398,7 +399,7 @@ set ytics nomirror
         if epv1.type =='enum':
             self.gp("set ytics %s" % tics)
             try:
-                n_enum = len(epv1.enum_strings)
+                n_enum = len(epv1.enum_strs)
             except:
                 n_enum = 8
             self.gp("set yrange [-0.2:%f]" % (n_enum-0.8))
@@ -406,7 +407,7 @@ set ytics nomirror
         if n_dat==2 and epv2.type =='enum':
             self.gp("set y2tics %s" % tics2)
             try:
-                n_enum = len(epv2.enum_strings)
+                n_enum = len(epv2.enum_strs)
             except:
                 n_enum = 8            
             self.gp("set y2range [-0.2:%f]" % (n_enum-0.8))
@@ -480,18 +481,26 @@ set ytics nomirror
         desc = desc.replace("'",'_')
         return desc
     
-    def get_enum_legend(self,pv):
-        legend = ''
-        tics   = ''
+    def get_enum_legend(self, pv):
+        # self.write(" <BR> PV ENUM STR For %s<BR>" % repr(pv).replace('<','|') )
+        legend, tics = '', ''
+        if not pv.connected:
+            pv.wait_for_connection(timeout=0.5)
         if pv.type == 'enum':
-            xtmp = pv.get()        
+            xtmp = pv.get(as_string=True)        
             legend = " Legend: ["
             tics   = ''
-            enumstrings = pv.enum_strings
+            if pv.enum_strs is None:
+                x = pv.get_ctrlvars()
+            if pv.enum_strs is None:
+                t0 = time.time()
+                while pv.enum_strs is None and time.time()-t0 < 3.0:
+                    x = pv.get(as_string=True)
+                
             try:
-                for i in range(len(enumstrings)):
-                    legend = "%s %i= %s |" % (legend,i, enumstrings[i])
-                    tics   = '%s "%s" %i,' % (tics, enumstrings[i],i)
+                for i, nam in enumerate(pv.enum_strs):
+                    legend = "%s %i= %s |" % (legend, i, nam)
+                    tics   = '%s "%s" %i,' % (tics, nam, i)
                 legend = "%s ]" % legend[:-1]
                 tics   = "(%s)" % tics[:-1]
             except:
@@ -539,6 +548,13 @@ set ytics nomirror
         f.write("#-------------------------------\n")
         f.write("#  date      time          value\n")
         for j in dat:
+            val  = j[1]
+            if isinstance(val, str):
+                try:
+                    val = float(val)
+                except:
+                    pass
+        
             f.write("%s %.3f %s\n" % (dstr(j[0]), j[0], j[1]))
         f.close()
         return (tlo, thi, npts,dat)

@@ -227,7 +227,8 @@ class SimpleDB:
         " get a DB cursor, possibly getting a new one from the Connection pool"
 
         if self.conn is not None:
-            if self.cursor is None:   self.cursor = self.conn.cursor
+            if self.cursor is None:
+                self.cursor = self.conn.cursor
             return self.cursor
 
         # try the one provided or get a new connection from the pool
@@ -257,7 +258,7 @@ class SimpleDB:
         self.cursor.execute("set AUTOCOMMIT=%i" % commit)        
 
     def begin_transaction(self):
-        self.get_cursor()        
+        self.get_cursor()       
         self.cursor.execute("start transaction")
 
     def commit_transaction(self):

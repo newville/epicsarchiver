@@ -88,12 +88,15 @@ class Archiver:
         self.cache_names = [i['pvname'] for i in ret]
         return self.cache_names
 
-    def get_cache_full(self,pv):
+    def get_cache_full(self, pv):
         " return full information for a cached pv"
         s = self.read_master("select * from cache where pvname='%s'" % pv)
-        if s == ():
-            s  = ({'type':None,'value':None})
-        return s[0]
+        try:
+            return s[0]
+        except:
+            print 'Could not get cache for pvname "%s"' % pv
+            return  {'type':None,'value':None}
+            
 
     def refresh_pv_table(self):
         """refresh the pvinfo dictionary  by re-reading the database settings for pvs in the pv table
@@ -481,7 +484,7 @@ class Archiver:
             self.check_for_new_pvs()
             self.refresh_pv_table()
 
-            for name,info in self.pvinfo.items():
+            for name, info in self.pvinfo.items():
                 last_ts  = info['last_ts']
                 last_val = info['last_value']
                 if info['active'] == 'no': continue

@@ -24,7 +24,7 @@ def clean_input(x,maxlen=None):
     return x.strip()
                        
 def safe_string(x):
-    # if "'" in x:  x = escape_string(x)
+    #if "'" in x:  x = escape_string(x)
     return  string_literal(x)
 
 def clean_string(x,maxlen=None):
