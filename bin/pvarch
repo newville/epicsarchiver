@@ -115,9 +115,10 @@ def run_archive(action='start'):
     dbconn  = cpool.get()
     a = Archiver(dbconn=dbconn)
     if 'start'==action:
-        pid,status = a.get_pidstatus()
-        if (pid != 0 and status != 'offline'):
-            ret = a.get_nchanged(minutes=2,limit=10)
+        pid, status = a.get_pidstatus()
+        print 'start? ', pid, status
+        if pid != 0:
+            ret = a.get_nchanged(minutes=1,limit=10)
             if ret >  5:
                 print "Archive appears to be running... try 'restart'?"
                 cpool.put(dbconn)
@@ -186,16 +187,25 @@ def run_cache(action=None):
                 print "Archive appears to be running... try 'restart'?"
                 cpool.put(dbconn)
                 return
-   
+    elif 'stop'==action:
+        c.db.set_autocommit(1)
+        c.set_cache_status('stopping')
+        c.set_cache_pid(0)
+        c.shutdown()
+        if action == 'stop':
+            return
+        else:
+            action = 'start'
+            
     def cache_thread(fcn_action='start'):
         dbconn  = cpool.get()
         c = Cache(dbconn=dbconn)
         if 'stop'==fcn_action:
+            c.db.set_autocommit(1)
             c.set_cache_status('stopping')
             c.set_cache_pid(0)
             time.sleep(1.0)        
         else:
-            sys.stdout.write('Starting Cache Mainloop\n')
             c.mainloop()
 
     startstop(stdout =sout,stderr=serr, pidfile=pidfile,
@@ -214,15 +224,16 @@ def read_pid(name='cache'):
     return pid
     
 def cache_status(action='activity', dt=60):
-    pid   = read_pid(name='cache')
+    rpid   = read_pid(name='cache')
     cache = Cache()
+    pid   = cache.get_pid()
     ret   = cache.get_recent(dt=dt)
-    status= 'running'
-    if pid != cache.get_pid():
-        status = 'not running!'
-    pid = cache.get_pid()
+    status= cache.get_cache_status()
+    if pid != rpid:
+        status = status + ' (pid not found)'
+
     cache.close()        
-    msg = '%i changed PVs cached in past %i seconds.  PID=%i  Status=%s?'
+    msg = '%i changed PVs cached in past %i seconds.  PID=%i  Status=%s'
     if 'check' == action:            
         print len(ret)
     else:
@@ -290,7 +301,7 @@ def main():
     elif cmd in ('start','stop','restart'):
         if 'restart' == cmd:
             run_archive(action='stop')
-            time.sleep(1)
+            time.sleep(3)
             run_archive(action='start')            
         else:
             run_archive(action=cmd)
@@ -340,7 +351,7 @@ def main():
             cache_status(action=action,dt=float(dt))
         elif action ==  'restart':
             run_cache(action='stop')
-            time.sleep(1)
+            time.sleep(3)
             run_cache(action='start')            
         else:
             run_cache(action=action)

@@ -104,7 +104,7 @@ class Archiver:
         for pvdata in self.pv_table.select():
             name = pvdata['name']
             # already know about this pv: update pvinfo.
-            if self.pvinfo.has_key(name):
+            if name in self.pvinfo:
                 self.pvinfo[name].update(pvdata)
             # look up any new pvs
             else:
@@ -118,13 +118,13 @@ class Archiver:
 
     def get_info(self,pvname):
         """ return pvinfo dictionary for a pv, and also ensures that it is in the pvinfo dictionary"""
-        if not self.pvinfo.has_key(pvname):
+        if pvname not in self.pvinfo:
             try:
                 r = self.pv_table.select_where(name=pvname)
                 dat = r[0]
             except IndexError:
                 self.add_pv(pvname)
-                time.sleep(0.1)
+                time.sleep(0.01)
                 try:
                     r = self.pv_table.select_where(name=pvname)
                     dat = r[0]
@@ -182,7 +182,8 @@ class Archiver:
 
     def get_pv(self,pvname):
         " "
-        if self.pvs.has_key(pvname): return self.pvs[pvname]
+        if pvname in self.pvs:
+            return self.pvs[pvname]
         try:
             p = self.pvs[pvname] = epics.PV(pvname)
             return p
@@ -304,7 +305,7 @@ class Archiver:
             sys.stdout.write("## Archiver add_pv invalid pvname = '%s'" % pvname)
             return None
 
-        if self.pvinfo.has_key(pvname):
+        if pvname in self.pvinfo:
             if 'yes' == self.pvinfo[pvname]['active']:
                 self.write("PV %s is already in database.\n" % pvname)
             else:
@@ -429,7 +430,7 @@ class Archiver:
         """ one pass of collecting new values, deciding what to archive"""
         newvals, forced = {},{}
         tnow = time.time()
-        dt  =  max(1.0, 3.*(tnow - self.last_collect))
+        dt  =  max(1.0, 2.*(tnow - self.last_collect))
         self.last_collect = tnow
         new_Changes = self.get_cache_changes(dt=dt)
         
@@ -437,15 +438,17 @@ class Archiver:
             name  = dat['pvname']
             val   = dat['value']
             ts    = dat['ts'] or time.time()
-            if not self.pvinfo.has_key(name):  self.add_pv(name)
+            if name not in self.pvinfo:
+                self.add_pv(name)
 
             info = self.pvinfo[name]
-            if info['active'] == 'no': continue
-            if newvals.has_key(name): continue
+            if info['active'] == 'no' or name in newvals:
+                continue
             
             last_ts   = info['last_ts']
             last_val  = info['last_value']
-            if last_ts is None:  last_ts = 0
+            if last_ts is None:
+                last_ts = 0
            
             do_save = ((ts-last_ts) > info['deadtime'])
             if do_save and dat['type'] in ('double','float'):
@@ -457,7 +460,8 @@ class Archiver:
             if do_save:
                 # self.update_value(name,ts,val)
                 newvals[name] = (ts,val)
-                if self.dtime_limbo.has_key(name): self.dtime_limbo.pop(name)
+                if name in self.dtime_limbo:
+                    self.dtime_limbo.pop(name)
             elif (ts-last_ts) > 1.e-3:   # pv changed, but inside 'deadtime': put it in limbo!
                 self.dtime_limbo[name] = (ts,val)
                 
@@ -475,11 +479,10 @@ class Archiver:
 
         n_new     = len(newvals)
         n_forced  = 0
-        # check for stale values and re-read db settings every 10 minutes or so
+        # check for stale values and re-read db settings every 5 minutes or so
 
-        if (tnow - self.force_checktime) >= 600.0:
-            sys.stdout.write('looking for stale values, checking for new settings...%s\n'  %time.ctime() )
-            
+        if (tnow - self.force_checktime) >= 300.0:
+            # sys.stdout.write('looking for stale values, checking for new settings...%s\n'  %time.ctime() )
             self.force_checktime = tnow
             self.check_for_new_pvs()
             self.refresh_pv_table()
@@ -506,16 +509,14 @@ class Archiver:
                         except:
                             pass
                     else:
-                        if not newvals.has_key(name):
+                        if name not in newvals:
                             newvals[name] = (tnow,str(r['value']))
                             n_forced = n_forced + 1
-                            # print 'FORCE::: ', name, tnow, r['value']
 
         for name,data in newvals.items():
             self.update_value(name,data[0],data[1])
 
         # self.db.commit_transaction()
-        
         return n_new,n_forced
 
     def set_pidstatus(self, pid=None, status='unknown'):
@@ -586,7 +587,6 @@ class Archiver:
                 n_forced  = n_forced  + n2
                 
                 epics.poll()
-
                 tnow = time.time()
                 tmin,tsec = time.localtime()[4:6]
 

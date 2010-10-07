@@ -153,6 +153,7 @@ class SimpleTable:
                         s.append("%s=%i" % (k,int(v)))
             s = ','.join(s)
             q = "update %s set %s where %s" % (self._name,s,where)
+            # print 'UPDATE Q ', q
             self.db.execute(q)
         except:
             self.db.write('update failed: %s' % q)

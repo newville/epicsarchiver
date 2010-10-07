@@ -194,7 +194,8 @@ class MasterDB:
             return None
 
     def _set_info(self,process='archive',**kw):
-        " set value(s) in the info table"        
+        " set value(s) in the info table"
+        # print 'SET INFO ', process, kw
         self.info.update("process='%s'" % process, **kw)
 
     def get_cache_status(self):

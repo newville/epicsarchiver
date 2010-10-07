@@ -119,6 +119,7 @@ class Cache(MasterDB):
         self._table_alerts = self.db.tables['alerts']
         self.pvs   = {}
         self.data  = {}
+        self.alert_data = {}
         self.db.set_autocommit(0)
         self.last_update = 0
         
@@ -141,6 +142,8 @@ class Cache(MasterDB):
             if timestamp is None:
                 timestamp = time.time()
             self.data[pvname] = (value, char_value, timestamp)
+            if  pvname in self.alert_data:
+                self.alert_data[pvname]['last_value'] = value
 
     def update_cache(self):
         t0 = time.time()
@@ -198,7 +201,7 @@ class Cache(MasterDB):
                                             connection_timeout=1.0)
             except epics.ca.ChannelAccessException:                
                 sys.stderr.write(' Could not create PV %s \n' % pvname)
-        d.add('Created %i PV Objects' % len(self.pvs), verbose=True)
+        d.add('Created %i PV Objects' % len(self.pvs), verbose=False)
         
         epics.ca.poll()
         unconn = 0
@@ -210,14 +213,14 @@ class Cache(MasterDB):
                     sys.stderr.write(' Could not connect PV %s \n' % pvname)
                 unconn =  unconn + 1
         epics.ca.poll()
-        d.add("Connected to PVs (%i not connected)" %  unconn, verbose=True)
+        d.add("Connected to PVs (%i not connected)" %  unconn, verbose=False)
         self.data = {}
         for pv in self.pvs.values():
             if pv is not None and pv.connected:
                 cval = pv.get(as_string=True)
                 self.data[pv.pvname] = (pv.value, cval, time.time())
 
-        d.add("got initial values for PVs", verbose=True)
+        d.add("got initial values for PVs", verbose=False)
         #for pvname, vals in self.data.items():
         #    print pvname, vals
         self.last_update = 0
@@ -248,22 +251,22 @@ class Cache(MasterDB):
 
         t0 = time.time()
         self.pid = os.getpid()
+        self.db.set_autocommit(1)                        
         self.set_cache_status('running')
         self.set_cache_pid(self.pid)
 
         fout = open(self.pidfile, 'w')
         fout.write('%i\n' % self.pid)
         fout.close()
+        self.db.set_autocommit(0)
+        self.read_alert_settings()
+        self.db.get_cursor()        
 
         self.connect_pvs(npvs=npvs)
 
         fmt = 'pvs connected, ready to run. Cache Process ID= %i\n'
         sys.stdout.write(fmt % self.pid)
         
-
-        self.read_alert_settings()
-        self.db.get_cursor()        
-
         status_str = '%s: %i values cached since last notice %i loops\n'
         ncached = 0
         nloop_count = 0
@@ -428,37 +431,42 @@ class Cache(MasterDB):
             self.pvnames.append(o['pvname'])
 
     def read_alert_settings(self):
-        self.alert_data = {}
-        for i in self._table_alerts.select(where="active='yes'"):
-            i['last_notice'] = -1.
-            # sys.stdout.write('PV ALERT %s\n' % repr(i['pvname']))
+        for i in self._table_alerts.select():
+            #  sys.stdout.write('PV ALERT %s\n' % repr(i['pvname']))
             pvname = i.pop('pvname')
-            self.alert_data[pvname] = i
-        # sys.stdout.write("read alerts: %i \n" % len(self.alert_data))
-        # sys.stdout.flush()
+            if pvname not in self.alert_data:
+                self.alert_data[pvname] = i
+            else:
+                self.alert_data[pvname].update(i)
+            if 'last_notice' not in self.alert_data[pvname]:
+                self.alert_data[pvname]['last_notice'] = -1
+            if 'last_value' not in self.alert_data[pvname]:
+                self.alert_data[pvname]['last_value'] = None
+        # sys.stdout.write("read %i alerts \n" % len(self.alert_data))
+        sys.stdout.flush()
                          
-    def process_alerts(self):
+    def process_alerts(self, debug=False):
         # sys.stdout.write('processing alerts at %s\n' % time.ctime())
-        msg = 'Alert sent for PV=%s / Label=%s to %s at %s\n'
-        self.db.set_autocommit(1)
-        for pvname, pvdata in self.data.items():
-            if self.alert_data.has_key(pvname):
-                debug = 'XRM' in pvname
-                alarm = self.alert_data[pvname]
-                if debug: print 'Process Alert for ', pvname, alarm['last_notice'], alarm['timeout']
-                
-                sendmail = (time.time() - alarm['last_notice']) > alarm['timeout']
-                active   = alarm['active'] == 'yes'
-                if sendmail and active:
-                    if debug: print '  >>Sendmail?? ', sendmail
-                    ok, notified = self.check_alert(alarm['id'],
-                                                    pvdata[0],
-                                                    sendmail=sendmail)
-                    if debug: print '  >>check_alert: val ok? ', ok, ' notified? ', notified
-                    if notified:
-                        self.alert_data[pvname]['last_notice'] = time.time()
-                        sys.stdout.write(msg % (pvname, alarm['name'],alarm['mailto'],time.ctime()))
+        msg = 'Alert sent for PV=%s / Label =%s at %s\n'
+        # self.db.set_autocommit(1)
+        for pvname, alarm in self.alert_data.items():
+            value = alarm.get('last_value', None)            
+            last_notice = alarm.get('last_notice', -1)
+            if value is not None and alarm['active'] == 'yes':
+                if debug:
+                    print 'Process Alert for ', pvname, last_notice, alarm['timeout']
                     
+                notify= (time.time() - last_notice) > alarm['timeout']
+                ok, notified = self.check_alert(alarm['id'], value,
+                                                sendmail=notify)
+                if debug:
+                    print 'Alert: val OK? ', ok, ' Notified? ', notified
+                if notified:
+                    self.alert_data[pvname]['last_notice'] = time.time()
+                    self.alert_data[pvname]['last_value']  = None
+                    sys.stdout.write(msg % (pvname, alarm['name'], time.ctime()))
+                elif ok:
+                    self.alert_data[pvname]['last_value']  = None                    
 
                 if debug: print '  >>process_alert done ', self.alert_data[pvname]['last_notice']
                 

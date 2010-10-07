@@ -33,12 +33,12 @@ class debugtime(object):
         m = m + ' '*(lmsg-len(m))
 
         out.append("#--------------------" + '-'*lmsg)
-        out.append('%s Total(s)    Delta(s)' % (m))
+        out.append('%s        Delta(s)     Total(s)' % (m))
         for m,t in self.times[1:]:
             tt = t-t0
             dt = t-tlast
             if len(m)<lmsg:
                 m = m + ' '*(lmsg-len(m))
-            out.append(" %s  %.3f    %.3f" % (m,tt, dt))
+            out.append(" %s   %10.3f    %10.3f" % (m,dt, tt))
             tlast = t
         return '\n'.join(out)
