@@ -98,7 +98,7 @@ def add_pvfile(fname):
     cache.close()
 
     time.sleep(0.01)
-    epics.poll(evt=0.01,io=5.0)
+    epics.poll(evt=0.01,iot=5.0)
     
 
 class Cache(MasterDB):
@@ -126,7 +126,8 @@ class Cache(MasterDB):
         return self.cache_report(brief=brief,dt=dt)
     
     def epics_connect(self,pvname):
-        if self.pvs.has_key(pvname): return self.pvs[pvname]
+        if self.pvs.has_key(pvname):
+            return self.pvs[pvname]
         
         p = epics.PV(pvname)
         epics.poll()
@@ -146,20 +147,20 @@ class Cache(MasterDB):
         fmt = "update cache set value=%s,cvalue=%s,ts=%s where pvname=%s"
         self.db.cursor.execute("start transaction")
         updates = []
-        # take keys as of right now, and pop off the latest values for these pvs
-        #
-        # Be careful to NOT set self.data = {} as this can blow away any changes
-        # that occur during this i/io
-
+        # take keys as of right now, and pop off the latest values
+        # for these pvs.   Be careful to NOT set self.data = {} as
+        # this can blow away any changes that occur during this i/io
         for nam in self.data.keys():
             val, cval, ts = self.data.pop(nam)
             sval = clean_string(str(val))
             updates.append((val, cval, ts, nam))
 
         self.db.cursor.executemany(fmt, updates)
-        self.set_date()
         self.db.cursor.execute("commit")
-        print 'Cache ran in %.2f sec ' % (time.time()-t0)
+        self.set_date()
+        #if len(updates) > 0:
+        #print 'Cache updated %i in %.2f sec ' % (len(updates),
+        #                                         time.time()-t0)
         
         return len(updates)
 
@@ -284,7 +285,7 @@ class Cache(MasterDB):
                 # once every 15 seconds.
                 if (tsec % 15) > 10:
                     alert_timer_on = True
-                elif (tsec % 15) < 2 and alert_timer_on:
+                elif (tsec % 15) < 3 and alert_timer_on:
                     self.process_requests()
                     self.process_alerts()
                     alert_timer_on = False
@@ -357,8 +358,9 @@ class Cache(MasterDB):
     def process_requests(self):
         " process requests for new PV's to be cached"
         req   = self.sql_exec_fetch("select * from requests")
-        if len(req) == 0: return
-        # sys.stdout.write('processing %i requests\n' %  len(req))
+        if len(req) == 0:
+            return
+        sys.stdout.write('processing %i requests\n' %  len(req))
         del_cache= "delete from cache where %s"
         del_req  = "delete from requests where %s"
         # note: if a requested PV does not connect,
@@ -370,7 +372,8 @@ class Cache(MasterDB):
             sys.stdout.write("processing %i requests at %s\n" % (len(req), time.ctime()))
             sys.stdout.flush()
         es = clean_string
-        if len(self.pvnames)== 0: self.get_pvnames()
+        if len(self.pvnames)== 0:
+            self.get_pvnames()
         
         now = time.time()
         self.db.set_autocommit(1)
@@ -378,6 +381,7 @@ class Cache(MasterDB):
             nam,action,ts = r['pvname'],r['action'],r['ts']
             drop_req = True
             where = "pvname='%s'" % nam
+            
             if valid_pvname(nam) and (now-ts < 60.0):
                 if 'suspend' == action:
                     if self.pvs.has_key(nam):
@@ -390,24 +394,31 @@ class Cache(MasterDB):
                 elif 'add' == action:
                     if nam not in self.pvnames:
                         pv = self.epics_connect(nam)
-                        if pv.connected:         
+                        xval = pv.get(as_string=True)
+                        conn = pv.wait_for_connection(timeout=2.0)
+                        if conn:
                             self.add_epics_pv(pv) 
                             self.set_value(pv=pv) 
-                            self.pvs[nam].add_callback(self.onChanges)                    
+                            pv.add_callback(self.onChanges)
+                            self.pvs[nam] = pv
                         else:
                             drop_req = False
                             sys.stdout.write('could not connect to PV %s\n' % nam)
 
-            if drop_req: self.sql_exec(del_req % where)
+            if drop_req:
+                self.sql_exec(del_req % where)
         self.get_pvnames()
         self.db.set_autocommit(0)
 
     def add_epics_pv(self,pv):
         """ add an epics PV to the cache"""
-        if not pv.connected:  return
+        if not pv.connected:
+            print 'add_epics_pv: NOT CONNECTED ', pv
+            return
 
         self.get_pvnames()
-        if pv.pvname in self.pvnames: return
+        if pv.pvname in self.pvnames:
+            return
 
         self.cache.insert(pvname=pv.pvname,type=pv.type)
 
@@ -415,7 +426,6 @@ class Cache(MasterDB):
         o = self.cache.select_one(where=where)
         if o['pvname'] not in self.pvnames:
             self.pvnames.append(o['pvname'])
-
 
     def read_alert_settings(self):
         self.alert_data = {}

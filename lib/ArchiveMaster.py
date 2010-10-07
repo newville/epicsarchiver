@@ -35,11 +35,13 @@ class ArchiveMaster(MasterDB):
                graph_hi    tinyblob,              graph_lo    tinyblob,
                graph_type  enum('normal','log','discrete'),
                type        enum('int','double','string','enum') not null,
-               active   enum('yes','no') default 'yes')""")
-
+               active   enum('yes','no') default 'yes')""",
+               "create index name_idx on pv (name);")
+    
     dat_init = ("drop table if exists pvdat%3.3i",
                 """create table pvdat%3.3i( time   double not null,
-                pv_id  int unsigned not null, value  tinyblob);""")
+                pv_id  int unsigned not null, value  tinyblob);""",
+                "create index pv_idx on pvdat%3.3i (pv_id);")
 
     sql_get_times   = "select min(time),max(time) from pvdat%3.3i"
     
@@ -96,7 +98,8 @@ class ArchiveMaster(MasterDB):
         self.db.use(dbname)
         self.db.execute(self.pv_init)
         for i in range(1,129):
-            for q in self.dat_init: self.db.execute(q % i)
+            for q in self.dat_init:
+                self.db.execute(q % i)
         self.db.grant(db=dbname,user=dbuser,passwd=dbpass,host=dbhost)
         self.db.use(master_db)
 

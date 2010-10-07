@@ -16,7 +16,6 @@ from util import normalize_pvname, tformat, clean_input, \
 re_showpv = re.compile(r".*%PV\((.*)\)%.*").match
 
 def clean_mail_message(s):
-
     "cleans a stored escaped mail message for real delivery"
     s = s.strip()
     s = s.replace("\\r","\r").replace("\\n","\n")
@@ -127,32 +126,30 @@ class MasterDB:
         
         prefix = pvname
         isMotor = False
-        if pvname.endswith('.VAL'): prefix = pvname[:-4]
-        if 'motor' == epics.caget(prefix+'.RTYP'):
-            fields = tuple(["%s%s" % (prefix,i) for i in motor_fields])
-            pvs = []
-            for pvname in fields:
-                pvs.append(epics.PV(pvname))
+        if pvname.endswith('.VAL'):
+            prefix = pvname[:-4]
 
-            epics.poll()
-            for p in pvs:
-                p.get()
-                if p.connected:
-                    self.request_pv_cache(p.pvname)
+        p = epics.PV(pvname)
+        p.wait_for_connection()
+        if p.connected: 
+            self.request_pv_cache(pvname)
+            if ('.' not in prefix and p.type == 'double'):
+                rtype = epics.PV(prefix+'.RTYP')
+                rtype.wait_for_connection(0.1)
+                if rtype is not None:
+                    isMotor = 'motor' == rtype.get()
+            if isMotor:
+                fields = tuple(["%s%s" % (prefix,i) for i in motor_fields])
+                pvs = []
+                for pvname in fields:
+                    pvs.append(epics.PV(pvname))
+
+                epics.poll()
+                for p in pvs:
+                    p.wait_for_connection(timeout=0.5)
+                    if p.connected:
+                        self.request_pv_cache(p.pvname)
                     
-            time.sleep(0.01)
-            epics.poll()
-
-            isMotor = True
-
-        else:
-            p = epics.PV(pvname)
-            p.connect()
-            if p.connected: 
-                self.request_pv_cache(pvname)
-
-        epics.poll()
-
         if isMotor and set_motor_pairs:
             time.sleep(0.25)
             self.set_allpairs(fields)

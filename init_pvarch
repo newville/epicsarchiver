@@ -80,16 +80,29 @@ def initialize(config):
 
     grant_kws = {'user':config.dbuser,
                  'passwd':config.dbpass,
-                 'host':config.dbhost}
+                 'host':config.dbhost,
+                 'grant': True}
 
 
     print 'creating database %s :' % config.master_db,
-    xdb.create_and_use(config.master_db) 
-
+    xdb.create_and_use(config.master_db)
+    xdb.grant(priv='create', db='*', **grant_kws)
+    xdb.grant(priv='drop',   db='*', **grant_kws)
+    xdb.execute('flush privileges')
+    
     xdb.source_file(init_sql)
 
-    print 'granting permissions...',
+    print 'granting permissions...', config.master_db
+    
     xdb.grant(db=config.master_db, **grant_kws)
+    xdb.grant(priv='create', db=config.master_db, **grant_kws)
+    xdb.grant(priv='insert', db=config.master_db, **grant_kws)
+    xdb.grant(priv='alter',  db=config.master_db, **grant_kws)
+    xdb.grant(priv='delete', db=config.master_db, **grant_kws)
+    xdb.grant(priv='all',    db=config.master_db, **grant_kws)
+    xdb.grant(priv='drop',   db=config.master_db, **grant_kws)
+    xdb.execute('flush privileges')
+
 
     firstnote = "%s to the indefinite future" % time.ctime()
     firstdb   =  config.dat_format % (config.dat_prefix,1)
@@ -103,6 +116,14 @@ def initialize(config):
     from lib.ArchiveMaster import ArchiveMaster
     m = ArchiveMaster()
     m.create_emptydb(dbname=firstdb)
+    xdb.grant(db=firstdb, **grant_kws)
+    xdb.grant(priv='create', db=firstdb, **grant_kws)
+    xdb.grant(priv='insert', db=firstdb, **grant_kws)
+    xdb.grant(priv='alter',  db=firstdb, **grant_kws)
+    xdb.grant(priv='delete', db=firstdb, **grant_kws)
+    xdb.grant(priv='all',    db=firstdb, **grant_kws)
+    xdb.grant(priv='drop',   db=firstdb, **grant_kws)
+    xdb.execute('flush privileges')
 
     print 'done.\n\nReady to start EpicsArchiver!'
 

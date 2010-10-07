@@ -1,4 +1,3 @@
-
 #!/usr/bin/python
 
 import time
@@ -363,10 +362,11 @@ class Archiver:
         # set graph default settings
         gr = {'high':'','low':'','type':'normal'}
         gr.update(graph)
-        if (dtype == 'enum'):
+        if dtype == 'enum':
+            x = pv.get(as_string=True)
             gr['type'] = 'discrete'
             gr['low'] = 0
-            gr['high'] =  len(pv.enum_strings)
+            gr['high'] =  len(pv.enum_strs)
         elif dtype == 'double':
             gr['type'] = 'normal'
             dx = description.lower()
@@ -590,7 +590,7 @@ class Archiver:
                 tnow = time.time()
                 tmin,tsec = time.localtime()[4:6]
 
-                if tsec < 2 and tmin != mlast and tmin % 1 == 0:
+                if tsec < 2 and tmin != mlast and tmin % 5 == 0:
                     self.write(msg % (time.ctime(), n_changed, n_forced, n_loop))
                     sys.stdout.flush()
                     n_changed = 0

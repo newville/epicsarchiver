@@ -13,6 +13,8 @@ create table cache (
     ts         double not null default 0,
     active     enum('yes','no') not null default 'yes');
 
+create index pvname_id on cache (pvname);
+
 drop table if exists runs;
 create table runs (
     id         int unsigned not null primary key auto_increment,
@@ -61,6 +63,8 @@ create table pairs (
     pv1        varchar(64) not null,
     pv2        varchar(64) not null,
     score      int unsigned not null default 1) ;
+
+create index pair_idx on pairs (pv1, pv2);
 
 drop table if exists stations;
 create table stations (
