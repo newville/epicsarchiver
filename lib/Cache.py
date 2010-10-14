@@ -155,16 +155,14 @@ class Cache(MasterDB):
         # this can blow away any changes that occur during this i/io
         for nam in self.data.keys():
             val, cval, ts = self.data.pop(nam)
-            sval = clean_string(str(val))
+            val = str(val)
+            if ';' in val:  #
+                val = val[:val.find(';')]
             updates.append((val, cval, ts, nam))
 
         self.db.cursor.executemany(fmt, updates)
         self.db.cursor.execute("commit")
         self.set_date()
-        #if len(updates) > 0:
-        #print 'Cache updated %i in %.2f sec ' % (len(updates),
-        #                                         time.time()-t0)
-        
         return len(updates)
 
     def look_for_unconnected_pvs(self):

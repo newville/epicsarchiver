@@ -119,13 +119,13 @@ def get_outfile(outfile):
             sys.exit()
     return fout
 
-def get_data(pvlist,start_time,stop_time):
+def get_data(pvlist ,start_time, stop_time, **kw):
     a = Archiver()
     pvdata = {}
     pvdesc = {}
     times  = [start_time,stop_time]
     for pv in pvlist:
-        dat,info = a.get_data(pv,start_time,stop_time)
+        dat, info = a.get_data(pv,start_time,stop_time)
         vals = {}
         for ts,v in dat:
             vals[ts] = v
