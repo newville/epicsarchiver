@@ -38,7 +38,7 @@ Note 2 (repeated data):
 from EpicsArchiver import Archiver
 from EpicsArchiver.util import time_str2sec
 
-from EpicsCA import caget
+from epics import caget
 import time
 import os
 import sys

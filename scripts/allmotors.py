@@ -3,13 +3,15 @@
 # reports motor settings now and at some earlier time
 
 from EpicsArchiver import Archiver
-from EpicsCA import caget
+from epics import caget
 import time
 
 tnow = time.time()
 then = tnow - 3600*8.0
 
+# change to your motor prefix
 pv_base = '13BMD:m'
+
 
 arch = Archiver()
 suff ='VAL'

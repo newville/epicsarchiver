@@ -3,17 +3,18 @@
    Matthew Newville <newville@cars.uchicago.edu>
    CARS, University of Chicago
 
-   version:      1.0.2
-   last update:  28-Jan-2008
+   version:      1.2.0
+   last update:  21-Oct-2010
    copyright:    Matthew Newville, The University of Chicago, 2007
    license:      MIT / BSD
          
 """
-__version__ = '1.0.2'
+__version__ = '1.2.0'
 
 import os
 import config
 import sys
+
 os.environ['PYTHON_EGG_CACHE'] = config.share_dir
 sys.path.insert(0, config.share_dir)
 import MySQLdb

@@ -88,11 +88,11 @@ class ArchiveMaster(MasterDB):
         self.db.use(master_db)
         self.__setrun(dbname,min_time,max_time)
     
-    def set_currentDB(self,dbname):
+    def set_currentDB(self, dbname):
         self.__setrun(dbname)
         self.info.update(db=dbname, where="process='archive'")
 
-    def create_emptydb(self,dbname):
+    def create_emptydb(self, dbname):
         self.db.execute("drop database if exists %s" % dbname)
         self.db.execute("create database %s" % dbname)
         self.db.use(dbname)
