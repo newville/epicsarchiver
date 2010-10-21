@@ -135,9 +135,10 @@ for i in os.listdir('cgi-bin'):
 
 setup(
     name        = 'EpicsArchiver',
-    version     = '1.0.2',
+    version     = '1.2.0',
     author      = 'Matthew Newville',
     author_email= 'newville@cars.uchicago.edu',
+    url         = 'http://millenia.cars.aps.anl.gov/~newville/Epics/PVArchiver/',
     license     = 'Python',
     script_name = script_name,
     description = 'A library for Archiving Epics PVs.',

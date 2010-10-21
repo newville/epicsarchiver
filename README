@@ -25,7 +25,7 @@ You will also need these (slightly less standard) tools:
   - These python modules (included in the source install):
         Gnuplot : py_install/gnuplot-py-1.7.tar.gz
         MySQLdb : py_install/MySQL-python-1.2.2.tar.gz
-        PyEpics : py_install/pyepics3.0.9.tar.gz
+        PyEpics : py_install/pyepics3.0.10.tar.gz
 
     All of these packages buid and install with a simple
         python setup.py install
