@@ -19,14 +19,13 @@ try:
     import Gnuplot
 except:
     pass
-
 import epics
     
 # This is useful for debugging / re-installing:
 # a "full install" will mean that any running cache and 
 # archiver will stop (abruptly -- the _mysql.so changes)
 full_install = True
-full_install = False
+# full_install = False
 
 script_name= sys.argv[0]
 try:
@@ -145,8 +144,8 @@ setup(
     package_dir = {'EpicsArchiver': 'lib'},
     packages    = ['EpicsArchiver'], 
     data_files  = [(bin_dir, ['bin/pvarch']),
-#                    (config.cgi_bin, cgifiles),
-#                    (config.template_dir, template_files)
+                   (config.cgi_bin, cgifiles),
+                   (config.template_dir, template_files)
                    ]
     )
 
