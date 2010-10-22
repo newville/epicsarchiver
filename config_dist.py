@@ -60,22 +60,26 @@ mailfrom   = 'pvarchiver@aps.anl.gov'
 ##
 #  apache root directory, and the URL 
 apache_root = '/var/www/'
-url_root    = 'http://test.aps.anl.gov/'
+url_root    = 'http://localhost/'
 
 # apache user / group -- these should be the same as in your httpd.conf
-apache_user = 'apache'
-apache_group= 'apache'
+apache_user = 'www-data'
+apache_group= 'www-data'
 
 # location for python web scripts, and how this maps to a URL:
 cgi_bin   = join(apache_root, 'cgi-bin/pvarch')
+# For ubuntu:
+cgi_bin   = '/usr/lib/cgi-bin/pvarch'
+
 cgi_url   = join(url_root   , 'cgi-bin/pvarch')
 
 # location for output data files from PlotViewer and how this maps to a URL:
-cgi_data_dir = join(apache_root , 'html/cgi-data/')
+cgi_data_dir = join(apache_root , 'cgi-data/')
 cgi_data_url = join(url_root    , 'cgi-data/')
 
 data_dir     = join(cgi_data_dir, 'pvarch')
 data_url     = join(cgi_data_url, 'pvarch')
+
 
 # temporary datafiles should have this prefix:
 webfile_prefix = 'pv'

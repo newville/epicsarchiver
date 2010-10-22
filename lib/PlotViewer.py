@@ -178,8 +178,10 @@ set ytics nomirror
         tmp.sort()
         out = []
         for r in tmp:
-            if   r[1] == npv:  out.append(r[2])
-            elif r[2] == npv:  out.append(r[1])
+            if   r[1] == npv and r[2] not in out:
+                out.append(r[2])
+            elif r[2] == npv and r[1] not in out:
+                out.append(r[1])
         out.reverse()
         return out
 

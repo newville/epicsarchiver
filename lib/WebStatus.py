@@ -83,7 +83,7 @@ class WebStatus:
                 if rx is not self.null_pv:
                     desc = rx['cvalue']
                 
-        if desc is None: desc = pv
+        if desc in (None, ''): desc = pv
         if outtype=='yes/no':
             oval = 'Unknown'
             try:

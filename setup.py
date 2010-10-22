@@ -192,7 +192,6 @@ Read INSTALL for the next installation steps."""
 # answer = raw_input('mysql username [%s]:' % super_user)
 # print "Please run bin/pvarch_init_mysql"
 
-
 x =  """The next installation steps are:
 
   1. Run bin/pvarch_init_mysql to Initialize the
