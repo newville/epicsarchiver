@@ -215,9 +215,11 @@ class WebStatus:
     def begin_page(self,page,pagelist,refresh=12):
         self.write(htmlhead % (pagetitle, refresh,config.css_style)) #
         self.write("""<table><tr><td align=left width=40%%>
-        <font size=+1>GSECARS Beamline Status:</font></td><td align=center width=40%%><font color='#4444AA'>%s</font></td>
+        <font size=+1>%s:</font></td><td align=center width=40%%><font color='#4444AA'>%s</font></td>
         <td align=rignt><a href='%s'>Settings/Admin</a></td>
-        <td align=rignt><a href='%s'>Help</a></td></tr></table><p>""" % (time.ctime(),adminpage,helppage))
+        <td align=rignt><a href='%s'>Help</a></td></tr></table><p>""" % (config.pagetitle,
+                                                                         time.ctime(), adminpage,
+                                                                         helppage))
 
         self.write("<body><ul id='tabmenu'>")
         for i in pagelist:
