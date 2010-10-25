@@ -135,7 +135,6 @@ class WebStatus:
 
     #     
     def show_pvfile(self,file):
-        from getopt import getopt
         try:
             f = open(file,"r")
             lines = f.readlines()
