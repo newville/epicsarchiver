@@ -137,9 +137,9 @@ class HTMLWriter:
         self.write(htmlhead % (self.html_title,refresh))
         self.write("<body>")
         self.write("""<table><tr><td align=left width=40%%>
-        <font size=+1>GSECARS Beamline Status:</font></td>
+        <font size=+1>%s:</font></td>
         <td align=center width=40%%><font color='#4444AA'>%s</font></td></tr></table><p>
-        """ % (time.ctime()))
+        """ % (config.pagetitle, time.ctime()))
 
         
     def show_links(self,pv='',inst_id=-1,active_tab=None,**kw):
