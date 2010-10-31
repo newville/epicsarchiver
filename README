@@ -1,36 +1,36 @@
 #
-This is PV_Archive.py, a system for recording Epics PV data 
-to a MySQL database and for viewing data from the database
-using a web interface.  The system has been designed for the
-Linux/Apache/MySQL/Python set of tools and requires:
 
-  - apache webserver:  Apache 2.X at least
+This is the Epics PV Archiver, a system for recording Epics PV data to a
+MySQL database and for viewing data from the database using a web
+interface.  
 
-  - python: version 2.3 or higher
+The system has been designed for the Linux/Apache/MySQL/Python set of tools
+and requires the following components:
 
-  - mysql: MySQL 5.x (with INNOdb support)  For many linux
+  - apache webserver:  Apache 2.X at least.
+
+  - python: version 2.5 or higher.  
+
+  - mysql: MySQL 5.x, with INNOdb support.  For many linux
            distributions, you will need the 'devel' package.
   
-These are generally standard components on modern linux machines.
-You will also need these (slightly less standard) tools:
-
   - Gnuplot  4.0 or higher
-
-  - Epics Base.
 
   - mod_python.  Many linux distributions include this as an
     add-on package for Apache.  The source for this is included, 
     but you will need to install this and configure apache to use it. 
 
-  - These python modules (included in the source install):
-        Gnuplot : py_install/gnuplot-py-1.7.tar.gz
-        MySQLdb : py_install/MySQL-python-1.2.2.tar.gz
-        PyEpics : py_install/pyepics3.0.10.tar.gz
+  - Epics Base.  You'll want Epics base 3.14.9 or higher.
 
-    All of these packages buid and install with a simple
-        python setup.py install
-    For MySQLdb, you may need the 'mysql-devel' package installed.
-    For PyEpics, you need a minimal installation of Epics base.
+  - Gnuplot Python module (py_install/gnuplot-py-1.7.tar.gz)
+
+  - MySQLdb Python module. (py_install/MySQL-python-1.2.2.tar.gz)
+
+      Many systems have a package for this.  If you use such a package, 
+      make sure you also install the 'mysql-devel' package.
+
+  - Epics Python module : (py_install/pyepics3.0.10.tar.gz)
+
 
 See INSTALL for more Installation instructions.
 
@@ -43,8 +43,6 @@ See doc/Templates.txt for detailed notes on how to build and
 
 See doc/Setup.txt for description of MySQL databases,and command-line 
     tools for extracting data.
-
-
 
 
   

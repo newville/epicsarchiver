@@ -2,14 +2,14 @@
 ==
 ==  General installation instructions for the EpicsArchiver.
 ==
-==
 
 
-The installation of EpicsArchiver is not as simple as I would like,
-due the fairly large number of packages that it depends on: mysql,
-Apache, Gnuplot, Epics Base, and the python connections to these
-(MySQLdb, mod_python, Gnuplot.py, and PyEpics).  The installation is
-not difficult, but there are many small steps.
+The installation of EpicsArchiver is not as simple as I would like, due the
+fairly large number of packages that it depends on: mysql, Apache, Gnuplot,
+Epics Base, and the python connections to these (MySQLdb, mod_python,
+Gnuplot.py, and PyEpics).  The installation is not especially difficult,
+but there are many small steps.  It also assumes you have a pretty good
+working knowledge of linux and a passing familiarity with Apache.
 
 The end result of the installation will be fairly simple and
 straightforward to use:
@@ -23,76 +23,88 @@ straightforward to use:
 
 == Quick Installation Instructions ===
 
- 0. Install Epics base, Apache, Python, MySQL, and Gnuplot.   
-    For all except Epics base, these are all standard 
-    components on modern linux systems, and you should not
-    need custom installations.
+ 0. Install Apache, Python, MySQL, and Gnuplot on a linux machine.
+    These are all standard components on modern linux systems, 
+    and may be installed already.  You should not need custom
+    installations. 
 
- 1. Install mod_python.
+ 1. Install Epics base.
 
- 2. Install python extensions for PyEpics, Gnuplot, MySQL.
+ 2. Install mod_python.
 
- 3. Set up MySQL permissions for a privileged account that can
-    grant permissions.  
+ 3. Install python extensions for PyEpics, Gnuplot, MySQL.
 
- 4. edit the settings in config.py
+ 4. Set up a privileged MySQL account that can grant permissions.
 
- 5. run 'python setup.py install'
+ 5. copy config_dist.py to config.py, and edit the settings for 
+    your system.
 
- 6. Configure Apache to use mod_python for the web programs, by
+ 6. run 'python setup.py install'
+
+ 7. configure Apache to use mod_python for the web programs, by
     adding the generated text to the Apache configuration file.
 
- 7. Initialize the MySQL databases with 'init_pvarch'.  Here,
+ 8. initialize the MySQL databases with 'init_pvarch'.  Here,
     you will be prompted for a MySQL username/password that can 
     grant permissions.
 
- 8. Start data collection with the cache:
+ 9. start data collection with the cache:
       pvarch cache start
       pvarch start
 
- 9. Add some PVs to be collected.
+10. add some PVs to be collected.
 
-10. View / Modify web page templates
+11. view / modify web page templates
 
-11. Set up cron scripts to manage databases
+12. Set up cron scripts to manage databases
 
-12. Continue to add PVs and/or modify web pages
+13. Continue to add PVs and/or modify web pages
 
 ============================================================
 
 Detailed instructions:
 
-== 0. Install Epics base, Apache, Python, MySQL, and Gnuplot.   
+== 0. Install / Check for Apache, Python, MySQL, and Gnuplot.   
    
-For Epics, only epics base is needed. Use R3.14.9 or higher if
-you can:
+A standard Apache installation can work, though you will need one with
+'APXS' for loading mod_python.
+
+There are many variations among the linux packages for where Apache things
+(configuration files, static web pages, cgi scripts, log files) get placed.
+You will have to learn a little about the Apache configuration on your
+machine, and will probably have to alter config.py accordingly.
+
+For Python, MySQL, and Gnuplot, standard linux packages will work. Some
+systems come with a Gnuplot that uses ugly fonts.  If this drives you
+crazy, reinstalling with simple configuration settings seems to fix this.
+
+== 1. Install Epics base, Apache, Python, MySQL, and Gnuplot.   
+   
+For Epics, only Epics base is needed. Use R3.14.9 or higher if you can.
+Installation can be as simple as:
 
    mkdir /usr/local/epics
    cd    /usr/local/epics
    wget http://www.aps.anl.gov/epics/download/base/baseR3.14.9.tar.gz
    tar xvzf baseR3.14.9.tar.gz
    cd base-3.14.9/
+   export EPICS_HOST_ARCH=linux-x86
    make 
    cd .. 
    ln -s base-3.14.9 base
 
-For Python, MySQL, and Gnuplot, standard linux packages will work.
-Some systems come with a Gnuplot that uses ugly fonts.  Reinstalling
-with simple configuration settings seems to fix this.
+You should also add /usr/local/epics/base/lib/linux-86 to the ld.so.conf
+for the system (you could use LD_LIBRARY_PATH, but the unprivileged web
+user account needs to find EPICS too, so doing this system-wide is
+recommended).
 
-
-Apache should also work from standard linux packages, though there 
-seem to be some variations in layout between distributions.   You
-may have to learn a little about the Apache configuration on your
-machine.  You will need Apache with 'APXS' for loading mod_python
-
-==  1. Install mod_python
+==  2. Install mod_python
 
 A linux package for mod_python ought to work, but you may need to build
 from source too.   It's straightforward, but you'll need to know
 some details about Apache, especially where 'apxs' is.
  
-== 2. Install python extensions for PyEpics, Gnuplot, MySQL. 
+== 3. Install python extensions for PyEpics, Gnuplot, MySQL. 
 
 These all install with 'python setup.py install'.  These python
 packages are included in py_install.
@@ -109,7 +121,7 @@ a simple
 
 will enable better looking fonts.
  
-== 3. Set up MySQL permissions for a privileged account that can
+== 4. Set up MySQL permissions for a privileged account that can
       grant permissions.
 
 That is, set up a mysql super-user account:
@@ -119,23 +131,25 @@ That is, set up a mysql super-user account:
 You will need to use this username/password to set up the databases
 for the archiver
 
-== 4. edit the settings in config.py
+== 5. edit the settings in config.py
 
-There are many setting in config.py, mostly which has further instructions 
+Copy config_dist.py to config.py and edit accordingly.  There are many
+setting in config.py, mostly which has further instructions  
 for what they mean.   You will need to edit these to reflect your set up.
 
-== 5. run 'python setup.py install'
+
+== 6. run 'python setup.py install'
 
 This installs the initial set up of python code, the program 'pvarch', the
 web scripts, and initial web template files.... you're close!!
 
-== 6. Configure Apache to use mod_python for the web programs
+== 7. Configure Apache to use mod_python for the web programs
 
 Doing 'python setup.py install'  wrote the file httpd_pvarch.conf
 
 This should go into Apache's configuration, and apache should be restarted.
 
-== 7.  Initialize the MySQL databases with 'bin/init_pvarch'
+== 8.  Initialize the MySQL databases with 'bin/init_pvarch'
 
 This will create the initial databases for archiving.  You will be prompted 
 for the 'super-user' username/password from Step 3.   
@@ -143,7 +157,7 @@ for the 'super-user' username/password from Step 3.
 Note that running this will wipe out any previous archiving databases, so
 you really only need to run this once.
 
-== 8. Add some PVs to be collected.
+== 9. Add some PVs to be collected.
 
 Use the 'pvarch' program to add individual PVs or a file listing PVs:
    ~>pvarch add_pv      'XXX.VAL'
@@ -151,7 +165,7 @@ Use the 'pvarch' program to add individual PVs or a file listing PVs:
 
 PvList.txt lists PVs to be added, one or more (comma separated) per line.
 
-== 9. Start data collection.
+== 10. Start data collection.
 
 Start both the caching and archiving processes:
    ~>pvarch cache start
@@ -164,7 +178,7 @@ This creates 2 processes:
    'archiver': reads the cached values and archives.
 
 
-== 10. View / Modify web page templates
+== 11. View / Modify web page templates
 
 You can view the PVs with the cgi-bin/show
 web script (the URL being set from config.py), and will probably
@@ -179,13 +193,13 @@ Editing these templates will change what is shown on the status pages.
 
 See the README in the template directory for more details.
 
-== 11. Set up cron scripts to manage databases
+== 12. Set up cron scripts to manage databases
 
 You may want to check the status of the cache and archiver periodically,
 and rotate archive databases.  The scripts in cron/ give some examples
 of this.
 
-== 12. Continue to add PVs and/or modify web pages
+== 13. Continue to add PVs and/or modify web pages
 
 Note that once the web pages are working, adding PVs to a template file 
 will add it to the cache and archive as soon as the page is accessed.

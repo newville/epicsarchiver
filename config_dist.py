@@ -3,6 +3,19 @@
 #
 #  you should check that the settings here
 #  reflect your apache and mysql setup.
+##
+## NOTE on JOIN:
+##   this file is actually python code, but almost all
+##   entries are of the form:
+##      name = 'value'
+##   which should be easy enough to alter.
+##   Some entries for setting paths to directories/files
+##   are of the form
+##      name = join(name1, 'value')
+##   which will concatenate name1 and 'value' into the 
+##   final value for the parameter.  The join function
+##   essentially does
+##     name =  name1 + '/' + 'value'
 
 from os.path import join
 ######################################################
@@ -67,7 +80,8 @@ apache_user = 'www-data'
 apache_group= 'www-data'
 
 # location for python web scripts, and how this maps to a URL:
-cgi_bin   = join(apache_root, 'cgi-bin/pvarch')
+cgi_bin   = join(apache_root, 'cgi-bin/pvarch')  # see NOTE on JOIN above!!
+
 # For ubuntu:
 cgi_bin   = '/usr/lib/cgi-bin/pvarch'
 
@@ -85,8 +99,8 @@ data_url     = join(cgi_data_url, 'pvarch')
 webfile_prefix = 'pv'
 
 # location for javascript calendar used by PlotViewer how this maps to a URL:
-# (setup.py will install jscalendar here):
-jscal_dir     = join(cgi_data_dir, 'jscal')
+# (setup.py will install jscalendar here):  
+jscal_dir     = join(cgi_data_dir, 'jscal')   # see NOTE on JOIN above!!
 jscal_url     = join(cgi_data_url, 'jscal')
 
 # location of editable web status template files
@@ -94,7 +108,7 @@ jscal_url     = join(cgi_data_url, 'jscal')
 #   to customize the PVs displayed in the status page
 #   directory needs to be world-readable, but can be in a user directory
 share_dir    = '/usr/local/share/pvarch/'
-template_dir = join(share_dir, 'templates/')
+template_dir = join(share_dir, 'templates/')   # see NOTE on JOIN above!!
 
 # title for status web pages
 pagetitle = 'PV Archiver Status Page'
