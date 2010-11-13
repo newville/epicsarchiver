@@ -9,7 +9,7 @@ SEC_DAY   = 86400.0
 motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS',
                 '.DIR','_able.VAL','.SPMG','.DESC')
 
-valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._'
+valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._-'
 
 def clean_input(x,maxlen=None):
     """clean input, forcing it to be a string, with comments stripped,
