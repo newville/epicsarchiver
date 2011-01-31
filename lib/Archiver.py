@@ -142,15 +142,15 @@ class Archiver:
         """ initialize pv lists, insert times, etc with cache
         use update_vals to force insert of cache values into
         the archive (as on startup)
-        """
+n       """
         newpvs = []
         cache_values = []
         self.get_cache_names()
         pvtable_data = self.pv_table.select()
-        # print ' This is sync with cache ', update_vals, len(self.cache_names), len(pvtable_data)
+        print ' This is sync with cache ', update_vals, len(self.cache_names), len(pvtable_data)
         self.db.use(self.master_db)
         now = time.time()
-        # print 'masterdb %s / data=%s' % ( self.master_db, len(pvtable_data))
+        print 'masterdb %s / data=%s' % ( self.master_db, len(pvtable_data))
         if update_vals:
             x = self.db.exec_fetch("select pvname,value,ts from cache")
             current_cache = {}
@@ -161,8 +161,7 @@ class Archiver:
             name = normalize_pvname(pvdata['name'])
             
             if name not in self.cache_names:
-                # print 'newpv ', name
-                newpvs.append(name)            
+                newpvs.append((name, epics.PV(name)))
             elif update_vals:  
                 r = current_cache.get(name,None)
                 if r is not None:
@@ -171,14 +170,18 @@ class Archiver:
                     cache_values.append((name,ts,r['value']))
 
         if len(newpvs)>0:
+            epics.poll()
             m = MasterDB()
-            for p in newpvs:   m.add_pv(p)
+            for pvname, pv in newpvs:
+                if pv.connected:
+                    m.add_pv(pvname)
             m.close()
         # now switch to archiving database, and (perhaps) insert values from cache
         if self.dbname is not None:
             self.db.use(self.dbname)
-            for name,ts,value in cache_values: self.update_value(name,ts,value)
-
+            for name,ts,value in cache_values:
+                self.update_value(name,ts,value)
+        print 'Sync with Cache Done'
 
     def get_pv(self,pvname):
         " "
@@ -492,7 +495,15 @@ class Archiver:
                 last_val = info['last_value']
                 if info['active'] == 'no': continue
                 ftime = info['force_time']
-                if tnow-last_ts > ftime:
+                try:
+                    force = tnow-last_ts > ftime
+                except:
+                    print 'Cannot Figure out whether to force recording??'
+                    print tnow, last_ts, ftime
+                    print 'They should all be floats???'
+                    force = False
+                    
+                if force:
                     r = self.get_cache_full(name)
                     if r['type'] is None and r['value'] is None: # an empty / non-cached PV?
                         try:
@@ -501,7 +512,7 @@ class Archiver:
                             # if PV is still not connected, set time
                             # to wait 2 hours before checking again.
                             if (test_pv is None or not test_pv.connected):
-                                self.pvinfo[name]['last_ts'] = (7200+tnow-ftime,None)
+                                self.pvinfo[name]['last_ts'] = 7200+tnow-ftime
                                 self.write(" PV not connected: %s\n" % name)
                             else:
                                 r['value'] = test_pv.value

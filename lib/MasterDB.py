@@ -108,7 +108,8 @@ class MasterDB:
 
         cmd = "insert into requests (pvname,action,ts) values ('%s','add',%f)" % (npv,time.time())
         self.db.execute(cmd)
-
+        print 'REQUEST_PV_CACHE: add ', pvname
+        
     def add_pv(self,pvname,set_motor_pairs=True):
         """adds a PV to the cache: actually requests the addition, which will
         be handled by the next process_requests in mainloop().
@@ -130,7 +131,8 @@ class MasterDB:
             prefix = pvname[:-4]
 
         p = epics.PV(pvname)
-        p.wait_for_connection()
+        p.wait_for_connection(timeout=0.1)
+        print 'Master Add PVname = ', pvname, p.connected
         if p.connected: 
             self.request_pv_cache(pvname)
             if ('.' not in prefix and p.type == 'double'):
@@ -459,7 +461,8 @@ class MasterDB:
         pvname = normalize_pvname(pvname)        
         if name is None: name = pvname
         if len(self.pvnames)== 0: self.get_pvnames()
-        if pvname not in self.pvnames: self.add_pv(pvname)
+        if pvname not in self.pvnames:
+            self.add_pv(pvname)
 
         active = 'yes'
         if mailto  is None:    active,mailto = ('no','')

@@ -176,7 +176,7 @@ class Cache(MasterDB):
                 continue
             if not pv.connected:
                 nout = nout + 1
-                pv.connect(timeout=0.1)
+                pv.connect(timeout=0.05)
 
             if pv.connected and len(pv.callbacks) < 1:
                 pv.add_callback(self.onChanges)
@@ -200,16 +200,17 @@ class Cache(MasterDB):
             except epics.ca.ChannelAccessException:                
                 sys.stderr.write(' Could not create PV %s \n' % pvname)
         d.add('Created %i PV Objects' % len(self.pvs), verbose=False)
-        
+
         epics.ca.poll()
         unconn = 0
         for pv in self.pvs.values():
             if not pv.connected:
                 try:
-                    pv.connect(timeout=0.5)
+                    pv.connect(timeout=0.1)
                 except epics.ca.ChannelAccessException:
                     sys.stderr.write(' Could not connect PV %s \n' % pvname)
                 unconn =  unconn + 1
+
         epics.ca.poll()
         d.add("Connected to PVs (%i not connected)" %  unconn, verbose=False)
         self.data = {}
@@ -259,9 +260,7 @@ class Cache(MasterDB):
         self.db.set_autocommit(0)
         self.read_alert_settings()
         self.db.get_cursor()        
-
         self.connect_pvs(npvs=npvs)
-
         fmt = 'pvs connected, ready to run. Cache Process ID= %i\n'
         sys.stdout.write(fmt % self.pid)
         
@@ -361,56 +360,67 @@ class Cache(MasterDB):
         req   = self.sql_exec_fetch("select * from requests")
         if len(req) == 0:
             return
-        sys.stdout.write('processing %i requests\n' %  len(req))
+
         del_cache= "delete from cache where %s"
-        del_req  = "delete from requests where %s"
         # note: if a requested PV does not connect,
         #       wait a few minutes before dropping from
         #       the request table.
-        drop_req = True
 
         if len(req)>0:
             sys.stdout.write("processing %i requests at %s\n" % (len(req), time.ctime()))
             sys.stdout.flush()
         es = clean_string
+        sys.stdout.write( 'Process Req: %i\n' % len(self.pvnames))
         if len(self.pvnames)== 0:
             self.get_pvnames()
+        sys.stdout.write( 'Process Req: %i\n' % len(self.pvnames))            
         
         now = time.time()
         self.db.set_autocommit(1)
+        drop_ids = []
         for r in req:
-            nam,action,ts = r['pvname'],r['action'],r['ts']
-            drop_req = True
+            nam, rid, action, ts = r['pvname'], r['id'], r['action'], r['ts']
             where = "pvname='%s'" % nam
-            
-            if valid_pvname(nam) and (now-ts < 60.0):
+            print 'Request: ', nam, rid, action
+            if valid_pvname(nam) and (now-ts < 3000.0):
                 if 'suspend' == action:
                     if self.pvs.has_key(nam):
                         self.pvs[nam].clear_callbacks()
                         self.cache.update(active='no',where=where)
+                        drop_ids.append(rid)
                 elif 'drop' == action:
                     if nam in self.pvnames:
                         self.sql_exec(del_cache % where)
+                        drop_ids.append(rid)                        
 
                 elif 'add' == action:
                     if nam not in self.pvnames:
                         pv = self.epics_connect(nam)
                         xval = pv.get(as_string=True)
-                        conn = pv.wait_for_connection(timeout=2.0)
+                        conn = pv.wait_for_connection(timeout=1.0)
                         if conn:
-                            self.add_epics_pv(pv) 
-                            self.set_value(pv=pv) 
+                            self.add_epics_pv(pv)
+                            self.set_value(pv=pv)
                             pv.add_callback(self.onChanges)
                             self.pvs[nam] = pv
+                            drop_ids.append(rid)
+                            sys.stdout.write('added PV = %s\n' % nam)                            
                         else:
-                            drop_req = False
                             sys.stdout.write('could not connect to PV %s\n' % nam)
-
-            if drop_req:
-                self.sql_exec(del_req % where)
+                    else:
+                        print '? already in self.pvnames ', nam
+                        drop_ids.append(rid)                                                    
+            else:
+                drop_ids.append(rid)
+                
+        time.sleep(0.01)
         self.get_pvnames()
-        self.db.set_autocommit(0)
+        for rid in drop_ids:
+            self.sql_exec( "delete from requests where id=%i" % rid )
 
+        time.sleep(0.01)
+        self.db.set_autocommit(0)        
+        
     def add_epics_pv(self,pv):
         """ add an epics PV to the cache"""
         if not pv.connected:
@@ -420,7 +430,6 @@ class Cache(MasterDB):
         self.get_pvnames()
         if pv.pvname in self.pvnames:
             return
-
         self.cache.insert(pvname=pv.pvname,type=pv.type)
 
         where = "pvname='%s'" % pv.pvname
