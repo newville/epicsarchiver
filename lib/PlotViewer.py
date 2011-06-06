@@ -478,9 +478,15 @@ set ytics nomirror
             desc = epics.caget("%s.DESC" %  xpv)
         except:
             desc = None
-        if desc in ('',None,' '):  desc = pv.pvname
-        desc = desc.replace('"','_')
-        desc = desc.replace("'",'_')
+        if desc  in ('',None,' '):
+            desc = pv.pvname
+        if not isinstance(desc, str):
+            desc = pv.pvname
+        try:
+            desc = desc.replace('"','_')
+            desc = desc.replace("'",'_')
+        except:
+            pass
         return desc
     
     def get_enum_legend(self, pv):

@@ -7,34 +7,25 @@ from EpicsArchiver import config, WebStatus, PlotViewer, WebHelp, WebInstruments
 import sys
 sys.path.insert(0, config.template_dir)
 
-def plot(req,pv=None,**kw):
+def plot(req, pv=None, **kw):
     " plot viewer "
-    try:
-        dbconn = req.dbconn
-    except AttributeError:
-        dbconn = None
-        req.dbconn = dbconn
-        
-    p   = PlotViewer(dbconn=dbconn)
-    req.dbconn = p.dbconn
+    p = PlotViewer(dbconn=getattr(req,'User_dbconn', None))
+    req.User_dbconn = p.dbconn
     
-    out = p.do_plot(pv=pv,**kw)
-    return out
-
+    return p.do_plot(pv=pv, **kw)
 
 def show_page(req,page=None,**kw):
     " status pages "
-    if not (hasattr(req,'User_cache') and hasattr(req,'User_dbconn')):
-        req.User_cache,req.User_dbconn = None,None
-
-    p = WebStatus(cache=req.User_cache, dbconn=req.User_dbconn)
+    p = WebStatus(cache=getattr(req, 'User_cache', None), 
+                  dbconn=getattr(req, 'User_dbconn', None))
     req.User_cache  = p.cache
     req.User_dbconn = p.dbconn
 
     # here we import the list of pages for the web templates
     from pages import pagelist, filemap
 
-    if page == None: page = pagelist[0]
+    if page is None:
+        page = pagelist[0]
 
     p.begin_page(page, pagelist, refresh=30)
 

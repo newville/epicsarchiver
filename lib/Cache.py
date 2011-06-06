@@ -78,7 +78,7 @@ def add_pvfile(fname):
             print 'set a few pair scores...'
             for i in range(20):
                 words = pairs.pop(0)
-                cache.set_allpairs(words,score=10)
+                cache.set_allpairs(words, score=10)
         
     print 'Waiting for all pvs requested to be put in cache....'
     # now wait for all requests to be fulfilled, and then set the remaining pair scores

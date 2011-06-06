@@ -22,6 +22,7 @@ conf['instpage']   = "%s/show.py/instrument" % config.cgi_url
 conf['pvinfopage'] = "%s/admin.py/pvinfo"      % config.cgi_url
 conf['relpv_page'] = "%s/admin.py/related_pvs" % config.cgi_url
 conf['alertpage']  = "%s/admin.py/list_alerts"   % config.cgi_url
+conf['imgdir']     = "%s/images"   % config.cgi_url
 conf['helppage']   = "%s/help.py"   % config.cgi_url
 helppage = conf['helppage']
 
@@ -457,6 +458,17 @@ configured at installation time.  <p>
 Use the main <a href="%(alertpage)s">Alert Page</a> to see a list of currently
 defined alerts.  From this page you can select a "View/Change" link to modify
 any of the settings for a particular alert.
+
+<p>
+Thes main alert page will look like:<br>
+
+<a href='%(imgdir)s/alert1.png'><img src='%(imgdir)s/alert1.png' width=500></a>
+
+<p>
+
+Selecting one the existing alerts, or adding a new  alert will bring up a form like this:<br>
+
+<a href='%(imgdir)s/alert2.png'><img src='%(imgdir)s/alert2.png' width=500></a>
 
 <h3>Setting an Alerts</h3>
 

@@ -64,7 +64,6 @@ class WebStatus:
             
         oval = ret['cvalue']
         val  = ret['value']
-                
         try:
             if format is not None :
                 oval = format % float(val)
@@ -83,8 +82,9 @@ class WebStatus:
                 if rx is not self.null_pv:
                     desc = rx['cvalue']
                 
-        if desc in (None, ''): desc = pv
-        if outtype=='yes/no':
+        if desc in (None, ''):
+            desc = pv
+        if outtype == 'yes/no':
             oval = 'Unknown'
             try:
                 if int(float(val.strip())) == 0: oval = 'No'
@@ -93,8 +93,8 @@ class WebStatus:
                 pass
         return (desc,oval)
 
-    def show_pv(self,pv,format=None,desc=None,type=None):    
-        desc,val = self.get_pv(pv,format=format,desc=desc,outtype=type)
+    def show_pv(self, pv, format=None, desc=None, type=None):    
+        desc, val = self.get_pv(pv,format=format,desc=desc,outtype=type)
         self.linked_row(desc,pv,"%s" %val)
 
     def start_table(self,title=None):
@@ -140,11 +140,9 @@ class WebStatus:
             lines = f.readlines()
             f.close()
         except:
-            lines = ['','']
+            lines = ['', '']
         for s in lines:
             s = s.strip()
-            if len(s) < 1: continue
-            
             if s.startswith('#') or len(s) < 2:
                 continue
             elif s.startswith('['):
@@ -157,28 +155,19 @@ class WebStatus:
                 self.write(self.space_row)
             else:
                 cline = s.split('|')
-                pvnames = []
-                try:
-                    for i in cline.pop(0).strip().split(','):
-                        pvnames.append(normalize_pvname(i.strip()))
-
-                except:
-                    pass
-                try:
-                    desc   = cline.pop(0).strip()
-                    if len(desc)==0: desc = None
-                except:
-                    desc  = None
-                try:
-                    format = cline.pop(0).strip()
-                except:
-                    format = None
-                outtype=None
+                pvnames = [normalize_pvname(word.strip()) for word in cline[0].split(',')]
+                desc, format, outtype = None, None, None
+                if len(cline) > 1:
+                    desc = cline[1].strip()
+                    if len(desc)==0:
+                        desc = None
+                    if len(cline) > 2:
+                        format = cline[2].strip()
                 if format == 'yes/no':
                     format = None
                     outtype = 'yes/no'
                     
-                if pvnames != []:
+                if len(pvnames) > 0:
                     vals = []
                     labs = []
                     for pvname in pvnames:
@@ -194,11 +183,11 @@ class WebStatus:
                         vals.append(val)
                     if len(pvnames) > 1:
                         if desc is None: desc = labs
-                        self.linked_row(desc,pvnames,vals)
-                        self.cache.set_allpairs(pvnames)
+                        self.linked_row(desc, pvnames, vals)
+                        # self.cache.set_allpairs(pvnames)
                     else:
                         if desc is None: desc = labs[0]
-                        self.linked_row(desc,pvnames[0],vals[0])
+                        self.linked_row(desc, pvnames[0], vals[0])
                         
 
     def remove_quotes(self, str):
@@ -308,7 +297,7 @@ class WebStatus:
         self.table_entry_vac_title(("Component","Status", "Pressure CC (Pirani)", "Ion Pump Pressure (V,I)"))
         # BM A
         self.table_label_vac("13 BM A")
-        self.show_pv("PA:13BM:Q01:00.VAL", desc = "Station Searched")
+        self.show_pv("PA:13BM:Q01:00.VAL", desc = "Station Searched", type='yes/no')
 
         self.vac_table("13BMA:ip1",label='Slit Tank',        type='GSE',  cc_pr=("13BMA",1))
         self.valve_row("13BMA:BMD_BS",'BMD White Beam Stop')
@@ -321,7 +310,7 @@ class WebStatus:
 
         # BM B
         self.table_label_vac("13 BM B")
-        self.show_pv("PA:13BM:Q01:01.VAL", desc = "Station Searched")
+        self.show_pv("PA:13BM:Q01:01.VAL", desc = "Station Searched", type='yes/no')
         self.vac_table("13BMA:ip7",label='BMC Slit Tank',     type='GSE',  cc_pr=("13BMA",7))
         self.valve_row("13BMA:V4C",'BMC Valve 4')
         self.vac_table("13BMA:ip8",label='BMC Mono Tank',      type='GSE2',   cc_pr=("13BMA",8))
@@ -347,10 +336,9 @@ class WebStatus:
                              "Pressure CC (Pirani)", "Ion Pump Pressure (V,I)"))
         # ID A
         self.table_label_vac("13 ID A")
-        self.show_pv("PA:13ID:Q01:00.VAL", desc = "Station Searched")
+        self.show_pv("PA:13ID:STA_A_SRCHD_TO_B.VAL", desc = "Station Searched", type='yes/no')
 
         self.vac_table("FE:13:ID:IP7",label="Differential Pump",type='APS')
-
 
         self.valve_row("13IDA:V1",'Valve 1')
         self.vac_table("13IDA:ip1",label='Slit Tank',     type='GSE',  cc_pr=("13IDA",1))
@@ -366,7 +354,7 @@ class WebStatus:
 
         # ID B
         self.table_label_vac("13 ID B")
-        self.show_pv("PA:13ID:Q01:01.VAL", desc = "Station Searched")
+        self.show_pv("PA:13ID:STA_B_SRCHD_TO_B.VAL", desc = "Station Searched", type='yes/no')        
         self.vac_table("13IDA:ip5",label='Pumping Cross 2',    type='GSE',  cc_pr=("13IDA",5))
         self.valve_row("13IDA:V5",'Be Bypass #1')
         self.vac_table("13IDA:ip6",label='Vertical Mirror',    type='GSE2',  cc_pr=("13IDA",7))
@@ -376,4 +364,4 @@ class WebStatus:
         self.vac_pirani("Flight Tube","13IDA:pr6.VAL")
         self.vac_pirani("BPM battery Voltage" ,  "13IDA:DMM2Ch9_raw.VAL",format = "%8.3f")
 
-            
+
