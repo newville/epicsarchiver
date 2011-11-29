@@ -1,5 +1,4 @@
 
-
 # from EpicsArchiver import  config
 # from EpicsArchiver.util import SEC_DAY
 
@@ -240,7 +239,7 @@ class HTMLWriter:
         istyped = False
         fmt="%s='%s'"
         if isinstance(v,(int,long)):      fmt,istyped = "%s=%i",True
-        elif isinstance(v,(float)):       fmt,istyped = "%s=%i",True
+        elif isinstance(v,(float)):       fmt,istyped = "%s=%f",True
         elif isinstance(v,(str,unicode)): fmt,istyped = "%s='%s'",True
         
         if not istyped: v = str(v)
