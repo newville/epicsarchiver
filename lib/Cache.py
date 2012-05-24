@@ -61,10 +61,10 @@ def add_pvfile(fname):
         # note that we suppress the setting of pair scores here
         # until we have enough PVs installed.
         for pvname in words:
-            fields = cache.add_pv(pvname,set_motor_pairs=False)
+            fields = cache.add_pv(pvname, set_motor_pairs=False)
             if len(fields) > 1:
                 pairs.append(fields)
-
+        cache.process_requests()
         epics.poll()
 
         t1 = time.time()-t0
@@ -88,7 +88,7 @@ def add_pvfile(fname):
     
     while requests_pending:
         pending_requests  = req_table.select()
-        requests_pending = len(pending_requests)> 10
+        requests_pending = len(pending_requests) > 2
         time.sleep(1)
         
     # print 'Finally, set remaining of pair scores:'
@@ -362,6 +362,7 @@ class Cache(MasterDB):
             return
 
         del_cache= "delete from cache where %s"
+        
         # note: if a requested PV does not connect,
         #       wait a few minutes before dropping from
         #       the request table.
