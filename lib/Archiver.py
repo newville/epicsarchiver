@@ -456,8 +456,9 @@ n       """
             do_save = ((ts-last_ts) > info['deadtime'])
             if do_save and dat['type'] in ('double','float'):
                 try:
-                    v,o = float(val),float(last_val)
-                    do_save = abs((v-o)/max(abs(v),abs(o),1.e-12)) > abs(info['deadband'])
+                    v, o = float(val), float(last_val)
+                    # do_save = abs((v-o)/max(abs(v),abs(o),1.e-12)) > abs(info['deadband'])
+                    do_save = abs(v-o) > abs(info['deadband'])
                 except:
                     pass
             if do_save:
