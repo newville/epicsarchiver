@@ -294,12 +294,12 @@ class MasterDB:
         out.append(fmt % (len(ret),dt,pid))
         return out
         
-    def runs_report(self):
+    def runs_report(self, n=10):
         """return a report (list of text lines) for the archiving runs
         showing the time ranges for the (at most) 10 most recent runs.
         """
         r = []
-        for i in self.runs.select(where='1=1 order by start_time desc limit 10'):
+        for i in self.runs.select(where='1=1 order by start_time desc limit %i' % n):
             timefmt = "%6.2f "
             if  i['db'] == self.arch_db:
                 timefmt = "%6.1f*"
