@@ -6,12 +6,12 @@ from util import normalize_pvname
 pagetitle  = config.pagetitle
 footer     = config.footer
 
-statpage   = "%s/show.py/show_page"    % config.cgi_url
-instpage   = "%s/show.py/instrument"   % config.cgi_url
-dblink     = "%s/show.py/plot?pv="     % config.cgi_url
-alertspage = "%s/admin.py/list_alerts" % config.cgi_url
-adminpage  = "%s/admin.py/"             % config.cgi_url
-helppage   = "%s/help.py?section=templates"  % config.cgi_url
+statpage   = "%s/show"         % config.cgi_url
+instpage   = "%s/instrument"   % config.cgi_url
+dblink     = "%s/plot/"        % config.cgi_url
+alertspage = "%s/admin/list_alerts" % config.cgi_url
+adminpage  = "%s/admin/"             % config.cgi_url
+helppage   = "%s/help/templates"  % config.cgi_url
 
 htmlhead = """<html>
 <head><title>%s</title><meta http-equiv='Pragma'  content='no-cache'><meta http-equiv='Refresh' content=%s>
@@ -213,7 +213,7 @@ class WebStatus:
         for i in pagelist:
             s = ''
             if i == page: s = 'class="active"'
-            self.write("""<li><a %s href='%s?page=%s'>%s</a></li>"""
+            self.write("""<li><a %s href='%s/%s'>%s</a></li>"""
                      % (s,statpage,i,i))
 
         self.write("<li><a href='%s'>Instruments</a></li>" % (instpage))

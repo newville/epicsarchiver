@@ -16,16 +16,15 @@ conf = {'template_dir':config.template_dir,
         'pv_deadtime_dble': str(config.pv_deadtime_dble),
         'pv_deadtime_enum': str(config.pv_deadtime_enum)  }
 
-conf['adminpage']  = "%s/admin.py/"  % config.cgi_url
-conf['plotpage']   = "%s/show.py/plot" % config.cgi_url
-conf['instpage']   = "%s/show.py/instrument" % config.cgi_url
-conf['pvinfopage'] = "%s/admin.py/pvinfo"      % config.cgi_url
-conf['relpv_page'] = "%s/admin.py/related_pvs" % config.cgi_url
-conf['alertpage']  = "%s/admin.py/list_alerts"   % config.cgi_url
-conf['imgdir']     = "%s/images"   % config.cgi_url
-conf['helppage']   = "%s/help.py"   % config.cgi_url
+conf['adminpage']  = "%s/admin/"  % config.cgi_url
+conf['plotpage']   = "%s/plot" % config.cgi_url
+conf['instpage']   = "%s/instrument" % config.cgi_url
+conf['pvinfopage'] = "%s/admin/pvinfo"        % config.cgi_url
+conf['relpv_page'] = "%s/admin/related_pvs"   % config.cgi_url
+conf['alertpage']  = "%s/admin/list_alerts"   % config.cgi_url
+conf['imgdir']     = "%s/images"              % config.cgi_url
+conf['helppage']   = "%s/help"                % config.cgi_url
 helppage = conf['helppage']
-
 
 
 about = """
@@ -882,7 +881,7 @@ class WebHelp(HTMLWriter):
         
         self.write("<h3>Epics PV Archiver Documentation: %s</h3>" % section.title())
 
-        sout = [self.link(link="%s?section=%s" % (helppage,s), text=s.title()) for s in section_names]
+        sout = [self.link(link="%s/%s" % (helppage,s), text=s.title()) for s in section_names]
         links = "<p>Help Section: [%s]<p>" % '&nbsp;|&nbsp;'.join(sout)
                    
         self.write("%s<hr>%s %s<hr>" % (links, section_map[section], links) )

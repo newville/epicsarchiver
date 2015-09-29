@@ -11,7 +11,7 @@ from EpicsArchiver.HTMLWriter import HTMLWriter, jscal_get_2dates
 
 DEBUG=False
 HAS_GNUPLOT = False
-plotpage   = "%s/show.py/plot" % config.cgi_url
+plotpage   = "%s/plot" % config.cgi_url
 
 os.environ['GNUTERM'] = 'png'
 
@@ -216,18 +216,16 @@ set ytics nomirror
 
         args = ''
         if submit.startswith('Time From') and time_ago != '':
-            args = '&time_ago=%s'  % (time_ago)
+            args = 'time_ago/%s'  % (time_ago)
         elif submit.startswith('Date') and date1 != '' and date2 != '':
-            args = '&date1=%s&date2=%s'  % (date1,date2)
+            args = 'date_range/%s/%s'  % (date1,date2)
             
         out.append("<p class='xtitle'>Related pvs:%s<p><font size=-1>" % '')  # pvname)
         if pvname2 != '':
-            pvargs = 'pv2=%s&pv=%s' % (pvname,pvname2)            
-            out.append("<a href='%s?%s%s'>Swap PV1 and 2</a></p><hr>" % (plotpage,pvargs,args))
+            out.append("<a href='%s/%s/%s'>Swap PV1 and 2</a></p><hr>" % (plotpage,pvname2, pvname))
         n = 0
         for pv2 in r:
-            pvargs = 'pv=%s&pv2=%s' % (pvname,pv2)
-            out.append("<a href='%s?%s%s'>%s</a></p>" % (plotpage,pvargs,args,pv2))
+            out.append("<a href='%s/%s/%s/%s'>%s</a></p>" % (plotpage,pvname,pv2,args,pv2))
             n = n + 1
             if n>20: break
         out.append('</font>')

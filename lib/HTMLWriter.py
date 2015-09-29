@@ -6,13 +6,13 @@ import config
 import time
 from util import SEC_DAY, clean_input, normalize_pvname
 
-adminpage  = "%s/admin.py/" % config.cgi_url
-pvinfopage = "%s/admin.py/pvinfo"       % config.cgi_url
-relpv_page = "%s/admin.py/related_pvs"  % config.cgi_url
-instpage   = "%s/show.py/instrument"  % config.cgi_url
-alertspage = "%s/admin.py/list_alerts"   % config.cgi_url
-statuspage = "%s/show.py/" % config.cgi_url
-helppage   = "%s/help.py/" % config.cgi_url
+adminpage  = "%s/admin/" % config.cgi_url
+pvinfopage = "%s/admin/pvinfo"       % config.cgi_url
+relpv_page = "%s/admin/related_pvs"  % config.cgi_url
+instpage   = "%s/instruments"  % config.cgi_url
+alertspage = "%s/admin/list_alerts"   % config.cgi_url
+statuspage = "%s"                  % config.cgi_url
+helppage   = "%s/help/" % config.cgi_url
 
 REFRESH_TIME = "%i" % (SEC_DAY * 7)
 
@@ -72,7 +72,7 @@ class HTMLWriter:
     top_links  = ((statuspage, "PV Status"),
                   (instpage,   "Instruments"),                  
                   (alertspage, "Alerts"), 
-                  (adminpage,  "Settings / Admin"),
+                  (adminpage,  "Admin"),
                   (helppage,   "Help") )
 
                   
@@ -145,18 +145,18 @@ class HTMLWriter:
         self.write("<ul id='tabmenu'>")
         if active_tab is None:  active_tab = "Settings / Admin"
         for s in self.top_links:
-            link,title  = s
+            link, title  = s
             is_active = ''
             if active_tab == title:
                 is_active = 'class="active"'
             if link == adminpage and pv not in ('',None):
-                link = "%s?pv=%s" % (link,pv)
+                link = "%s/%s" % (link,pv)
             if link == instpage and inst_id not in (-1,None):
-                link = "%s?inst_id=%i" % (link,inst_id)
+                link = "%s/%i" % (link,inst_id)
             if link == helppage and kw.has_key('help'):
-                link = "%s?section=%s" % (link,kw['help'])
+                link = "%s/%s" % (link,kw['help'])
             
-            self.write("<li><a %s href='%s'>%s</a></li>" % (is_active,link,title))
+            self.write("<li><a %s href='%s'>%s</a></li>" % (is_active, link, title))
         self.write("</ul><br>")
 
     def endhtml(self):
