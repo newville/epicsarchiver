@@ -35,14 +35,14 @@ class PlotViewer(HTMLWriter):
     link_pref  = config.data_url
 
     gp_base = """set nokey
-set term png transparent medium xffffff x000000 xe8e8e8 x0000dd xdd0000 xdd00dd xf2f2f2
+set term png transparent medium # xffffff x000000 xe8e8e8 x0000dd xdd0000 xdd00dd xf2f2f2
 set timefmt "%Y%m%d %H%M%S"
 set xdata time
 set format x "%H:%M\\n%b-%d"
-set style line 1 lt 1 lw 3
-set style line 2 lt 2 lw 3
-set style line 3 lt 3 lw 3
-set style line 4 lt 4 lw 1
+set style line 1 lt 1 lw 3 lc 'blue'  pt 5 ps 0.6
+set style line 2 lt 2 lw 3 lc 'red'   pt 5 ps 0.6
+set style line 3 lt 3 lw 3 lc 'black' pt 5 ps 0.6
+set style line 4 lt 4 lw 1 lc '#f0F0e8'
 set grid back ls 4
 """
     gp2_base = """set key
@@ -237,6 +237,7 @@ set ytics nomirror
     def draw_graph(self,pvname1='',pvname2='',time_ago=None):
 
         # self.show_keys(title='AT Draw Graph')
+        # self.write("<br>Last Values %s=%s" % pv))
         if DEBUG:
             self.write(" GRAPH %s / %s " % (pvname1,pvname2))
             self.write('<p> === Keys: === </p>')
@@ -286,7 +287,6 @@ set ytics nomirror
 	epv1 = self.arch.get_pv(pvname1)
         pvinfo = self.arch.get_info(pvname1)
         pv2info = pvinfo
-        ## self.write(" PV %s %s " % ( pvname1,epv1))
 
         if epv1 is None or pvinfo=={}: return ('','')
         if (epv1.pvname in (None,'')): return ('','')
@@ -308,6 +308,8 @@ set ytics nomirror
         if npts < 1:
             self.write("<br>Warning: No data for PV %s <br>" % (epv1))
 
+        curvalue = "<font size=-1>Last value: %s = %s" % (pvname1, dat[-1][1])
+
         wait_for_pngfile = npts > 1       
         npts2 = 0
         n_dat = 1
@@ -323,7 +325,7 @@ set ytics nomirror
             epv2  = self.arch.get_pv(pvname2)
             epv2.connect()
             pv2info = self.arch.get_info(pvname2)
-
+            # self.write(" PV2: %s %s  %s" % ( pvname2, epv2, pv2info))
             self.increment_pair_score(pvname1,pvname2)
             if DEBUG:
                  self.write(" PV#2  !!! %s, %s" % (str(pvname2 is None), epv2.pvname))
@@ -347,7 +349,8 @@ set ytics nomirror
                 tlo2, thi2, npts2,dat2 = self.save_data(epv2,t0,t1,f_dat2,leg2)
                 if npts2 < 1:
                     self.write("<br>Warning: No data for PV %s <br>" % (pv2))
-               
+
+                curvalue = "%s, %s = %s" % (curvalue, pvname2, dat2[-1][1])
                 tlo = min(tlo2, tlo)
                 thi = max(thi2, thi)+1
                 n_dat = 2
@@ -356,7 +359,7 @@ set ytics nomirror
 
         if DEBUG:
             self.write(" # of data_sets %i" % n_dat)
-
+        self.write("%s</font><br>" % curvalue)
         # now generate png plot
         self.gp("set output '%s'" % f_png)
 
@@ -418,16 +421,16 @@ set ytics nomirror
             self.gp("set title  '%s'" % (desc))
             self.gp("set ylabel '%s'" % (pvlabel))
             self.gp("""plot '%s' u 1:4 w steps ls 1 t '%s', \\
-            '%s' u 1:4 t '' w p 1 """ %  (f_dat,desc,f_dat))
+            '%s' u 1:4 t '' w p ls 1 """ %  (f_dat,desc,f_dat))
         else:
             self.gp("set title '%s | %s'" % (desc,desc2))
             self.gp("set ylabel '%s'" % (pvlabel))
             self.gp("set y2label '%s'" % (pv2label))
             
             self.gp("""plot '%s' u 1:4 axis x1y1 w steps ls 1 t '%s',\\
-            '%s' u 1:4 axis x1y1 t '' w p 1,\\
+            '%s' u 1:4 axis x1y1 t '' w p ls 1,\\
             '%s' u 1:4 axis x1y2 w steps ls 2 t '%s',\\
-            '%s' u 1:4 axis x1y2 t '' w p 2 """ %
+            '%s' u 1:4 axis x1y2 t '' w p ls 2 """ %
                     (f_dat,desc,f_dat,f_dat2,desc2,f_dat2))
 
         self.arch.use_currentDB()
@@ -565,7 +568,7 @@ set ytics nomirror
         
             f.write("%s %.3f %s\n" % (dstr(j[0]), j[0], j[1]))
         f.close()
-        return (tlo, thi, npts,dat)
+        return (tlo, thi, npts, dat)
     
     def argclean(self,argval,formval):
         v = formval.strip()
