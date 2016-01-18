@@ -175,8 +175,9 @@ class Cache(MasterDB):
                 nout = nout + 1
                 continue
             if not pv.connected:
-                nout = nout + 1
-                pv.connect(timeout=0.05)
+                time.sleep(0.0025)
+                if not pv.connected:
+                    nout = nout + 1
 
             if pv.connected and len(pv.callbacks) < 1:
                 pv.add_callback(self.onChanges)
@@ -185,7 +186,6 @@ class Cache(MasterDB):
         
     def connect_pvs(self, npvs=None):
         d = debugtime()
-
         self.get_pvnames()
         if npvs is None:
             npvs = len(self.pvnames)
@@ -201,15 +201,14 @@ class Cache(MasterDB):
                 sys.stderr.write(' Could not create PV %s \n' % pvname)
         d.add('Created %i PV Objects' % len(self.pvs), verbose=False)
 
+        time.sleep(0.0001*npvs)
         epics.ca.poll()
         unconn = 0
         for pv in self.pvs.values():
             if not pv.connected:
-                try:
-                    pv.connect(timeout=0.1)
-                except epics.ca.ChannelAccessException:
-                    sys.stderr.write(' Could not connect PV %s \n' % pvname)
-                unconn =  unconn + 1
+                time.sleep(0.002)
+                if not pv.connected:
+                    unconn =  unconn + 1
 
         epics.ca.poll()
         d.add("Connected to PVs (%i not connected)" %  unconn, verbose=False)
