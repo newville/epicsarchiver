@@ -79,6 +79,9 @@ class ArchiveMaster(MasterDB):
             try:
                 mx = r['max(time)'] or max_time
                 mn = r['min(time)'] or min_time
+                if mx > MAX_EPOCH -2:
+                    continue
+
                 max_time = max(max_time,mx)
                 min_time = min(min_time,mn)
             except TypeError:
