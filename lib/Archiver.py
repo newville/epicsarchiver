@@ -249,16 +249,21 @@ n       """
             
         # print 'get data for ' ,pvname, t0,t1
         # print 'dbs: ', self.dbs_for_time(t0,t1)
+        dbs = []
+        for db in self.dbs_for_time(t0, t1):
+            if db not in dbs:
+                dbs.append(db)
         try:
-            for db in self.dbs_for_time(t0,t1):
+            for db in dbs:
                 self.db.use(db)
                 stat.append(pvquery)
-                r     = self.db.exec_fetchone(pvquery)
+                r = self.db.exec_fetchone(pvquery)
                 try:
                     table = r['data_table']
                     pvid  = r['id']
                 except KeyError:  # this db doesn't know about this PV -- maybe it's a recent addition?
                     continue
+
                 stat.append((db,table, pvid))
                 if needs_firstpoint:
                     q = fquery % (table,pvid,t0)
