@@ -1,16 +1,18 @@
 import time
 import sys
 class debugtime(object):
-    def __init__(self):
+    def __init__(self, verbose=False):
         self.clear()
+        self.verbose = verbose
         self.add('init')
-
+        
     def clear(self):
         self.times = []
 
-    def add(self,msg='', verbose=False):
-        # print msg
+    def add(self,msg='', verbose=None):
         self.times.append((msg,time.time()))
+        if verbose is None:
+            verbose = self.verbose
         if verbose:
             sys.stdout.write("%s\n"% msg)
             
