@@ -2,6 +2,7 @@
 
 import sys
 import time
+from epics import PV
 from MasterDB import MasterDB
 from SimpleDB import SimpleDB, SimpleTable
 from config   import dbuser, dbpass, dbhost, master_db, dat_prefix, dat_format
@@ -106,12 +107,18 @@ class ArchiveMaster(MasterDB):
         self.db.grant(db=dbname,user=dbuser,passwd=dbpass,host=dbhost)
         self.db.use(master_db)
 
-    def make_nextdb(self,dbname=None):
-        "create a new pvarch database, copying pvs to save from an old database"
+    def make_nextdb(self, dbname=None):
+        """create a new pvarch database, 
+        copying pvs to save from an old database 
+        (and that are in the current cache)
+        """
         olddb  = SimpleDB(user=dbuser, passwd=dbpass,dbname=self.arch_db, host=dbhost,debug=0)
         olddb.use(self.arch_db)
         old_data = olddb.tables['pv'].select()
 
+        cache_pvnames = self.get_pvnames()
+
+       
         dbname = nextname(current=self.arch_db,dbname=dbname)
         self.create_emptydb(dbname)
         
@@ -120,11 +127,16 @@ class ArchiveMaster(MasterDB):
         sys.stdout.write('adding %i pvs to DB %s\n' % (len(old_data),dbname))
 
         for p in old_data:
-            if p['active'] == 'no': continue
-            pvtable.insert(name       =p['name'],        type    =p['type'],
-                           description=p['description'], data_table =p['data_table'],
-                           deadtime   =p['deadtime'],    graph_type =p['graph_type'],
-                           graph_lo   =p['graph_lo'],    graph_hi   =p['graph_hi'])
+            if p['active'] == 'no' or p['name'] not in cache_pvnames:
+                continue
+            pvtable.insert(name=p['name'],
+                           type=p['type'],
+                           description=p['description'],
+                           data_table=p['data_table'],
+                           deadtime=p['deadtime'],
+                           graph_type=p['graph_type'],
+                           graph_lo=p['graph_lo'],
+                           graph_hi=p['graph_hi'])
 
         self.__setrun(dbname)
         olddb.close()
