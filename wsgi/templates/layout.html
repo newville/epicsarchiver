@@ -1,0 +1,32 @@
+<!doctype html>
+<title>Epics PV Archiver</title>
+
+<link rel=stylesheet type=text/css
+      href="{{ url_for('static', filename='style.css') }}">
+
+<div class=page>
+  <div class=topbar>
+  <table cellpadding=1 width=100%>
+    <tr>
+      <td width=35% padding=5 align=left>
+        <font size=+1>Epics Archive Data</font></td>
+      <td width=65% align=right>
+	<a href="{{ url_for('admin') }}">Admin Access</a>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<div id='tab'>
+<ul id='tabmenu'>
+  <li> <a href="{{ url_for('index') }}"> PV Archiver </a> </li>
+</ul>
+</div>
+
+{% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+{% for message in get_flashed_messages() %}
+    <div class=flash>{{ message }}</div>
+{% endfor %}
+
+{% block body %}{% endblock %}
+</div>

@@ -58,15 +58,8 @@ def make_plot(ts, ydat, ylabel='Data',
     figdata.seek(0)
     return base64.b64encode(figdata.getvalue())
 
-
-arr = np.loadtxt('px.dat')
-ts  = arr[:, 2]
-val = arr[:, 3]
-
-make_plot(ts, val, ylabel='Xs', time_val=1.003, fname='t.png')
-
-    
-#figdata = io.BytesIO()
-#fig.savefig(figdata, format='png', facecolor='#FDFDFA')
-#figdata.seek(0)
-#return base64.b64encode(figdata.getvalue())
+###
+# arr = np.loadtxt('px.dat')
+# ts  = arr[:, 2]
+# val = arr[:, 3]
+# make_plot(ts, val, ylabel='XX', time_val=1.0, fname='t.png')

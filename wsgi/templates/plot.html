@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<p> <div class=subfont> Plot  </div>
+
+<table>
+  <tr> <td>   PV: </td><td> {{ pv }}</td>  </tr>
+  <tr> <td>   PV2: </td><td> {{ pv2 }}</td>  </tr>
+  <tr> <td>   time_ago: </td><td> {{ time_ago }}</td>  </tr>
+  <tr> <td>   date1: </td><td> {{ date1 }}</td>  </tr>
+  <tr> <td>   date2: </td><td> {{ date2 }}</td>  </tr>
+</table>
+  
+<table> <tr>
+<td><img width=450 src="data:image/png;base64,{{ fullfig|safe }}"></td>
+</tr></table>
+
+{% endblock %}
