@@ -218,9 +218,11 @@ n       """
         r = self.db.exec_fetchone(qdat % (i['data_table'],i['id'],t))
         return r['time'],r['value']
 
-    def get_data(self,pvname,t0,t1,with_current=None):
-        "get data from database for a time range"
-        if pvname is None: return []
+    def get_data(self, pvname, tmin=None, tmax=None, with_current=None):
+        """get data from database for a time range
+        """
+        if pvname is None:
+            return []
         pvname = normalize_pvname(pvname)
         info = self.get_info(pvname)
         if info is None:
@@ -236,21 +238,26 @@ n       """
 
         needs_firstpoint = True
         tnow = time.time()
-
-        # make sure t0 and t1 are ordered
-        if t0 > t1:   t0,t1 = t1,t0
-        if t1-t0 < 1800.0: t0 = t1 - 1800.0 # look back at least an hour
+        if tmax is None:
+            tmax = tnow
+        if tmin is None:
+            tmin = tmax - SEC_DAY
+        # make sure tmin and tmax are ordered, and look back at least one day
+        if tmin > tmax:
+            tmin, tmax = tmax, tmin
+        if tmin > tmax - SEC_DAY:
+            tmin = tmax - SEC_DAY 
 
         # determine if we should append the current (cached) value
         if with_current is None:
-            add_current = abs(t1-tnow) < 1.5 * SEC_DAY
+            add_current = abs(tmax-tnow) < 1.5 * SEC_DAY
         else:
             add_current = with_current
             
-        # print 'get data for ' ,pvname, t0,t1
-        # print 'dbs: ', self.dbs_for_time(t0,t1)
+        # print 'get data for ' ,pvname, tmin, tmax
+        # print 'dbs: ', self.dbs_for_time(tmin ,tmax)
         dbs = []
-        for db in self.dbs_for_time(t0, t1):
+        for db in self.dbs_for_time(tmin, tmax):
             if db not in dbs:
                 dbs.append(db)
         try:
@@ -264,17 +271,17 @@ n       """
                 except KeyError:  # this db doesn't know about this PV -- maybe it's a recent addition?
                     continue
 
-                stat.append((db,table, pvid))
+                stat.append((db, table, pvid))
                 if needs_firstpoint:
-                    q = fquery % (table,pvid,t0)
+                    q = fquery % (table, pvid, tmin)
                     stat.append(q)
                     r = self.db.exec_fetchone(q)
                     try:
                         dat.append((r['time'],r['value']))
                         needs_firstpoint = False
                     except:
-                        stat.append('no data before t0!')
-                q = squery % (table,pvid,t0,t1)
+                        stat.append('no data before tmin!')
+                q = squery % (table, pvid, tmin, tmax)
                 stat.append(q)
                 for i in self.exec_fetch(q):
                     dat.append((i['time'],i['value']))
