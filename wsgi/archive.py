@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 #  SQLAlchemy interface to Epics Archive
-#
 
 import time
-import numpy as np
 from datetime import datetime
+import numpy as np
 
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import sessionmaker,  mapper, relationship, backref
@@ -34,13 +33,13 @@ class BasicDB(object):
     def __init__(self, dbname=None, server='mysql',
                 user='', password='', host=None, port=None):
         self.engine = None
-        self.conn_str = None
         self.session = None
         self.metadata = None
         self.dbname = dbname
+        self.conn_opts = dict(server=server, host=host, port=port,
+                              user=user, password=password)
         if dbname is not None:
-            self.connect(dbname, server=server, user=user,
-                         password=password, port=port, host=host)
+            self.connect(dbname, **self.conn_opts)
 
     def get_connector(self, server='mysql', user='', password='',
                       port=None, host=None):
@@ -122,15 +121,11 @@ class PVDataDB(BasicDB):
         pv_id = pvinfo['id']
         dtab  = self.tables[pvinfo['data_table']]
         tnow = time.time()
-        if tmax is None:
-            tmax = tnow
-        if tmin is None:
-            tmin = tmax - SEC_DAY
+        if tmax is None:  tmax = tnow
+        if tmin is None:  tmin = tmax - SEC_DAY
         # make sure tmin and tmax are ordered, and look back at least one day
-        if tmin > tmax:
-            tmin, tmax = tmax, tmin
-        if tmin > tmax - SEC_DAY:
-            tmin = tmax - SEC_DAY
+        if tmin > tmax:   tmin, tmax = tmax, tmin
+        if tmin > tmax - SEC_DAY:  tmin = tmax - SEC_DAY
         q = dtab.select().where(dtab.c.pv_id==pv_id).order_by(dtab.c.time)
         q = q.where(dtab.c.time >= tmin).where(dtab.c.time <= tmax)
         return [(float(row.time), row.value) for row in q.execute().fetchall()]
@@ -143,12 +138,13 @@ class ArchiveMaster(BasicDB):
         BasicDB.__init__(self, dbname=dbname, server=server,
                          user=user, password=password,
                          host=host, port=port)
+        self.data_dbs = {}
 
     def dbs_for_time(self, tmin=0, tmax=MAX_EPOCH):
         "return list of dbs for a selected time range"
-        rtab = self.tables['runs']
-        q = rtab.select().where(rtab.c.start_time > tmin)
-        q = q.where(rtab.c.stop_time < tmax)
+        runs = self.tables['runs']
+        q = runs.select().where(runs.c.stop_time > tmin)
+        q = q.where(runs.c.start_time < tmax)
         return [row.db for row in q.execute().fetchall()]
 
     def related_pvs(self, pvname):
@@ -163,3 +159,45 @@ class ArchiveMaster(BasicDB):
             out.append(other)
         return out
 
+    def cache_row(self, pvname):
+        """return full cache row for a pv"""
+        ctab = self.tables['cache']
+        npv = normalize_pvname(pvname)
+        return ctab.select().where(ctab.c.pvname==npv).execute().fetchone()
+
+    def get_data(self, pvname, tmin=None, tmax=None, with_current=None):
+        """return data arrays for timestamp and value for a PV
+           over the specified time range
+        """
+        npv = normalize_pvname(pvname)
+        tnow = time.time()
+        if tmax is None:  tmax = tnow
+        if tmin is None:  tmin = tnow
+        if tmin > tmax:  tmin, tmax = tmax, tmin
+        # look back one day more than actually requested
+        # to ensure stale data is found
+        tmax = tmax + 3600
+        tmin = tmin - SEC_DAY
+
+        # print(" get data ", tmin, tmax)
+        ts, vals = [], []
+        for dbname in self.dbs_for_time(tmin=tmin, tmax=tmax):
+            # print("  Use DB ", dbname)
+            if dbname not in self.data_dbs:
+                self.data_dbs[dbname] = PVDataDB(dbname, **self.conn_opts)
+	    ddb = self.data_dbs[dbname]
+	    for t, v in ddb.get_data(npv, tmin=tmin, tmax=tmax):
+                ts.append(float(t))
+                vals.append(float(v))
+
+        if with_current is None:
+            with_current = abs(tmax-tnow) < SEC_DAY
+        if with_current:
+            cache = self.cache_row(npv)
+            ts.append(float(cache.ts))
+            vals.append(float(cache.value))
+        ts = np.array(ts)
+        vals = np.array(vals)
+        torder = ts.argsort()
+        return ts[torder], vals[torder]
+        
