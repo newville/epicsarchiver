@@ -2,7 +2,7 @@
 #  SQLAlchemy interface to Epics Archive
 #
 
-
+import time
 import numpy as np
 from datetime import datetime
 
@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import  NoResultFound
 
 from EpicsArchiver.util import normalize_pvname, MAX_EPOCH, SEC_DAY
+
 # which mysql libraries are available?
 MYSQL_VAR = None
 try:
@@ -28,32 +29,9 @@ except ImportError:
         except ImportError:
             pass
 
-def db_connector(server='mysql', user='', password='',
-                      port=None, host=None):
-    """returns db connection string, ready for create_engine():
-        conn_string = db_connectionor(...)
-        engine = create_engine(conn_string % dbname)
-    """
-    if host is None:
-        host = 'localhost'
-    conn_str = 'sqlite:///%s'
-    if server.startswith('post'):
-        if port is None:
-            port = 5432 
-        conn_str = 'postgresql://%s:%s@%s:%i/%%s' 
-        conn_str = conn_str % (user, password, host, port)
-    elif server.startswith('mysql') and MYSQL_VAR is not None:
-        if port is None:
-            port = 3306
-        conn_str= 'mysql+%s://%s:%s@%s:%i/%%s'
-        conn_str = conn_str % (MYSQL_VAR, user, password, host, port)
-    return conn_str
-
-
-class ArchiveMaster(object):
-    """Archive Master"""
-
-    def __init__(self, dbname='pvarch_master', server= 'mysql',
+class BasicDB(object):
+    """basic database interface"""
+    def __init__(self, dbname=None, server='mysql',
                 user='', password='', host=None, port=None):
         self.engine = None
         self.conn_str = None
@@ -64,12 +42,33 @@ class ArchiveMaster(object):
             self.connect(dbname, server=server, user=user,
                          password=password, port=port, host=host)
 
+    def get_connector(self, server='mysql', user='', password='',
+                      port=None, host=None):
+        """return connection string, ready for create_engine():
+             conn_string = self.get_connector(...)
+             engine = create_engine(conn_string % dbname)
+        """
+        if host is None:
+            host = 'localhost'
+        conn_str = 'sqlite:///%s'
+        if server.startswith('post'):
+            if port is None:
+                port = 5432 
+            conn_str = 'postgresql://%s:%s@%s:%i/%%s' 
+            conn_str = conn_str % (user, password, host, port)
+        elif server.startswith('mysql') and MYSQL_VAR is not None:
+            if port is None:
+                port = 3306
+            conn_str= 'mysql+%s://%s:%s@%s:%i/%%s'
+            conn_str = conn_str % (MYSQL_VAR, user, password, host, port)
+        return conn_str
+
     def connect(self, dbname, server='mysql', user='',
                 password='', port=None, host=None):
         """connect to an existing pvarch_master database"""
-        self.conn_str = db_connector(server=server, user=user,
-                                    password=password, port=port, host=host)
-
+        self.conn_str = self.get_connector(server=server, user=user,
+                                           password=password,
+                                           port=port, host=host)
         try:
             self.engine = create_engine(self.conn_str % self.dbname)
         except:
@@ -90,6 +89,60 @@ class ArchiveMaster(object):
         self.session.commit()
         self.session.flush()
         self.session.close()
+
+class PVDataDB(BasicDB):
+    """One of the PV Archive Databases holding actual data"""
+    def __init__(self, dbname=None, server= 'mysql',
+                user='', password='', host=None, port=None):
+        BasicDB.__init__(self, dbname=dbname, server=server,
+                         user=user, password=password,
+                         host=host, port=port)
+        self.pvinfo = None
+        if self.dbname is not None:
+            self.read_pvinfo()
+            
+    def read_pvinfo(self):
+        "make dictionary of PVName -> PV info (id, data_table, etc)"
+        self.pvinfo = {}
+        pvtab = self.tables['pv']
+        for row in pvtab.select().execute().fetchall():
+            n = normalize_pvname(row.name)
+            self.pvinfo[n] = dict(id=row.id,
+                                         data_table=row.data_table,
+                                         type=row.type,
+                                         graph_type=row.graph_type,
+                                         graph_hi=row.graph_hi,
+                                         graph_lo=row.graph_lo)
+
+    def get_data(self, pvname, tmin=None, tmax=None):
+        "get data for a PV over time range"
+        if self.pvinfo is None:
+            self.read_pvinfo()
+        pvinfo = self.pvinfo[normalize_pvname(pvname)]
+        pv_id = pvinfo['id']
+        dtab  = self.tables[pvinfo['data_table']]
+        tnow = time.time()
+        if tmax is None:
+            tmax = tnow
+        if tmin is None:
+            tmin = tmax - SEC_DAY
+        # make sure tmin and tmax are ordered, and look back at least one day
+        if tmin > tmax:
+            tmin, tmax = tmax, tmin
+        if tmin > tmax - SEC_DAY:
+            tmin = tmax - SEC_DAY
+        q = dtab.select().where(dtab.c.pv_id==pv_id).order_by(dtab.c.time)
+        q = q.where(dtab.c.time >= tmin).where(dtab.c.time <= tmax)
+        return [(float(row.time), row.value) for row in q.execute().fetchall()]
+        
+class ArchiveMaster(BasicDB):
+    """Archive Master"""
+    def __init__(self, dbname='pvarch_master', server= 'mysql',
+                user='', password='', host=None, port=None):
+
+        BasicDB.__init__(self, dbname=dbname, server=server,
+                         user=user, password=password,
+                         host=host, port=port)
 
     def dbs_for_time(self, tmin=0, tmax=MAX_EPOCH):
         "return list of dbs for a selected time range"
