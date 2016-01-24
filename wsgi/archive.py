@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker,  mapper, relationship, backref
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import  NoResultFound
 
-from EpicsArchiver.util import normalize_pvname
+from EpicsArchiver.util import normalize_pvname, MAX_EPOCH, SEC_DAY
 # which mysql libraries are available?
 MYSQL_VAR = None
 try:
@@ -27,33 +27,28 @@ except ImportError:
             MYSQL_VAR = 'pymysql'        
         except ImportError:
             pass
-##
 
+def db_connector(server='mysql', user='', password='',
+                      port=None, host=None):
+    """returns db connection string, ready for create_engine():
+        conn_string = db_connectionor(...)
+        engine = create_engine(conn_string % dbname)
+    """
+    if host is None:
+        host = 'localhost'
+    conn_str = 'sqlite:///%s'
+    if server.startswith('post'):
+        if port is None:
+            port = 5432 
+        conn_str = 'postgresql://%s:%s@%s:%i/%%s' 
+        conn_str = conn_str % (user, password, host, port)
+    elif server.startswith('mysql') and MYSQL_VAR is not None:
+        if port is None:
+            port = 3306
+        conn_str= 'mysql+%s://%s:%s@%s:%i/%%s'
+        conn_str = conn_str % (MYSQL_VAR, user, password, host, port)
+    return conn_str
 
-class _BaseTable(object):
-    "generic class to encapsulate SQLAlchemy table"
-    def __repr__(self):
-        name = self.__class__.__name__
-        fields = ['%s' % getattr(self, 'name', 'UNNAMED')]
-        return "<%s(%s)>" % (name, ', '.join(fields))
-
-class Cache(_BaseTable):
-    pass
-
-class Pairs(_BaseTable):
-    pass
-
-class Info(_BaseTable):
-    pass
-
-class Runs(_BaseTable):
-    pass
-
-class Requests(_BaseTable):
-    pass
-
-class Alerts(_BaseTable):
-    pass
 
 class ArchiveMaster(object):
     """Archive Master"""
@@ -61,8 +56,10 @@ class ArchiveMaster(object):
     def __init__(self, dbname='pvarch_master', server= 'mysql',
                 user='', password='', host=None, port=None):
         self.engine = None
+        self.conn_str = None
         self.session = None
         self.metadata = None
+        self.dbname = dbname
         if dbname is not None:
             self.connect(dbname, server=server, user=user,
                          password=password, port=port, host=host)
@@ -70,27 +67,12 @@ class ArchiveMaster(object):
     def connect(self, dbname, server='mysql', user='',
                 password='', port=None, host=None):
         """connect to an existing pvarch_master database"""
-        if host is None:
-            host = 'localhost'
-        self.dbname = dbname
-        self.engine = None
-        print 'Connect:  ', user, server, MYSQL_VAR
-        if server.startswith('sqlit'):
-            self.engine = create_engine('sqlite:///%s' % self.dbname)
-        elif server.startswith('post'):
-            conn_str= 'postgresql://%s:%s@%s:%i/%s'
-            if port is None: port = 5432                
-            self.engine = create_engine(conn_str % (user, password, host,
-                                                    port, dbname))
+        self.conn_str = db_connector(server=server, user=user,
+                                    password=password, port=port, host=host)
 
-        elif server.startswith('mysql') and MYSQL_VAR is not None:
-            conn_str= 'mysql+%s://%s:%s@%s:%i/%s'
-            if port is None: port = 3306
-            self.engine = create_engine(conn_str % (MYSQL_VAR,
-                                                    user, password, host,
-                                                    port, dbname))
-            
-        if self.engine is None:
+        try:
+            self.engine = create_engine(self.conn_str % self.dbname)
+        except:
             raise RuntimeError("Could not connect to database")
         
         self.metadata =  MetaData(self.engine)
@@ -103,20 +85,20 @@ class ArchiveMaster(object):
         self.session = sessionmaker(bind=self.engine)()
         self.query   = self.session.query
 
-        mapper(Info,    tables['info'])
-        mapper(Cache,   tables['cache'])
-        mapper(Pairs,   tables['pairs'])
-        mapper(Runs,    tables['runs'])
-        mapper(Alerts,  tables['alerts'])
-        mapper(Requests, tables['requests'])
-
     def close(self):
         "close session"
         self.session.commit()
         self.session.flush()
         self.session.close()
 
-    def get_related_pvs(self, pvname):
+    def dbs_for_time(self, tmin=0, tmax=MAX_EPOCH):
+        "return list of dbs for a selected time range"
+        rtab = self.tables['runs']
+        q = rtab.select().where(rtab.c.start_time > tmin)
+        q = q.where(rtab.c.stop_time < tmax)
+        return [row.db for row in q.execute().fetchall()]
+
+    def related_pvs(self, pvname):
         """return list of related PVs to provided pv, in order of score"""
         ptab = self.tables['pairs']
         npv = normalize_pvname(pvname)
