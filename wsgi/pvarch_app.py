@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import sys
+import time
+import datetime
 from flask import (Flask, request, session, redirect, url_for,
                    abort, render_template, flash, Response)
 
@@ -69,6 +71,13 @@ def show(page=None):
     
     return Response("Conn %s <br> %s" % (hex(id(dbconn)), p.get_buffer()))
 
+@app.route('/data/<pv>')
+@app.route('/data/<pv>/<timevar>/<date1>/<date2>/<extra>')
+def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
+    
+    return Response("Return data for  %s [%s] " % (pv, extra))
+    
+
 @app.route('/plot/<pv>')
 @app.route('/plot/<pv>/<pv2>')
 @app.route('/plot/<pv>/<pv2>/<timevar>')
@@ -76,16 +85,30 @@ def show(page=None):
 @app.route('/plot/<pv>/<pv2>/<timevar>/<date1>/<date2>')
 def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
 
+    default_ago = '1_days'
+
     if pv2     in ('', None, 'None'): pv2 = None
     if timevar in ('', None, 'None'): timevar = 'time_ago'
-    if date1   in ('', None, 'None'): date1 = '1_days'
+    if date1   in ('', None, 'None'):
+        date1 = '1_days'
+    else:
+        default_ago = date1
     if date2   in ('', None, 'None'): date2 = None
 
+    tmax = time.time()
+    tmin = tmax - 25*3600.0
+
     if timevar == 'time_ago':
+        tmax = time.time()
         tval, tunit  = date1.split('_')
+        opts = {}
+        opts[tunit] = int(tval)
+        dt_min = (datetime.datetime.fromtimestamp(tmax) -
+                  datetime.timedelta(**opts))
+        tmin = time.mktime(dt_min.timetuple()) - 3600.0
     else:
         tval, tunit = '1', None
-
+        
     messages = []
     ts, dat, enums, ylabel, ylog = None, None, None, None, False
     try:
@@ -97,13 +120,13 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
             thispv = PV(pv)
             thispv.get()
             enums = thispv.enum_strs
-
+            
         ylog    = pvinfo['graph_type'].startswith('log')
-        ts, dat = arch.get_data(pv, with_current=True)
+        ts, dat = arch.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
         ylabel  = "%s\n[%s]" % (desc, pv)
     except:
         messages.append("data for '%s' not found" % pv)
-
+        
     ts2, dat2, enums2, y2label, y2log = None, None, None, None, False
     if pv2 is not None:
         try:
@@ -115,17 +138,17 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
                 thispv.get()
                 enums2 = thispv.enum_strs
             y2log    = pvinfo2['graph_type'].startswith('log')
-            ts2, dat2 = arch.get_data(pv2, with_current=True)
+            ts2, dat2 = arch.get_data(pv2, with_current=True)        
             y2label="%s\n[%s]" % (desc2, pv2)
         except:
-            messages.append("data for '%s' not found" % pv2)
+            messages.append("data for '%s' not found" % pv2)            
 
     fig = None
     if ts is not None:
-        fig = make_plot(ts, dat, ylabel=ylabel, ## ylog=ylog,
-                        enums=enums,
-                        ts2=ts2, dat2=dat2, y2label=y2label, # y2log=y2log,
-                        enums2=enums2,
+        fig = make_plot(ts, dat, ylabel=ylabel,
+                        enums=enums, ## ylog=ylog,
+                        ts2=ts2, dat2=dat2, y2label=y2label, 
+                        enums2=enums2, # y2log=y2log,
                         time_unit=tunit, time_val=tval)
 
     if len(messages) > 0:
@@ -133,15 +156,41 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
     else:
         messages = None
 
-    opts = {'pv': pv, 'pv2': pv2, 'timevar': timevar, 'date1': date1,
-            'date2': date2, 'messages': messages, 'figure' : fig,
-            'related': related}
+    opts = {'pv': pv, 'pv2': pv2,
+            'timevar':  timevar, 'date1': date1, 'date2': date2,
+            'messages': messages,
+            'figure' : fig,
+            'related': related,
+            'default_ago': default_ago,
+            'ago_choices':  [{'val':'15_minutes', 'label':'15 minutes'},
+                             {'val':'30_minutes', 'label':'30 minutes'},
+                             {'val':'1_hours', 'label':'1 hour'},
+                             {'val':'3_hours', 'label':'3 hours'},
+                             {'val':'6_hours', 'label':'6 hours'},
+                             {'val':'12_hours', 'label':'12 hours'},
+                             {'val':'1_days', 'label':  '1 day'},
+                             {'val':'2_days', 'label':  '2 days'},
+                             {'val':'3_days', 'label':  '3 days'},
+                             {'val':'7_days', 'label':  '1 week'},
+                             {'val':'14_days', 'label': '2 weeks'},
+                             {'val':'21_days', 'label': '3 weeks'},
+                             {'val':'42_days', 'label': '6 weeks'}    ]
+    }
 
     return render_template('plot.html', **opts)
 
 @app.route('/formplot', methods=['GET', 'POST'])
 def formplot():
-    return Response(" Form Plot")
+    if request.method == 'POST':
+        form = request.form
+        pv = form.get('pv', 'None')
+        pv2 = form.get('pv2', 'None')
+        if pv2     in ('', None, 'None'): pv2 = None
+        if form.get('submit', 'From Present').lower().startswith('from'):
+            date1 = form.get('timevar', '1_days')
+            return redirect('plot/%s/%s/time_ago/%s' % (pv, pv2, date1))
+        
+    return Response(" Create Plot based on Form Submission(Date Range) %s" %  form.items())
 
 
 @app.route('/admin')
