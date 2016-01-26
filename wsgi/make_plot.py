@@ -54,9 +54,7 @@ def auto_margins(fig, canvas, axes, gspec):
 
 def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
               ts2=None, dat2=None, y2label=None, y2log=False,  enums2=None,
-              time_unit='days', time_val='1',
-              datemin=None, datemax=None,
-              fname=None):
+              time_unit='days', time_val=None, fname=None):
    
     fig    = Figure(figsize=(8., 5.0), dpi=300)
     gspec  = GridSpec(1, 1)
@@ -69,8 +67,21 @@ def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
         x.set_rotation(0)
         x.set_ha('center')
 
-        
     axes.set_ylabel(ylabel, color='b', fontproperties=mplfont)
+
+    # if time range / units is set, limit data
+    tmin = None
+    if time_val is not None and time_unit is not None:
+        opts = {}
+        opts[time_unit] = int(time_val)
+        dt_max = datetime.datetime.fromtimestamp(max(ts))
+        dt_min = dt_max - datetime.timedelta(**opts)
+        tmin = time.mktime(dt_min.timetuple())
+        tsel = np.where(ts>= tmin)
+        ts   = ts[tsel]
+        dat = dat[tsel]
+       
+    tvals  = [datetime.datetime.fromtimestamp(t) for t in ts]
 
     if ylog:
         axes.set_yscale('log', basey=10)
@@ -78,13 +89,12 @@ def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
         ts  = ts[pos]
         dat = dat[pos]
 
-
-    tvals  = [datetime.datetime.fromtimestamp(t) for t in ts]
     if enums is not None:
         pad = min(0.8, 0.1*len(enums))
         axes.set_ylim(-pad, len(enums)-1+pad)
         axes.set_yticks(range(len(enums)))
         axes.set_yticklabels(enums)
+    axes.get_yaxis().get_major_formatter().set_useOffset(False)
     axes.plot(tvals, dat, color='b', **plotopts)
     axes.grid(True)
     
@@ -92,11 +102,16 @@ def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
         if len(fig.get_axes()) < 2:
             ax = axes.twinx()
         axes = fig.get_axes()[1]
+        axes.get_yaxis().get_major_formatter().set_useOffset(False)        
         if y2log:
             axes.set_yscale('log', basey=10)
             pos = np.where(dat2>0)
             ts2 = ts2[pos]
             dat2 = dat2[pos]
+        if tmin is not None:
+            tsel = np.where(ts2>= tmin)
+            ts2 = ts2[tsel]
+            dat2 = dat2[tsel]
         t2vals  = [datetime.datetime.fromtimestamp(t) for t in ts2]
         plotopts['zorder'] = 25
         if enums2 is not None:
@@ -108,16 +123,6 @@ def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
         axes.plot(t2vals, dat2, color='r', **plotopts)
         axes.set_ylabel(y2label, color='r', fontproperties=mplfont)
     
-    if time_unit is not None:
-        opts = {}
-        opts[time_unit] = int(time_val)
-        tdelta = datetime.timedelta(**opts)
-        tmax = max(tvals)
-        axes.set_xlim((tmax-tdelta, tmax), emit=True)
-
-    elif datemin is not None and datemax is not None:
-        axes.set_xlim((datemin, datemax), emit=True)
-        
     auto_margins(fig, canvas, axes, gspec)
     if fname is None:
         figdata = io.BytesIO()
@@ -126,24 +131,6 @@ def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
         return base64.b64encode(figdata.getvalue())
     else:
         fig.savefig(fname)
-        
         return fname
     
 
-###
-if __name__ == '__main__':
-    arr1 = np.loadtxt('p2.dat')
-    x1 = arr1[:,2]
-    y1 = arr1[:,3]
-    d1 = 'desc for PV2\n[PV1]'
-    
-    arr2 = np.loadtxt('p1.dat') 
-    x2 = arr2[:,2]
-    y2 = arr2[:,3]   
-    d2 = 'desc for PV2\n[PV2]'
-
-
-
-    make_plot(x1, y1, ylabel=d1, 
-              ts2=x2, dat2=y2, y2label=d2,
-              time_val=1.0, fname='t.png')
