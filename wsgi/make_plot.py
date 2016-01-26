@@ -25,7 +25,7 @@ matplotlib.rc('ytick', labelsize=12)
 matplotlib.rc('grid',  linewidth=0.5, color='#E7E7E7', linestyle='-')
 matplotlib.rc('savefig', dpi=150)
 
-plotopts = dict(linewidth=1.5, marker='s', 
+plotopts = dict(linewidth=2.0, marker='s', 
     markersize=3.5, markeredgewidth=0.0, 
     drawstyle='steps-post', zorder=30)
 
@@ -54,7 +54,9 @@ def auto_margins(fig, canvas, axes, gspec):
 
 def make_plot(ts, dat, ylabel='Data', ylog=False, 
               ts2=None, dat2=None, y2label=None, y2log=False, 
-              time_unit='days', time_val=1, fname=None):
+              time_unit='days', time_val='1',
+              datemin=None, datemax=None,
+              fname=None):
    
     fig    = Figure(figsize=(8., 5.0), dpi=300)
     gspec  = GridSpec(1, 1)
@@ -68,31 +70,42 @@ def make_plot(ts, dat, ylabel='Data', ylog=False,
         x.set_ha('center')
 
         
-    tvals  = [datetime.datetime.fromtimestamp(t) for t in ts]
     axes.set_ylabel(ylabel, color='b', fontproperties=mplfont)
 
     if ylog:
-        axes.set_yscale('log', basey=10)        
+        axes.set_yscale('log', basey=10)
+        pos = np.where(dat>0)
+        ts  = ts[pos]
+        dat = dat[pos]
+
+    tvals  = [datetime.datetime.fromtimestamp(t) for t in ts]
     axes.plot(tvals, dat, color='b', **plotopts)
     axes.grid(True)
     
     if ts2 is not None:
-        t2vals  = [datetime.datetime.fromtimestamp(t) for t in ts2]
         if len(fig.get_axes()) < 2:
             ax = axes.twinx()
         axes = fig.get_axes()[1]
         if y2log:
             axes.set_yscale('log', basey=10)
+            pos = np.where(dat2>0)
+            ts2 = ts2[pos]
+            dat2 = dat2[pos]
+        t2vals  = [datetime.datetime.fromtimestamp(t) for t in ts2]
         plotopts['zorder'] = 25
         axes.plot(t2vals, dat2, color='r', **plotopts)
         axes.set_ylabel(y2label, color='r', fontproperties=mplfont)
     
-    opts = {}
-    opts[time_unit] = time_val
-    tdelta = datetime.timedelta(**opts)
-    tmax = max(tvals)
-    axes.set_xlim((tmax-tdelta, tmax), emit=True)
 
+    if time_unit is not None:
+        opts = {}
+        opts[time_unit] = int(time_val)
+        tdelta = datetime.timedelta(**opts)
+        tmax = max(tvals)
+        axes.set_xlim((tmax-tdelta, tmax), emit=True)
+    elif datemin is not None and datemax is not None:
+        axes.set_xlim((datemin, datemax), emit=True)
+        
     auto_margins(fig, canvas, axes, gspec)
     if fname is None:
         figdata = io.BytesIO()
