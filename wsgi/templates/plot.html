@@ -1,18 +1,58 @@
 {% extends "layout.html" %}
 {% block body %}
 
-<p> <div class=subfont> Plot  </div>
+<table><tr>
+   <td valign=top>
+      
+  <form action="{{ url_for('formplot') }}" method=post>
+  <table border=0>
+    <tr><td>PV 1:</td><td><input size=30 type=text name=pv value='{{pv|safe}}'></td></tr>
+    <tr><td>PV 2:</td><td><input size=30 type=text name=pv2 value='{{pv2|safe}}'></td></tr>
+    <tr><td>Date Range:</td><td></td></tr>
 
-<table>
-  <tr> <td>   PV: </td><td> {{ pv }}</td>  </tr>
-  <tr> <td>   PV2: </td><td> {{ pv2 }}</td>  </tr>
-  <tr> <td>   time_ago: </td><td> {{ time_ago }}</td>  </tr>
-  <tr> <td>   date1: </td><td> {{ date1 }}</td>  </tr>
-  <tr> <td>   date2: </td><td> {{ date2 }}</td>  </tr>
+    {% if messages is not none %}
+        <tr><td>Warnings:</td><td> <b>{{ messages }}</b></td></tr>
+     {% endif %}
+
+  <tr><td></td><td> Replot Current History from Present Time:</td></tr>
+  <tr><td></td><td>
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/15_minutes"> 15 minutes</a>&nbsp;&nbsp;
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/30_minutes"> 30 minutes</a>&nbsp;&nbsp;
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/1_hours">   1 hour</a>&nbsp;&nbsp;
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/3_hours">   3 hours</a>&nbsp;&nbsp;
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/6_hours">   6 hours</a>&nbsp;&nbsp;
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/12_hours">  12 hours</a>&nbsp;&nbsp;
+  </td></tr>
+  <tr><td></td><td>
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/1_days">   1 day</a>&nbsp;&nbsp;
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/2_days">   2 days</a>&nbsp;&nbsp;
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/3_days">   3 days</a>&nbsp;&nbsp;
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/7_days">   1 week</a>&nbsp;&nbsp;
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/14_days">  2 weeks</a>&nbsp;&nbsp;
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/21_days">  3 weeks</a>&nbsp;&nbsp;
+      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/42_days">  6 weeks</a>&nbsp;&nbsp;
+      </td>
 </table>
   
-<table> <tr>
-<td><img width=450 src="data:image/png;base64,{{ fullfig|safe }}"></td>
-</tr></table>
+</form>
 
+  <img width=650 src="data:image/png;base64,{{ figure|safe }}"></td>
+
+
+</td><td valign='top'>
+
+  {% if pv2 is not none %}
+
+  <a href="/pvarch/plot/{{pv2}}/{{pv}}/{{timevar}}/{{date1}}/{{date2}}"> Swap PV 1 and PV 2</a> <p>
+
+    <a href="/pvarch/plot/{{pv}}/None/{{timevar}}/{{date1}}/{{date2}}">  PV 1 only</a> <p>    
+  {% endif %}
+  
+  <b>Related PVs:</b><p>
+
+  {% for other in related %}
+       <a href="/pvarch/plot/{{pv}}/{{other}}/{{timevar}}/{{date1}}/{{date2}}"> {{other}}</a> <p>
+  {% endfor %}
+  
+  </tr></table>
 {% endblock %}

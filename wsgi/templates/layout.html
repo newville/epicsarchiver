@@ -11,7 +11,7 @@
       <td width=35% padding=5 align=left>
         <font size=+1>Epics Archive Data</font></td>
       <td width=65% align=right>
-	<a href="{{ url_for('admin') }}">Admin Access</a>
+	<a href="{{ url_for('admin') }}">[Admin Access]</a>
       </td>
     </tr>
   </table>
@@ -20,6 +20,7 @@
 <div id='tab'>
 <ul id='tabmenu'>
   <li> <a href="{{ url_for('index') }}"> PV Archiver </a> </li>
+  <li> <a href="{{ url_for('help') }}"> Help </a> </li>
 </ul>
 </div>
 
@@ -28,5 +29,7 @@
     <div class=flash>{{ message }}</div>
 {% endfor %}
 
-{% block body %}{% endblock %}
+    {% block body %}
+
+    {% endblock %}
 </div>
