@@ -6,39 +6,64 @@
       
   <form action="{{ url_for('formplot') }}" method=post>
   <table border=0>
-    <tr><td>PV 1:</td><td><input size=30 type=text name=pv value='{{pv|safe}}'></td></tr>
-    <tr><td>PV 2:</td><td><input size=30 type=text name=pv2 value='{{pv2|safe}}'></td></tr>
-    <tr><td>Date Range:</td><td></td></tr>
-
-    {% if messages is not none %}
-        <tr><td>Warnings:</td><td> <b>{{ messages }}</b></td></tr>
+    <tr><td>PV 1:</td><td><input size=30 type=text name=pv value='{{pv|safe}}'></td>
+        <td>PV 2:</td><td><input size=30 type=text name=pv2 value='{{pv2|safe}}'></td></tr>
+    <tr><td><input type=submit name=submit value='From Present' ></td><td>
+	<select name='timevar' style="width: 100px;">
+	  {% for c in ago_choices %}
+          <option value={{c.val}}
+	    {% if c.val == default_ago %} selected=1 {% endif %}>
+	    {{c.label}}</option>
+          {% endfor %}
+	  </select>
+	</td></tr>
+    <tr><td><input type=submit name=submit value='Date Range'></td>
+      <td colspan=3>
+	<input type='text' id="date1" name="date1" > <button id="date1_trig">...</button>
+	<input type='text' id="date2" name="date2" > <button id="date2_trig">...</button>
+	<script type='text/javascript'>
+	  Calendar.setup({inputField: "date1",button: "date1_trig", onUpdate: setdate2, 
+                ifFormat: "%Y-%m-%d %H:%M:%S", showsTime: true,  timeFormat: 24,
+                showOthers: true, singleClick: false,  weekNumbers: false});
+	  Calendar.setup({inputField: "date2",button: "date2_trig", 
+                ifFormat: "%Y-%m-%d %H:%M:%S", showsTime: true,  timeFormat: 24,
+                showOthers: true, singleClick: false,  weekNumbers: false});
+     </script>
+	
+     </td></tr>
+      {% if messages is not none %}
+        <tr><td>Warnings:</td><td colspan=3> <b>{{ messages }}</b></td></tr>
      {% endif %}
 
-  <tr><td></td><td> Replot Current History from Present Time:</td></tr>
-  <tr><td></td><td>
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/15_minutes"> 15 minutes</a>&nbsp;&nbsp;
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/30_minutes"> 30 minutes</a>&nbsp;&nbsp;
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/1_hours">   1 hour</a>&nbsp;&nbsp;
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/3_hours">   3 hours</a>&nbsp;&nbsp;
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/6_hours">   6 hours</a>&nbsp;&nbsp;
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/12_hours">  12 hours</a>&nbsp;&nbsp;
+
+  <tr><td colspan=4> <img width=650 src="data:image/png;base64,{{ figure|safe }}"></td></tr>
+
+  <tr><td>Replot from </td><td colspan=3>
+	{% for c in ago_choices %}
+        {% if 'day' not in c.val %}
+	<a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/{{c.val}}"> {{c.label}}</a>&nbsp;&nbsp;
+	{% endif %}
+	{% endfor %}
   </td></tr>
-  <tr><td></td><td>
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/1_days">   1 day</a>&nbsp;&nbsp;
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/2_days">   2 days</a>&nbsp;&nbsp;
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/3_days">   3 days</a>&nbsp;&nbsp;
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/7_days">   1 week</a>&nbsp;&nbsp;
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/14_days">  2 weeks</a>&nbsp;&nbsp;
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/21_days">  3 weeks</a>&nbsp;&nbsp;
-      <a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/42_days">  6 weeks</a>&nbsp;&nbsp;
-      </td>
+  <tr><td>Present Time:</td><td colspan=3>
+	{% for c in ago_choices %}
+        {% if 'day' in c.val %}
+	<a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/{{c.val}}"> {{c.label}}</a>&nbsp;&nbsp;
+	{% endif %}
+	{% endfor %}
+  </td></tr>
+  <tr><td> </td></tr>
+  <tr><td>Data Files:</td><td>
+    <a href="/pvarch/data/{{pv}}/{{timevar}}/{{date1}}/{{date2}}/pv1.dat"> {{pv}}</a>
+    {% if pv2 is not none %}
+    &nbsp;&nbsp;
+    <a href="/pvarch/data/{{pv2}}/{{timevar}}/{{date1}}/{{date2}}/pv2.dat"> {{pv2}}</a>
+    {% endif %}
+    </td></tr>
 </table>
-  
+
 </form>
-
-  <img width=650 src="data:image/png;base64,{{ figure|safe }}"></td>
-
-
+    
 </td><td valign='top'>
 
   {% if pv2 is not none %}

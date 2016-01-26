@@ -1,9 +1,22 @@
 <!doctype html>
-<title>Epics PV Archiver</title>
+<head>
+  <title>Epics PV Archiver</title>
+  
+  <link rel=stylesheet type=text/css
+	href="{{ url_for('static', filename='style.css') }}"/>
 
-<link rel=stylesheet type=text/css
-      href="{{ url_for('static', filename='style.css') }}">
+  <style type='text/css'>@import url(calendar-win2k-1.css);</style>
+<link rel='stylesheet' type='text/css' media='all'
+ href='http://millenia.cars.aps.anl.gov/cgi-data/jscal/calendar-system.css' />
+  
+  <script type='text/javascript'
+	  src='http://millenia.cars.aps.anl.gov/cgi-data/jscal/calendar.js'></script>
+  <script type='text/javascript'
+	  src='http://millenia.cars.aps.anl.gov/cgi-data/jscal/lang/calendar-en.js'></script>
+  <script type='text/javascript'
+	  src='http://millenia.cars.aps.anl.gov/cgi-data/jscal/calendar-setup.js'></script>
 
+</head>
 <div class=page>
   <div class=topbar>
   <table cellpadding=1 width=100%>
