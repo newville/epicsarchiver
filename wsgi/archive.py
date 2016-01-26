@@ -12,6 +12,7 @@ from sqlalchemy.orm.exc import  NoResultFound
 
 from EpicsArchiver.util import normalize_pvname, MAX_EPOCH, SEC_DAY
 
+
 # which mysql libraries are available?
 MYSQL_VAR = None
 try:
@@ -107,11 +108,12 @@ class PVDataDB(BasicDB):
         for row in pvtab.select().execute().fetchall():
             n = normalize_pvname(row.name)
             self.pvinfo[n] = dict(id=row.id,
-                                         data_table=row.data_table,
-                                         type=row.type,
-                                         graph_type=row.graph_type,
-                                         graph_hi=row.graph_hi,
-                                         graph_lo=row.graph_lo)
+                                  desc=row.description,
+                                  data_table=row.data_table,
+                                  type=row.type,
+                                  graph_type=row.graph_type,
+                                  graph_hi=row.graph_hi,
+                                  graph_lo=row.graph_lo)
 
     def get_data(self, pvname, tmin=None, tmax=None):
         "get data for a PV over time range"
@@ -139,6 +141,22 @@ class ArchiveMaster(BasicDB):
                          user=user, password=password,
                          host=host, port=port)
         self.data_dbs = {}
+        self.pvinfo = {}
+        self.connect_current_archive()
+
+    def connect_current_archive(self):
+        info = self.tables['info']
+        q = info.select().where(info.c.process=='archive')
+        row  = q.execute().fetchone()
+        self.current_db = dbname = row['db']
+        self.data_dbs[dbname] = tdb = PVDataDB(dbname, **self.conn_opts)
+
+        self.pvinfo = tdb.pvinfo
+
+    def get_pvinfo(self, pvname):
+        npv = normalize_pvname(pvname)
+        return self.pvinfo.get(npv, npv)
+    
 
     def dbs_for_time(self, tmin=0, tmax=MAX_EPOCH):
         "return list of dbs for a selected time range"
@@ -172,12 +190,13 @@ class ArchiveMaster(BasicDB):
         npv = normalize_pvname(pvname)
         tnow = time.time()
         if tmax is None:  tmax = tnow
-        if tmin is None:  tmin = tnow
+        if tmin is None:  tmin = tnow - SEC_DAY
         if tmin > tmax:  tmin, tmax = tmax, tmin
         # look back one day more than actually requested
         # to ensure stale data is found
+
         tmax = tmax + 3600
-        tmin = tmin - SEC_DAY
+        tmin = tmin - 1.1*SEC_DAY
 
         # print(" get data ", tmin, tmax)
         ts, vals = [], []
@@ -188,14 +207,26 @@ class ArchiveMaster(BasicDB):
 	    ddb = self.data_dbs[dbname]
 	    for t, v in ddb.get_data(npv, tmin=tmin, tmax=tmax):
                 ts.append(float(t))
-                vals.append(float(v))
+                try:
+                   v = float(v)
+                except:
+                   pass
+                vals.append(v)
 
         if with_current is None:
             with_current = abs(tmax-tnow) < SEC_DAY
         if with_current:
             cache = self.cache_row(npv)
             ts.append(float(cache.ts))
-            vals.append(float(cache.value))
+            try:
+               val = float(cache.value)
+            except:
+               val = cache.value
+            vals.append(val)
+            # and current time
+            ts.append(time.time())
+            vals.append(val)
+            
         ts = np.array(ts)
         vals = np.array(vals)
         torder = ts.argsort()
