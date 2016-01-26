@@ -52,8 +52,8 @@ def auto_margins(fig, canvas, axes, gspec):
         ax.update_params()
         ax.set_position(ax.figbox)
 
-def make_plot(ts, dat, ylabel='Data', ylog=False, 
-              ts2=None, dat2=None, y2label=None, y2log=False, 
+def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
+              ts2=None, dat2=None, y2label=None, y2log=False,  enums2=None,
               time_unit='days', time_val='1',
               datemin=None, datemax=None,
               fname=None):
@@ -78,7 +78,13 @@ def make_plot(ts, dat, ylabel='Data', ylog=False,
         ts  = ts[pos]
         dat = dat[pos]
 
+
     tvals  = [datetime.datetime.fromtimestamp(t) for t in ts]
+    if enums is not None:
+        pad = min(0.8, 0.1*len(enums))
+        axes.set_ylim(-pad, len(enums)-1+pad)
+        axes.set_yticks(range(len(enums)))
+        axes.set_yticklabels(enums)
     axes.plot(tvals, dat, color='b', **plotopts)
     axes.grid(True)
     
@@ -93,16 +99,22 @@ def make_plot(ts, dat, ylabel='Data', ylog=False,
             dat2 = dat2[pos]
         t2vals  = [datetime.datetime.fromtimestamp(t) for t in ts2]
         plotopts['zorder'] = 25
+        if enums2 is not None:
+            pad = min(0.8, 0.1*len(enums2))
+            axes.set_ylim(-pad, len(enums2)-1+pad)
+            axes.set_yticks(range(len(enums2)))
+            axes.set_yticklabels(enums2)
+
         axes.plot(t2vals, dat2, color='r', **plotopts)
         axes.set_ylabel(y2label, color='r', fontproperties=mplfont)
     
-
     if time_unit is not None:
         opts = {}
         opts[time_unit] = int(time_val)
         tdelta = datetime.timedelta(**opts)
         tmax = max(tvals)
         axes.set_xlim((tmax-tdelta, tmax), emit=True)
+
     elif datemin is not None and datemax is not None:
         axes.set_xlim((datemin, datemax), emit=True)
         
