@@ -189,23 +189,23 @@ class ArchiveMaster(BasicDB):
         """
         npv = normalize_pvname(pvname)
         tnow = time.time()
-        if tmax is None:  tmax = tnow
-        if tmin is None:  tmin = tnow - SEC_DAY
-        if tmin > tmax:  tmin, tmax = tmax, tmin
+        if tmax is None:
+            tmax = tnow
+        if tmin is None:
+            tmin = tnow - SEC_DAY
+        if tmin > tmax:
+            tmin, tmax = tmax, tmin
+
         # look back one day more than actually requested
         # to ensure stale data is found
-
-        tmax = tmax + 3600
-        tmin = tmin - 1.1*SEC_DAY
-
-        # print(" get data ", tmin, tmax)
+        _tmax = tmax + 60
+        _tmin = tmin - SEC_DAY
         ts, vals = [], []
-        for dbname in self.dbs_for_time(tmin=tmin, tmax=tmax):
-            # print("  Use DB ", dbname)
+        for dbname in self.dbs_for_time(tmin=_tmin, tmax=_tmax):
             if dbname not in self.data_dbs:
                 self.data_dbs[dbname] = PVDataDB(dbname, **self.conn_opts)
 	    ddb = self.data_dbs[dbname]
-	    for t, v in ddb.get_data(npv, tmin=tmin, tmax=tmax):
+	    for t, v in ddb.get_data(npv, tmin=_tmin, tmax=_tmax):
                 ts.append(float(t))
                 try:
                    v = float(v)
@@ -215,6 +215,7 @@ class ArchiveMaster(BasicDB):
 
         if with_current is None:
             with_current = abs(tmax-tnow) < SEC_DAY
+
         if with_current:
             cache = self.cache_row(npv)
             ts.append(float(cache.ts))
@@ -223,12 +224,19 @@ class ArchiveMaster(BasicDB):
             except:
                val = cache.value
             vals.append(val)
-            # and current time
+            # and this value at current time
             ts.append(time.time())
             vals.append(val)
             
-        ts = np.array(ts)
-        vals = np.array(vals)
+        ts, vals = np.array(ts), np.array(vals)
         torder = ts.argsort()
-        return ts[torder], vals[torder]
-        
+        ts, vals = ts[torder], vals[torder]
+
+        # now limit date to the actually requested time range,
+        # plus the one most recent previous measurement
+        tsel  = np.where(ts >= tmin)[0]
+        older = np.where(ts < tmin)[0]
+        if len(older) > 0:
+            tsel = np.concatenate(([older[-1]], tsel))
+        ts, vals = ts[tsel], vals[tsel]
+        return ts, vals
