@@ -138,7 +138,7 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
                 thispv.get()
                 enums2 = thispv.enum_strs
             y2log    = pvinfo2['graph_type'].startswith('log')
-            ts2, dat2 = arch.get_data(pv2, with_current=True)        
+            ts2, dat2 = arch.get_data(pv2, tmin=tmin, tmax=tmax, with_current=True)
             y2label="%s\n[%s]" % (desc2, pv2)
         except:
             messages.append("data for '%s' not found" % pv2)            
