@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import sys
-import time
-import datetime
+from time import time
+
 from flask import (Flask, request, session, redirect, url_for,
                    abort, render_template, flash, Response)
 
@@ -14,7 +14,7 @@ from EpicsArchiver.SimpleDB import Connection
 from WebStatus import WebStatus
 from PlotViewer import  PlotViewer
 
-from archive import ArchiveMaster
+from archive import ArchiveMaster, get_timerange
 
 from make_plot import make_plot
 
@@ -71,11 +71,11 @@ def show(page=None):
     
     return Response("Conn %s <br> %s" % (hex(id(dbconn)), p.get_buffer()))
 
-@app.route('/data/<pv>')
+@app.route('/data/<pv>/<timevar>/<date1>')
+@app.route('/data/<pv>/<timevar>/<date1>/<date2>')
 @app.route('/data/<pv>/<timevar>/<date1>/<date2>/<extra>')
-def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
-    
-    return Response("Return data for  %s [%s] " % (pv, extra))
+def data(pv=None, timevar=None, date1=None, date2=None, extra=None):    
+    return Response("data for %s, %s, d1=%s, d2=%s, ex=%s " % (pv, timevar, date1, date2, extra))
     
 
 @app.route('/plot/<pv>')
@@ -85,31 +85,38 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
 @app.route('/plot/<pv>/<pv2>/<timevar>/<date1>/<date2>')
 def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
 
-    default_ago = '1_days'
+    default_ago = time_ago = '1_days'
+    if pv2     in ('', None, 'None'):
+        pv2 = None
+    if timevar in ('', None, 'None'):
+        timevar = 'time_ago'
 
-    if pv2     in ('', None, 'None'): pv2 = None
-    if timevar in ('', None, 'None'): timevar = 'time_ago'
-    if date1   in ('', None, 'None'):
-        date1 = '1_days'
+    # date1 could hold date1 or time_ago
+    if date1  in ('', None, 'None'):
+        date1 = time_ago = None
+    if '_' in date1:
+        default_ago = time_ago = date1
+        date1 = None
+            
+    # date2 is required for 'date range', so its absence
+    # implies 'time ago'    
+    if date2   in ('', None, 'None'):
+        date2 = None
+        timevar = 'time_ago'
+
+    timestr = 'time_ago/%s' % time_ago
+    if (timevar.lower().startswith('date') and
+        date1 is not None and
+        date2 is not None):
+        tmin, tmax = get_timerange('date_range', date1=date1, date2=date2)
+        timestr = 'date_range/%s/%s' % (date1, date2)
+        
     else:
-        default_ago = date1
-    if date2   in ('', None, 'None'): date2 = None
+        tmin, tmax = get_timerange('time_ago', time_ago=time_ago)
 
-    tmax = time.time()
-    tmin = tmax - 25*3600.0
-
-    if timevar == 'time_ago':
-        tmax = time.time()
-        tval, tunit  = date1.split('_')
-        opts = {}
-        opts[tunit] = int(tval)
-        dt_min = (datetime.datetime.fromtimestamp(tmax) -
-                  datetime.timedelta(**opts))
-        tmin = time.mktime(dt_min.timetuple()) - 3600.0
-    else:
-        tval, tunit = '1', None
         
     messages = []
+    # ['Tmin/Tmax= %i, %i ' % (tmin-now, tmax-now)]
     ts, dat, enums, ylabel, ylog = None, None, None, None, False
     try:
         related = arch.related_pvs(pv)
@@ -146,18 +153,23 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
     fig = None
     if ts is not None:
         fig = make_plot(ts, dat, ylabel=ylabel,
-                        enums=enums, ## ylog=ylog,
+                        enums=enums,  ylog=ylog,
                         ts2=ts2, dat2=dat2, y2label=y2label, 
-                        enums2=enums2, # y2log=y2log,
-                        time_unit=tunit, time_val=tval)
+                        enums2=enums2, y2log=y2log,
+                        tmin=tmin, tmax=tmax)
 
     if len(messages) > 0:
         messages = ', '.join(messages)
     else:
         messages = None
 
-    opts = {'pv': pv, 'pv2': pv2,
-            'timevar':  timevar, 'date1': date1, 'date2': date2,
+    odate1 = odate2 = ''
+    if date1 is not None: odate1 = date1
+    if date2 is not None: odate2 = date2
+
+    
+    opts = {'pv': pv, 'pv2': pv2,  'timestr':  timestr,
+            'odate1': odate1, 'odate2': odate2,
             'messages': messages,
             'figure' : fig,
             'related': related,
@@ -189,6 +201,10 @@ def formplot():
         if form.get('submit', 'From Present').lower().startswith('from'):
             date1 = form.get('timevar', '1_days')
             return redirect('plot/%s/%s/time_ago/%s' % (pv, pv2, date1))
+        else:
+            date1 = form.get('date1', 'None')
+            date2 = form.get('date2', 'None')
+            return redirect('plot/%s/%s/date_range/%s/%s' % (pv, pv2, date1, date2))
         
     return Response(" Create Plot based on Form Submission(Date Range) %s" %  form.items())
 
