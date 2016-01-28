@@ -17,8 +17,10 @@
          {% endfor %}
       </select> </tr>
     <tr><td>  <input type=submit name=submit value='Selected Dates'>  </td>
-      <td colspan=3> <input type='text' style="width: 175px;" id="date1" name="date1">
-                     <input type='text' style="width: 175px;" id="date2" name="date2">
+      <td colspan=3> <input type='text' style="width: 175px;"
+			    id="date1" name="date1" value="{{ odate1|safe }}">
+                     <input type='text' style="width: 175px;"
+	                    id="date2" name="date2" value="{{ odate2|safe }}">
                      <script type='text/javascript'>
          Calendar.setup({inputField: "date1",
                         ifFormat: "%Y-%m-%d %H:%M:%S",
@@ -37,7 +39,9 @@
      </script>
     </td></tr>
       {% if messages is not none %}
-        <tr><td>Warnings:</td><td colspan=3> <b>{{ messages }}</b></td></tr>
+        <tr><td>Warnings:</td><td colspan=3>
+	    <b>{{ messages }}</b><br> 
+	</td></tr>
      {% endif %}
 
 
@@ -58,10 +62,10 @@
       {% endfor %}
   </td></tr>
   <tr><td>Data Files:</td><td colspan=3>
-    <a href="/pvarch/data/{{pv}}/{{timevar}}/{{date1}}/{{date2}}/pv1.dat"> {{pv}}</a>
+    <a href="/pvarch/data/{{pv}}/{{timestr}}/pv1.dat"> {{pv}}</a>
     {% if pv2 is not none %}
     &nbsp;&nbsp;
-    <a href="/pvarch/data/{{pv2}}/{{timevar}}/{{date1}}/{{date2}}/pv2.dat"> {{pv2}}</a>
+    <a href="/pvarch/data/{{pv2}}/{{timestr}}/pv2.dat"> {{pv2}}</a>
     {% endif %}
     </td></tr>
 </table>
@@ -70,14 +74,14 @@
     
 </td><td valign='top'>
   {% if pv2 is not none %}
-  <a href="/pvarch/plot/{{pv2}}/{{pv}}/{{timevar}}/{{date1}}/{{date2}}"> Swap PV 1 and PV 2</a> <p>
-    <a href="/pvarch/plot/{{pv}}/None/{{timevar}}/{{date1}}/{{date2}}">  PV 1 only</a> <p>    
+  <a href="/pvarch/plot/{{pv2}}/{{pv}}/{{timestr}}"> Swap PV 1 and PV 2</a> <p>
+    <a href="/pvarch/plot/{{pv}}/None/{{timestr}}">  PV 1 only</a> <p>    
   {% endif %}
   
   <b>Related PVs:</b><p>
 
   {% for other in related %}
-       <a href="/pvarch/plot/{{pv}}/{{other}}/{{timevar}}/{{date1}}/{{date2}}"> {{other}}</a> <p>
+       <a href="/pvarch/plot/{{pv}}/{{other}}/{{timestr}}"> {{other}}</a> <p>
   {% endfor %}
   
   </tr></table>
