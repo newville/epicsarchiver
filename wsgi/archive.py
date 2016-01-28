@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 #  SQLAlchemy interface to Epics Archive
 
-import time
-from datetime import datetime
+from time import time, mktime
+from datetime import datetime, timedelta
+from dateutil.parser import parse as dateparser
 import numpy as np
 
 from sqlalchemy import MetaData, create_engine
@@ -11,7 +12,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import  NoResultFound
 
 from EpicsArchiver.util import normalize_pvname, MAX_EPOCH, SEC_DAY
-
 
 # which mysql libraries are available?
 MYSQL_VAR = None
@@ -28,6 +28,44 @@ except ImportError:
             MYSQL_VAR = 'pymysql'        
         except ImportError:
             pass
+
+def get_timerange(timevar='time_ago', time_ago='1_days',
+                  date1=None, date2=None):
+    """returns 2 unix timestamps for a time range, based either
+    on "time_ago" string or on a pair of date strings.
+
+    Options
+    --------
+    timevar (string): one of 'time_ago' [default] or 'date_range'
+    time_ago (string): time ago string (see Note 1)
+    date1 (string):  string for initial date (see Note 2)
+    date2 (string):  string for final date (see Note 2)
+
+    Notes:
+    ------
+    1.  The time_ago string as the form '%f_%s'  with the 
+        string one of ('minutes, 'hours', or 'days'), like
+             time_ago='1.5_days'   time_ago='15_minutes'
+
+    2: 'date1' and 'date2' are strings of the form 
+       "%Y-%m-%d %H:%M:%S"
+    """
+    if (timevar.lower().startswith('date') and
+        date1 is not None and
+        date2 is not None):
+        tmin = mktime(dateparser(date1).timetuple())
+        tmax = mktime(dateparser(date2).timetuple())
+        if tmin > tmax:
+            tmin, tmax = tmax, tmin
+    else:
+        tmax   = time()
+        tval, tunit = time_ago.split('_') 
+        opts = {}
+        opts[tunit] = float(tval)
+        dt_max = datetime.fromtimestamp(tmax)
+        dt_min = dt_max - timedelta(**opts)
+        tmin   = mktime(dt_min.timetuple())
+    return tmin, tmax
 
 class BasicDB(object):
     """basic database interface"""
@@ -122,7 +160,7 @@ class PVDataDB(BasicDB):
         pvinfo = self.pvinfo[normalize_pvname(pvname)]
         pv_id = pvinfo['id']
         dtab  = self.tables[pvinfo['data_table']]
-        tnow = time.time()
+        tnow = time()
         if tmax is None:  tmax = tnow
         if tmin is None:  tmin = tmax - SEC_DAY
         # make sure tmin and tmax are ordered, and look back at least one day
@@ -188,20 +226,18 @@ class ArchiveMaster(BasicDB):
            over the specified time range
         """
         npv = normalize_pvname(pvname)
-        tnow = time.time()
-        if tmax is None:
-            tmax = tnow
-        if tmin is None:
-            tmin = tnow - SEC_DAY
-        if tmin > tmax:
-            tmin, tmax = tmax, tmin
-
+        tnow = time()
+        if tmax is None:  tmax = tnow
+        if tmin is None:  tmin = tnow - SEC_DAY
+        if tmin > tmax:  tmin, tmax = tmax, tmin
         # look back one day more than actually requested
         # to ensure stale data is found
+
         _tmax = tmax + 60
         _tmin = tmin - SEC_DAY
         ts, vals = [], []
         for dbname in self.dbs_for_time(tmin=_tmin, tmax=_tmax):
+            # print("  Use DB ", dbname)
             if dbname not in self.data_dbs:
                 self.data_dbs[dbname] = PVDataDB(dbname, **self.conn_opts)
 	    ddb = self.data_dbs[dbname]
@@ -215,7 +251,6 @@ class ArchiveMaster(BasicDB):
 
         if with_current is None:
             with_current = abs(tmax-tnow) < SEC_DAY
-
         if with_current:
             cache = self.cache_row(npv)
             ts.append(float(cache.ts))
@@ -224,8 +259,8 @@ class ArchiveMaster(BasicDB):
             except:
                val = cache.value
             vals.append(val)
-            # and this value at current time
-            ts.append(time.time())
+            # and current time
+            ts.append(time())
             vals.append(val)
             
         ts, vals = np.array(ts), np.array(vals)
@@ -240,3 +275,5 @@ class ArchiveMaster(BasicDB):
             tsel = np.concatenate(([older[-1]], tsel))
         ts, vals = ts[tsel], vals[tsel]
         return ts, vals
+
+        
