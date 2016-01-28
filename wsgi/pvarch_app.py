@@ -93,11 +93,11 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
 
     # date1 could hold date1 or time_ago
     if date1  in ('', None, 'None'):
-        date1 = time_ago = None
-    if '_' in date1:
+        date1 = None
+    if date1 is not None and '_' in date1:
         default_ago = time_ago = date1
         date1 = None
-            
+        
     # date2 is required for 'date range', so its absence
     # implies 'time ago'    
     if date2   in ('', None, 'None'):
