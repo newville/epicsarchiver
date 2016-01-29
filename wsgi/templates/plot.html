@@ -13,16 +13,40 @@
       <td colspan=3>
          <select name='timevar' style="width: 100px;">
          {% for c in ago_choices %}
-             <option value={{c.val}}  {% if c.val == default_ago %} selected=1 {% endif %}> {{c.label}}</option>
+             <option value={{c.val}}  {% if c.val == time_ago %} selected=1 {% endif %}> {{c.label}}</option>
          {% endfor %}
       </select> </tr>
     <tr><td>  <input type=submit name=submit value='Selected Dates'>  </td>
       <td colspan=3> <input type='text' style="width: 175px;"
-			    id="date1" name="date1" value="{{ odate1|safe }}">
+			    id="date1" name="date1" value="{{odate1|safe }}">
+                     <button id='date1_trig'>...</button>
                      <input type='text' style="width: 175px;"
-	                    id="date2" name="date2" value="{{ odate2|safe }}">
+	                    id="date2" name="date2" value="{{odate2|safe }}">
+                     <button id='date2_trig'>...</button>		     
                      <script type='text/javascript'>
+         function setdate2(cal) {
+             var date  = cal.date;
+             var time  = date.getTime()
+             var f1    = document.getElementById("date1");
+             var f2    = document.getElementById("date2");
+             var tago  = document.getElementById("timevar");
+             var tarr  = new Array();
+             tarr      = tago.value.split(' ');
+             if (f1 == cal.params.inputField) {
+                 var tunit = Date.MINUTE;
+                 var tstr = tarr[1].substring(0,2);
+                 if      (tstr == 'ho'){ tunit= Date.HOUR;   }
+                 else if (tstr == 'we'){ tunit= Date.WEEK;   }
+                 else if (tstr == 'da'){ tunit= Date.DAY;   }
+                 else if (tstr == 'mo'){ tunit= Date.DAY*31; }
+                 time     += tarr[0] * tunit; 
+                 var date2 = new Date(time);
+                 f2.value  = date2.print("%Y-%m-%d %H:%M:%S");
+               }
+         }
          Calendar.setup({inputField: "date1",
+                        button: "date1_trig", 	 	 
+                        onUpdate: setdate2,     
                         ifFormat: "%Y-%m-%d %H:%M:%S",
                         showsTime: true,
                         timeFormat: 24,
@@ -30,6 +54,7 @@
                         singleClick: false,
                         weekNumbers: false });    
          Calendar.setup({inputField: "date2",
+                        button: "date2_trig", 	 
                         ifFormat: "%Y-%m-%d %H:%M:%S",
                         showsTime: true,
                         timeFormat: 24,
