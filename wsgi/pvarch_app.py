@@ -108,9 +108,7 @@ def show(page=None):
         p.show_pvfile(template)
    
     p.end_page()
-    # text = "Session: %s <br> %s" % (dir(dbconn), (dbconn.conn))
-    
-    return Response("Conn %s <br> %s" % (hex(id(dbconn)), p.get_buffer()))
+    return Response(p.get_buffer())
 
 @app.route('/data/<pv>/<timevar>/<date1>')
 @app.route('/data/<pv>/<timevar>/<date1>/<date2>')
@@ -127,12 +125,11 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
     stmax = strftime("%Y-%m-%d %H:%M:%S", localtime(tmax))
     
     pvinfo  = arch.get_pvinfo(pv)
-    desc    = pvinfo['desc']
 
-    buff = ['# Data for %s  [%s] ' % (pv, desc),
+    buff = ['# Data for %s  [%s] '      % (pv, pvinfo['desc']),
             '# Time Range: [%.1f %.1f]' % (tmin, tmax),
-            '# Time Range: %s  :   %s' % (stmin, stmax),
-            '# Date Type: %s' % pvinfo['type']]
+            '# Time Range: %s  :  %s'   % (stmin, stmax),
+            '# Date Type: %s'           % pvinfo['type']]
 
     fmt = '%f'
     if pvinfo['type'] == 'enum':
@@ -153,10 +150,8 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
         ddate = strftime("%Y%m%d", localtime(_t))
         dtime = strftime("%H%M%S", localtime(_t))
         buff.append(' %.1f  %s  %s  %s' % (_t, val, ddate, dtime))
-                    
     return Response("\n".join(buff), mimetype='text/plain')
     
-
 @app.route('/plot/<pv>')
 @app.route('/plot/<pv>/<pv2>')
 @app.route('/plot/<pv>/<pv2>/<timevar>')
