@@ -61,20 +61,26 @@ def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
     axes   = fig.add_subplot(gspec[0], axisbg='#FFFFFF')
 
 
-    tvals  = [ts2date(t) for t in ts]
-    if ylog and False:
+    if ylog: #  and False:
         axes.set_yscale('log', basey=10)
         pos = np.where(dat>0)
         ts  = ts[pos]
         dat = dat[pos]
 
+    tvals  = [ts2date(t) for t in ts]
+        
     if enums is not None:
         pad = min(0.8, 0.1*len(enums))
         axes.set_ylim(-pad, len(enums)-1+pad)
         axes.set_yticks(range(len(enums)))
         axes.set_yticklabels(enums)
 
-    axes.get_yaxis().get_major_formatter().set_useOffset(False)
+    try:
+        axes.get_yaxis().get_major_formatter().set_useOffset(False)
+    except:
+        pass
+
+    
     if tmin is not None and tmax is not None:
         axes.set_xlim((ts2date(tmin), ts2date(tmax)))
     axes.set_xlabel('Date', fontproperties=mplfont)
@@ -92,8 +98,12 @@ def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
         if len(fig.get_axes()) < 2:
             ax = axes.twinx()
         axes = fig.get_axes()[1]
-        axes.get_yaxis().get_major_formatter().set_useOffset(False)        
-        if y2log and False:
+        try:
+            axes.get_yaxis().get_major_formatter().set_useOffset(False)
+        except:
+            pass
+        
+        if y2log:
             axes.set_yscale('log', basey=10)
             pos = np.where(dat2>0)
             ts2 = ts2[pos]
