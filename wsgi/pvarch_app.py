@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-from time import time
+from time import time, localtime, strftime
 
 from flask import (Flask, request, session, redirect, url_for,
                    abort, render_template, flash, Response)
@@ -35,6 +35,47 @@ dbconn = Connection(dbname=config.master_db, user=config.dbuser,
                     passwd=config.dbpass, host=config.dbhost)
 
 arch = ArchiveMaster(user=config.dbuser, password=config.dbpass)
+
+ago_choices = [{'val':'15_minutes', 'label':'15 minutes'},
+               {'val':'30_minutes', 'label':'30 minutes'},
+               {'val':'1_hours', 'label':'1 hour'},
+               {'val':'3_hours', 'label':'3 hours'},
+               {'val':'6_hours', 'label':'6 hours'},
+               {'val':'12_hours', 'label':'12 hours'},
+               {'val':'1_days', 'label':  '1 day'},
+               {'val':'2_days', 'label':  '2 days'},
+               {'val':'3_days', 'label':  '3 days'},
+               {'val':'7_days', 'label':  '1 week'},
+               {'val':'14_days', 'label': '2 weeks'},
+               {'val':'21_days', 'label': '3 weeks'},
+               {'val':'42_days', 'label': '6 weeks'}]
+
+
+def parse_times(timevar, date1, date2):
+    if timevar in ('', None, 'None'):
+        timevar = 'time_ago'
+    time_ago = '1_days'
+
+    # date1 could hold date1 or time_ago
+    if date1  in ('', None, 'None'):
+        date1 = None
+    if date1 is not None and '_' in date1:
+        time_ago = date1
+        date1 = None
+
+    # date2 is required for 'date range', so its absence
+    # implies 'time ago'    
+    if date2   in ('', None, 'None'):
+        date2 = None
+        timevar = 'time_ago'
+
+    if (timevar.lower().startswith('date') and
+        date1 is not None and
+        date2 is not None):
+        tmin, tmax = get_timerange('date_range', date1=date1, date2=date2)
+    else:
+        tmin, tmax = get_timerange('time_ago', time_ago=time_ago)
+    return tmin, tmax, date1, date2, time_ago
 
 
 @app.route('/')
@@ -74,8 +115,46 @@ def show(page=None):
 @app.route('/data/<pv>/<timevar>/<date1>')
 @app.route('/data/<pv>/<timevar>/<date1>/<date2>')
 @app.route('/data/<pv>/<timevar>/<date1>/<date2>/<extra>')
-def data(pv=None, timevar=None, date1=None, date2=None, extra=None):    
-    return Response("data for %s, %s, d1=%s, d2=%s, ex=%s " % (pv, timevar, date1, date2, extra))
+def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
+
+    if date1.endswith('.dat'): date1 = None
+    if date2.endswith('.dat'): date2 = None
+    
+    tmin, tmax, date1, date2, time_ago = parse_times(timevar, date1, date2)
+    ts, dat = arch.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
+
+    stmin = strftime("%Y-%m-%d %H:%M:%S", localtime(tmin))
+    stmax = strftime("%Y-%m-%d %H:%M:%S", localtime(tmax))
+    
+    pvinfo  = arch.get_pvinfo(pv)
+    desc    = pvinfo['desc']
+
+    buff = ['# Data for %s  [%s] ' % (pv, desc),
+            '# Time Range: [%.1f %.1f]' % (tmin, tmax),
+            '# Time Range: %s  :   %s' % (stmin, stmax),
+            '# Date Type: %s' % pvinfo['type']]
+
+    fmt = '%f'
+    if pvinfo['type'] == 'enum':
+        thispv = PV(pv)
+        thispv.get()
+        fmt = '%4i'
+        buff.append('# States:')
+        for _i, _enum in enumerate(thispv.enum_strs):
+            buff.append('#   %i: %s' % (_i, _enum))
+        
+    buff.append('#---------------------------------------------------')
+    buff.append('# TimeStamp    Value       Date      Time')
+    for _t, _v in zip(ts, dat):
+        try:
+            val = fmt % _v
+        except:
+            val = repr(_v)
+        ddate = strftime("%Y%m%d", localtime(_t))
+        dtime = strftime("%H%M%S", localtime(_t))
+        buff.append(' %.1f  %s  %s  %s' % (_t, val, ddate, dtime))
+                    
+    return Response("\n".join(buff), mimetype='text/plain')
     
 
 @app.route('/plot/<pv>')
@@ -85,41 +164,25 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
 @app.route('/plot/<pv>/<pv2>/<timevar>/<date1>/<date2>')
 def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
 
-    default_ago = time_ago = '1_days'
     if pv2     in ('', None, 'None'):
         pv2 = None
-    if timevar in ('', None, 'None'):
+        
+    if timevar is None:
         timevar = 'time_ago'
 
-    # date1 could hold date1 or time_ago
-    if date1  in ('', None, 'None'):
-        date1 = None
-    if date1 is not None and '_' in date1:
-        default_ago = time_ago = date1
-        date1 = None
-        
-    # date2 is required for 'date range', so its absence
-    # implies 'time ago'    
-    if date2   in ('', None, 'None'):
-        date2 = None
-        timevar = 'time_ago'
+    tmin, tmax, date1, date2, time_ago = parse_times(timevar, date1, date2)
 
     timestr = 'time_ago/%s' % time_ago
-    if (timevar.lower().startswith('date') and
-        date1 is not None and
-        date2 is not None):
-        tmin, tmax = get_timerange('date_range', date1=date1, date2=date2)
+    if timevar.startswith('date'):
         timestr = 'date_range/%s/%s' % (date1, date2)
         
-    else:
-        tmin, tmax = get_timerange('time_ago', time_ago=time_ago)
-
-        
     messages = []
-    # ['Tmin/Tmax= %i, %i ' % (tmin-now, tmax-now)]
+
     ts, dat, enums, ylabel, ylog = None, None, None, None, False
     try:
         related = arch.related_pvs(pv)
+        if len(related) > 25:
+            related = related[:25]
         pvinfo  = arch.get_pvinfo(pv)
         desc    = pvinfo['desc']
         dtype   = pvinfo['type']
@@ -166,29 +229,16 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
     odate1 = odate2 = ''
     if date1 is not None: odate1 = date1
     if date2 is not None: odate2 = date2
-
     
-    opts = {'pv': pv, 'pv2': pv2,  'timestr':  timestr,
+    opts = {'pv': pv, 'pv2': pv2,
+            'timestr':  timestr,
+            'time_ago': time_ago,
             'odate1': odate1, 'odate2': odate2,
             'messages': messages,
             'figure' : fig,
             'related': related,
-            'default_ago': default_ago,
-            'ago_choices':  [{'val':'15_minutes', 'label':'15 minutes'},
-                             {'val':'30_minutes', 'label':'30 minutes'},
-                             {'val':'1_hours', 'label':'1 hour'},
-                             {'val':'3_hours', 'label':'3 hours'},
-                             {'val':'6_hours', 'label':'6 hours'},
-                             {'val':'12_hours', 'label':'12 hours'},
-                             {'val':'1_days', 'label':  '1 day'},
-                             {'val':'2_days', 'label':  '2 days'},
-                             {'val':'3_days', 'label':  '3 days'},
-                             {'val':'7_days', 'label':  '1 week'},
-                             {'val':'14_days', 'label': '2 weeks'},
-                             {'val':'21_days', 'label': '3 weeks'},
-                             {'val':'42_days', 'label': '6 weeks'}    ]
-    }
-
+            'ago_choices':  ago_choices}
+    
     return render_template('plot.html', **opts)
 
 @app.route('/formplot', methods=['GET', 'POST'])
