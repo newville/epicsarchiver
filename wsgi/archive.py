@@ -67,6 +67,47 @@ def get_timerange(timevar='time_ago', time_ago='1_days',
         tmin   = mktime(dt_min.timetuple())
     return tmin, tmax
 
+
+def parse_times(timevar, date1, date2):
+    if timevar in ('', None, 'None'):
+        timevar = 'time_ago'
+    time_ago = '1_days'
+
+    # date1 could hold date1 or time_ago
+    if date1  in ('', None, 'None'):
+        date1 = None
+    if date1 is not None and '_' in date1:
+        time_ago = date1
+        date1 = None
+
+    # date2 is required for 'date range', so its absence
+    # implies 'time ago'    
+    if date2   in ('', None, 'None'):
+        date2 = None
+        timevar = 'time_ago'
+
+    if (timevar.lower().startswith('date') and
+        date1 is not None and
+        date2 is not None):
+        tmin, tmax = get_timerange('date_range', date1=date1, date2=date2)
+    else:
+        tmin, tmax = get_timerange('time_ago', time_ago=time_ago)
+    return tmin, tmax, date1, date2, time_ago
+
+def convert_string_data(dat):
+    """convert numpy string arrays for Waveform PVs to strings"""
+    out = []
+    for v in dat:
+        val = val.tolist().replace('\n', '')
+        val = val.replace(']', '').replace('[', ' ')
+        val = [int(i) for i in val.split()]
+        n0 = len(val)
+        if 0 in val:
+            n0  = val.index(0)
+        out.append(''.join([chr(int(i)) for i in val[:n0]]))
+    return out
+
+
 class BasicDB(object):
     """basic database interface"""
     def __init__(self, dbname=None, server='mysql',
