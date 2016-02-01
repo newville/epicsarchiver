@@ -91,12 +91,13 @@ def show(page=None):
 @app.route('/data/<pv>/<timevar>/<date1>/<date2>/<extra>')
 def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
 
-    if date1.endswith('.dat'): date1 = None
-    if date2.endswith('.dat'): date2 = None
+    if date1 is not None and date1.endswith('.dat'): date1 = None
+    if date2 is not None and date2.endswith('.dat'): date2 = None
     
     tmin, tmax, date1, date2, time_ago = parse_times(timevar, date1, date2)
     ts, dat = arch.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
 
+    
     stmin = strftime("%Y-%m-%d %H:%M:%S", localtime(tmin))
     stmax = strftime("%Y-%m-%d %H:%M:%S", localtime(tmax))
     
@@ -115,7 +116,11 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
         buff.append('# Value Meanings:')
         for _i, _enum in enumerate(thispv.enum_strs):
             buff.append('#   %i: %s' % (_i, _enum))
-        
+
+    if dat.dtype.type == np.string_:
+        dat = convert_string_data(dat)
+        fmt = '%s'
+            
     buff.append('#---------------------------------------------------')
     buff.append('# TimeStamp        Value       Date      Time')
     for _t, _v in zip(ts, dat):
@@ -184,7 +189,7 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
         except:
             messages.append("data for '%s' not found" % pv2)            
 
-    fig, pvdata, pvdata2 = None, None, None
+    fig, pvdata, pv2data = None, None, None
     if ts is not None:
         if dat.dtype.type == np.string_:
             dat = convert_string_data(dat)
