@@ -229,7 +229,6 @@ class ArchiveMaster(BasicDB):
         row  = q.execute().fetchone()
         self.current_db = dbname = row['db']
         self.data_dbs[dbname] = tdb = PVDataDB(dbname, **self.conn_opts)
-
         self.pvinfo = tdb.pvinfo
 
     def get_pvinfo(self, pvname):
@@ -318,3 +317,35 @@ class ArchiveMaster(BasicDB):
         return ts, vals
 
         
+    def status_report(self, minutes=10):
+        """return a report (list of text lines) for archiving process, """
+        npvs  = len(self.pvinfo)
+        
+        itab = self.tables['info']
+        ainfo = itab.select().where(itab.c.process=='archive').execute().fetchone()
+        cinfo = itab.select().where(itab.c.process=='cache').execute().fetchone()
+
+        cache = self.tables['cache']
+        tago = time() - 60.0
+        ret = cache.select().where(cache.c.ts > tago).execute().fetchall()
+        nnew = len(ret)
+        
+        out = """Cache:   status=%s, last update %s, %i PVs monitored, %i updated in past minute.
+Archive: status=%s, last update %s, current database %s.""" % (
+    cinfo.status, cinfo.datetime, npvs, nnew, ainfo.status, ainfo.datetime, ainfo.db)
+        return out
+
+    def report_recently_archived(self, minutes=10):
+        """return number of PVs archived in past N minutes
+        Note:  this can be a slow process!
+        """
+        
+        self.data_dbs[self.current_db]
+        n = 0
+        tago = time()-minutes*60.
+        for i in range(1,129):
+            tab = cdb.tables['pvdat%3.3i' % i]
+            ret = tab.select().where(tab.c.time>=tago).execute().fetchall()
+            n  += len(ret)
+            
+        return '%i new pvs in %.1f minutes' % (n, minutes)
