@@ -74,14 +74,26 @@
        <tr><td colspan=4>
            <img width=650 src="data:image/png;base64,{{ figure|safe }}"></td>
        </tr>
-  {% else %}
+    {% else %}
+         <tr><td> &nbsp;&nbsp; <td colspan=3> <hr> </td>  </tr>       
     {% if pvdata is not none %}
-        <tr><td colspan=2> Data for {{ pv }} </td>  </tr>
-        <tr><td>  Date </td><td> Value </td>  </tr>
+        <tr><td> &nbsp;&nbsp; <td colspan=3> Data for {{ pv }} </td>  </tr>
+        <tr><td> &nbsp;&nbsp; <td colspan=3> <hr> </td>  </tr>
+        <tr><td></td><td>  Date </td><td> Value </td>  </tr>
         {% for dat in pvdata %}
-             <tr><td> {{ dat.ts }} </td> <td> {{ dat.val }} </td> </tr>
+             <tr><td></td><td> {{ dat.ts }} </td> <td colspan=2> {{ dat.val }} </td> </tr>
         {% endfor %}
-    {% endif %}
+        <tr><td> &nbsp;&nbsp; <td colspan=3> <hr> </td>  </tr>
+     {% endif %}
+    {% if pv2data is not none %}
+        <tr><td> &nbsp;&nbsp; <td colspan=3> Data for {{ pv2 }} </td>  </tr>
+        <tr><td> &nbsp;&nbsp; <td colspan=3> <hr> </td>  </tr>
+        <tr><td></td><td>  Date </td><td> Value </td>  </tr>
+        {% for dat in pv2data %}
+             <tr><td></td><td> {{ dat.ts }} </td> <td colspan=2> {{ dat.val }} </td> </tr>
+        {% endfor %}
+        <tr><td> &nbsp;&nbsp; <td colspan=3> <hr> </td>  </tr>
+     {% endif %}
   {% endif %}
 	     
 	     
