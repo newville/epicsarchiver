@@ -7,14 +7,16 @@ from flask import (Flask, request, session, redirect, url_for,
                    abort, render_template, flash, Response)
 
 from werkzeug import secure_filename
-from epics import PV
 
+
+import numpy as np
+from epics import PV
 from EpicsArchiver import config
 from EpicsArchiver.SimpleDB import Connection
 from WebStatus import WebStatus
 from PlotViewer import  PlotViewer
 
-from archive import ArchiveMaster, get_timerange
+from archive import ArchiveMaster, parse_times, convert_string_data
 
 from make_plot import make_plot
 
@@ -50,32 +52,6 @@ ago_choices = [{'val':'15_minutes', 'label':'15 minutes'},
                {'val':'21_days', 'label': '3 weeks'},
                {'val':'42_days', 'label': '6 weeks'}]
 
-
-def parse_times(timevar, date1, date2):
-    if timevar in ('', None, 'None'):
-        timevar = 'time_ago'
-    time_ago = '1_days'
-
-    # date1 could hold date1 or time_ago
-    if date1  in ('', None, 'None'):
-        date1 = None
-    if date1 is not None and '_' in date1:
-        time_ago = date1
-        date1 = None
-
-    # date2 is required for 'date range', so its absence
-    # implies 'time ago'    
-    if date2   in ('', None, 'None'):
-        date2 = None
-        timevar = 'time_ago'
-
-    if (timevar.lower().startswith('date') and
-        date1 is not None and
-        date2 is not None):
-        tmin, tmax = get_timerange('date_range', date1=date1, date2=date2)
-    else:
-        tmin, tmax = get_timerange('time_ago', time_ago=time_ago)
-    return tmin, tmax, date1, date2, time_ago
 
 
 @app.route('/')
@@ -126,22 +102,22 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
     
     pvinfo  = arch.get_pvinfo(pv)
 
-    buff = ['# Data for %s  [%s] '      % (pv, pvinfo['desc']),
-            '# Time Range: [%.1f %.1f]' % (tmin, tmax),
-            '# Time Range: %s  :  %s'   % (stmin, stmax),
-            '# Date Type: %s'           % pvinfo['type']]
+    buff = ['# Data for %s [%s] '      % (pv, pvinfo['desc']),
+            '# Time Range: %s , %s'   % (stmin, stmax),
+            '# Timestamps: [%.1f : %.1f]' % (tmin, tmax),
+            '# Data Type: %s'           % pvinfo['type']]
 
-    fmt = '%f'
+    fmt = '%13.7g'
     if pvinfo['type'] == 'enum':
         thispv = PV(pv)
         thispv.get()
-        fmt = '%4i'
-        buff.append('# States:')
+        fmt = '%13i'
+        buff.append('# Value Meanings:')
         for _i, _enum in enumerate(thispv.enum_strs):
             buff.append('#   %i: %s' % (_i, _enum))
         
     buff.append('#---------------------------------------------------')
-    buff.append('# TimeStamp    Value       Date      Time')
+    buff.append('# TimeStamp        Value       Date      Time')
     for _t, _v in zip(ts, dat):
         try:
             val = fmt % _v
@@ -208,13 +184,28 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
         except:
             messages.append("data for '%s' not found" % pv2)            
 
-    fig = None
+    fig, pvdata, pvdata2 = None, None, None
     if ts is not None:
-        fig = make_plot(ts, dat, ylabel=ylabel,
-                        enums=enums,  ylog=ylog,
-                        ts2=ts2, dat2=dat2, y2label=y2label, 
-                        enums2=enums2, y2log=y2log,
-                        tmin=tmin, tmax=tmax)
+        if dat.dtype.type == np.string_:
+            dat = convert_string_data(dat)
+            pvdata = []
+            for _t, _d in zip(ts, dat):
+                pvdata.append({'ts': strftime("%Y-%m-%d %H:%M:%S", localtime(_t)),
+                               'val': _d})
+
+        if dat2 is not None and dat2.dtype.type == np.string_:
+            dat2 = convert_string_data(dat2)
+            pv2data = []
+            for _t, _d in zip(ts2, dat2):
+                pv2data.append({'ts': strftime("%Y-%m-%d %H:%M:%S", localtime(_t)),
+                                'val': _d})
+
+        if pvdata is None and pv2data is None:
+            fig = make_plot(ts, dat, ylabel=ylabel,
+                            enums=enums,  ylog=ylog,
+                            ts2=ts2, dat2=dat2, y2label=y2label,
+                            enums2=enums2, y2log=y2log,
+                            tmin=tmin, tmax=tmax)
 
     if len(messages) > 0:
         messages = ', '.join(messages)
@@ -226,9 +217,10 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
     if date2 is not None: odate2 = date2
     
     opts = {'pv': pv, 'pv2': pv2,
+            'pvdata': pvdata, 'pv2data': pv2data,
+            'odate1': odate1, 'odate2': odate2,
             'timestr':  timestr,
             'time_ago': time_ago,
-            'odate1': odate1, 'odate2': odate2,
             'messages': messages,
             'figure' : fig,
             'related': related,
