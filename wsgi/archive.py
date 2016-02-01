@@ -97,7 +97,7 @@ def parse_times(timevar, date1, date2):
 def convert_string_data(dat):
     """convert numpy string arrays for Waveform PVs to strings"""
     out = []
-    for v in dat:
+    for val in dat:
         val = val.tolist().replace('\n', '')
         val = val.replace(']', '').replace('[', ' ')
         val = [int(i) for i in val.split()]
