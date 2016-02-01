@@ -70,8 +70,21 @@
      {% endif %}
 
 
-  <tr><td colspan=4> <img width=650 src="data:image/png;base64,{{ figure|safe }}"></td></tr>
-
+   {% if figure is not none %}
+       <tr><td colspan=4>
+           <img width=650 src="data:image/png;base64,{{ figure|safe }}"></td>
+       </tr>
+  {% else %}
+    {% if pvdata is not none %}
+        <tr><td colspan=2> Data for {{ pv }} </td>  </tr>
+        <tr><td>  Date </td><td> Value </td>  </tr>
+        {% for dat in pvdata %}
+             <tr><td> {{ dat.ts }} </td> <td> {{ dat.val }} </td> </tr>
+        {% endfor %}
+    {% endif %}
+  {% endif %}
+	     
+	     
   <tr><td>Replot</td><td colspan=3>
       {% for c in ago_choices %}
          {% if 'day' not in c.val %}
