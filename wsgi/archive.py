@@ -100,7 +100,10 @@ def convert_string_data(dat):
     for val in dat:
         val = val.tolist().replace('\n', '')
         val = val.replace(']', '').replace('[', ' ')
-        val = [int(i) for i in val.split()]
+        try:
+            val = [int(i) for i in val.split()]
+        except:
+            val = [60, 117, 110, 107, 110, 111, 119, 110, 62]
         n0 = len(val)
         if 0 in val:
             n0  = val.index(0)
