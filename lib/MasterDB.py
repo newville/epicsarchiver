@@ -591,8 +591,7 @@ class MasterDB:
                 match = re_showpv(line)
                 nmatch = nmatch + 1
             mlines[i] = line
-        
-        msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/show.py/plot?pv=%s\n" % \
+        msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/plot/%s\n" % \
               (mailfrom,subject,'\n'.join(mlines),cgi_url,pvname)
 
         try:
