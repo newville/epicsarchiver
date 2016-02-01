@@ -14,7 +14,6 @@ from epics import PV
 from EpicsArchiver import config
 from EpicsArchiver.SimpleDB import Connection
 from WebStatus import WebStatus
-from PlotViewer import  PlotViewer
 
 from archive import ArchiveMaster, parse_times, convert_string_data
 
@@ -62,6 +61,10 @@ def index():
 @app.route('/help')
 def help():
     return render_template('help.html')    
+
+@app.route('/admin')
+def admin():
+    return Response( db.status_report())
 
 @app.route('/show/<page>')
 def show(page=None):
@@ -251,8 +254,5 @@ def formplot():
     return Response(" Create Plot based on Form Submission(Date Range) %s" %  form.items())
 
 
-@app.route('/admin')
-def admin():
-    return Response('Stub for Admin Page')
 
 
