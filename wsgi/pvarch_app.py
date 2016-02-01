@@ -63,8 +63,9 @@ def help():
     return render_template('help.html')    
 
 @app.route('/admin')
-def admin():
-    return Response( db.status_report())
+@app.route('/admin/<option>')
+def admin(option=None):
+    return Response(arch.status_report())
 
 @app.route('/show/<page>')
 def show(page=None):
