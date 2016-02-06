@@ -31,7 +31,7 @@ matplotlib.rc('savefig', dpi=150)
 
 plotopts = dict(linewidth=2.0, marker='s', 
                 markersize=3.5, markeredgewidth=0.0, 
-                drawstyle='steps-post', zorder=30)
+                drawstyle='steps-post', zorder=25)
 
 def auto_margins(fig, canvas, axes, gspec):
     """automatically set margins"""    
@@ -91,13 +91,18 @@ def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
         x.set_rotation(0)
         x.set_ha('center')
         
-    axes.grid(True)
+    axes.grid(True, zorder=-5)
         
         
     if ts2 is not None:
         if len(fig.get_axes()) < 2:
             ax = axes.twinx()
         axes = fig.get_axes()[1]
+        axes0 = fig.get_axes()[0]
+        axes0.set_zorder(axes.get_zorder()+10)
+        axes0.patch.set_visible(False)
+        axes0.grid(axes.get_zorder()-5)
+        axes.grid(False)
         try:
             axes.get_yaxis().get_major_formatter().set_useOffset(False)
         except:
@@ -109,13 +114,12 @@ def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
             ts2 = ts2[pos]
             dat2 = dat2[pos]
         t2vals  = [ts2date(t) for t in ts2]
-        plotopts['zorder'] = 25
         if enums2 is not None:
             pad = min(0.8, 0.1*len(enums2))
             axes.set_ylim(-pad, len(enums2)-1+pad)
             axes.set_yticks(range(len(enums2)))
             axes.set_yticklabels(enums2)
-
+        plotopts['zorder'] = 20
         axes.plot(t2vals, dat2, color='r', **plotopts)
         axes.set_ylabel(y2label, color='r', fontproperties=mplfont)
         if tmin is not None and tmax is not None:
