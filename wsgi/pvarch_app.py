@@ -201,6 +201,8 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
             for _t, _d in zip(ts, dat):
                 pvdata.append({'ts': strftime("%Y-%m-%d %H:%M:%S", localtime(_t)),
                                'val': _d})
+            last_pt = pvdata.pop()
+            pvdata.append({'ts': "Now", 'val': last_pt['val']})
 
         if dat2 is not None and dat2.dtype.type == np.string_:
             dat2 = convert_string_data(dat2)
@@ -208,6 +210,8 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
             for _t, _d in zip(ts2, dat2):
                 pv2data.append({'ts': strftime("%Y-%m-%d %H:%M:%S", localtime(_t)),
                                 'val': _d})
+            last_pt = pv2data.pop()
+            pv2data.append({'ts': "Now", 'val': last_pt['val']})
 
         if pvdata is None and pv2data is None:
             fig = make_plot(ts, dat, ylabel=ylabel,
