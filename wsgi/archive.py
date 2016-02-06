@@ -296,12 +296,12 @@ class ArchiveMaster(BasicDB):
             with_current = abs(tmax-tnow) < SEC_DAY
         if with_current:
             cache = self.cache_row(npv)
-            ts.append(float(cache.ts))
             try:
                val = float(cache.value)
             except:
                val = cache.value
-            vals.append(val)
+            # ts.append(float(cache.ts))
+            # vals.append(val)
             # and current time
             ts.append(time())
             vals.append(val)
