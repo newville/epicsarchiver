@@ -53,6 +53,12 @@ ago_choices = [{'val':'15_minutes', 'label':'15 minutes'},
 
 
 
+def toNone(val):
+    if val in ('', 'None', None):
+        val = None
+    return val
+
+
 @app.route('/')
 def index():
     return redirect(url_for('show', page='General'))
@@ -60,7 +66,7 @@ def index():
 
 @app.route('/help')
 def help():
-    return render_template('help.html')    
+    return render_template('help.html')
 
 @app.route('/admin')
 @app.route('/admin/<option>')
@@ -74,9 +80,9 @@ def show(page=None):
     """
     p = WebStatus(cache=None, dbconn=dbconn)
     page = str(page)
-    
+
     p.begin_page(page, pagelist, refresh=60)
-    
+
     template = filemap[page]
     if template.startswith('<'):
         method = template[1:-1]
@@ -86,7 +92,7 @@ def show(page=None):
             pass
     else:
         p.show_pvfile(template)
-   
+
     p.end_page()
     return Response(p.get_buffer())
 
@@ -97,14 +103,14 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
 
     if date1 is not None and date1.endswith('.dat'): date1 = None
     if date2 is not None and date2.endswith('.dat'): date2 = None
-    
+
     tmin, tmax, date1, date2, time_ago = parse_times(timevar, date1, date2)
     ts, dat = arch.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
 
-    
+
     stmin = strftime("%Y-%m-%d %H:%M:%S", localtime(tmin))
     stmax = strftime("%Y-%m-%d %H:%M:%S", localtime(tmax))
-    
+
     pvinfo  = arch.get_pvinfo(pv)
 
     buff = ['# Data for %s [%s] '      % (pv, pvinfo['desc']),
@@ -124,7 +130,7 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
     if dat.dtype.type == np.string_:
         dat = convert_string_data(dat)
         fmt = '%s'
-            
+
     buff.append('#---------------------------------------------------')
     buff.append('# TimeStamp        Value       Date      Time')
     for _t, _v in zip(ts, dat):
@@ -136,28 +142,29 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
         dtime = strftime("%H%M%S", localtime(_t))
         buff.append(' %.1f  %s  %s  %s' % (_t, val, ddate, dtime))
     return Response("\n".join(buff), mimetype='text/plain')
-    
+
 @app.route('/plot/<pv>')
 @app.route('/plot/<pv>/<pv2>')
 @app.route('/plot/<pv>/<pv2>/<timevar>')
 @app.route('/plot/<pv>/<pv2>/<timevar>/<date1>')
 @app.route('/plot/<pv>/<pv2>/<timevar>/<date1>/<date2>')
-def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
+def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None,
+         pvmin=None, pvmax=None, pv2min=None, pv2max=None, fdat=None):
 
-    if pv2     in ('', None, 'None'):
+    if pv2  in ('', None, 'None'):
         pv2 = None
-        
+
     if timevar is None:
         timevar = 'time_ago'
-
+    sdate1 = date1
     tmin, tmax, date1, date2, time_ago = parse_times(timevar, date1, date2)
 
     timestr = 'time_ago/%s' % time_ago
     if timevar.startswith('date'):
         timestr = 'date_range/%s/%s' % (date1, date2)
-        
-    messages = []
 
+    messages = []
+    pvcurrent, pv2current = None, None
     ts, dat, enums, ylabel, ylog = None, None, None, None, False
     try:
         related = arch.related_pvs(pv)
@@ -170,13 +177,14 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
             thispv = PV(pv)
             thispv.get()
             enums = thispv.enum_strs
-            
+
         ylog    = pvinfo['graph_type'].startswith('log')
         ts, dat = arch.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
         ylabel  = "%s\n[%s]" % (desc, pv)
+        pvcurrent = "%g" % dat[-1]
     except:
         messages.append("data for '%s' not found" % pv)
-        
+
     ts2, dat2, enums2, y2label, y2log = None, None, None, None, False
     if pv2 is not None:
         try:
@@ -190,8 +198,9 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
             y2log    = pvinfo2['graph_type'].startswith('log')
             ts2, dat2 = arch.get_data(pv2, tmin=tmin, tmax=tmax, with_current=True)
             y2label="%s\n[%s]" % (desc2, pv2)
+            pv2current = "%g" % dat2[-1]
         except:
-            messages.append("data for '%s' not found" % pv2)            
+            messages.append("data for '%s' not found" % pv2)
 
     fig, pvdata, pv2data = None, None, None
     if ts is not None:
@@ -204,6 +213,7 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
             last_pt = pvdata.pop()
             pvdata.append({'ts': "Now", 'val': last_pt['val']})
 
+
         if dat2 is not None and dat2.dtype.type == np.string_:
             dat2 = convert_string_data(dat2)
             pv2data = []
@@ -214,50 +224,78 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None):
             pv2data.append({'ts': "Now", 'val': last_pt['val']})
 
         if pvdata is None and pv2data is None:
+
             fig = make_plot(ts, dat, ylabel=ylabel,
                             enums=enums,  ylog=ylog,
                             ts2=ts2, dat2=dat2, y2label=y2label,
                             enums2=enums2, y2log=y2log,
-                            tmin=tmin, tmax=tmax)
+                            tmin=tmin, tmax=tmax,
+                            ymin=pvmin, ymax=pvmax,
+                            y2min=pv2min, y2max=pv2max)
 
     if len(messages) > 0:
         messages = ', '.join(messages)
     else:
         messages = None
 
-    odate1 = odate2 = ''
-    if date1 is not None: odate1 = date1
-    if date2 is not None: odate2 = date2
-    
-    opts = {'pv': pv, 'pv2': pv2,
-            'pvdata': pvdata, 'pv2data': pv2data,
-            'odate1': odate1, 'odate2': odate2,
+    # if pv2   is None: pv2 = ''
+    if date1 is None: date1 = ''
+    if date2 is None: date2 = ''
+    if pvmin is None: pvmin = ''
+    if pvmax is None: pvmax = ''
+    if pv2min is None: pv2min = ''
+    if pv2max is None: pv2max = ''
+
+    if fdat is None: fdat = {}
+
+    opts = {'pv': pv,
+            'pv2': pv2,
+            'pvcurrent': pvcurrent,
+            'pv2current': pv2current,
+            'pvdata': pvdata,
+            'pv2data': pv2data,
+            'pvmin': pvmin,
+            'pvmax': pvmax,
+            'pv2min': pv2min,
+            'pv2max': pv2max,
+            'fdat': fdat,
+            'date1': date1,
+            'date2': date2,
+            'sdate1': date1,
             'timestr':  timestr,
+            'timevar': timevar,
             'time_ago': time_ago,
             'messages': messages,
             'figure' : fig,
             'related': related,
             'ago_choices':  ago_choices}
-    
+
     return render_template('plot.html', **opts)
+
 
 @app.route('/formplot', methods=['GET', 'POST'])
 def formplot():
     if request.method == 'POST':
         form = request.form
-        pv = form.get('pv', 'None')
-        pv2 = form.get('pv2', 'None')
-        if pv2     in ('', None, 'None'): pv2 = None
+        pv = toNone(form.get('pv', ''))
+        pv2 = toNone(form.get('pv2', ''))
+        pvmin = toNone(form.get('pvmin', ''))
+        pvmax = toNone(form.get('pvmax', ''))
+        pv2min = toNone(form.get('pv2min', ''))
+        pv2max = toNone(form.get('pv2max', ''))
+        fdat =  form.items()
+        # return render_template('showvars.html', **opts)
+
+        if pv2 in ('', None, 'None'):
+            pv2 = None
         if form.get('submit', 'From Present').lower().startswith('from'):
-            date1 = form.get('timevar', '1_days')
-            return redirect('plot/%s/%s/time_ago/%s' % (pv, pv2, date1))
+            date1 = form.get('time_ago', '1_days')
+            return plot(pv, pv2=pv2, timevar='time_ago', date1=date1,
+                        pvmin=pvmin, pvmax=pvmax, pv2min=pv2min, pv2max=pv2max, fdat=fdat)
         else:
-            date1 = form.get('date1', 'None')
-            date2 = form.get('date2', 'None')
-            return redirect('plot/%s/%s/date_range/%s/%s' % (pv, pv2, date1, date2))
-        
+            date1 = form.get('date1', None)
+            date2 = form.get('date2', None)
+            return plot(pv, pv2=pv2, timevar='date_range', date1=date1, date2=date2,
+                        pvmin=pvmin, pvmax=pvmax, pv2min=pv2min, pv2max=pv2max, fdat=fdat)
+
     return Response(" Create Plot based on Form Submission(Date Range) %s" %  form.items())
-
-
-
-
