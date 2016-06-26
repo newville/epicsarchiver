@@ -202,6 +202,12 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None,
         except:
             messages.append("data for '%s' not found" % pv2)
 
+
+        try:
+            arch.set_pair_score(pv, pv2)
+        except:
+            messages.append(" could not increment pair score ")
+
     fig, pvdata, pv2data = None, None, None
     if ts is not None:
         if dat.dtype.type == np.string_:

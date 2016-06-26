@@ -25,7 +25,7 @@ except ImportError:
     except ImportError:
         try:
             import pymyql
-            MYSQL_VAR = 'pymysql'        
+            MYSQL_VAR = 'pymysql'
         except ImportError:
             pass
 
@@ -43,11 +43,11 @@ def get_timerange(timevar='time_ago', time_ago='1_days',
 
     Notes:
     ------
-    1.  The time_ago string as the form '%f_%s'  with the 
+    1.  The time_ago string as the form '%f_%s'  with the
         string one of ('minutes, 'hours', or 'days'), like
              time_ago='1.5_days'   time_ago='15_minutes'
 
-    2: 'date1' and 'date2' are strings of the form 
+    2: 'date1' and 'date2' are strings of the form
        "%Y-%m-%d %H:%M:%S"
     """
     if (timevar.lower().startswith('date') and
@@ -59,7 +59,7 @@ def get_timerange(timevar='time_ago', time_ago='1_days',
             tmin, tmax = tmax, tmin
     else:
         tmax   = time()
-        tval, tunit = time_ago.split('_') 
+        tval, tunit = time_ago.split('_')
         opts = {}
         opts[tunit] = float(tval)
         dt_max = datetime.fromtimestamp(tmax)
@@ -81,7 +81,7 @@ def parse_times(timevar, date1, date2):
         date1 = None
 
     # date2 is required for 'date range', so its absence
-    # implies 'time ago'    
+    # implies 'time ago'
     if date2   in ('', None, 'None'):
         date2 = None
         timevar = 'time_ago'
@@ -135,8 +135,8 @@ class BasicDB(object):
         conn_str = 'sqlite:///%s'
         if server.startswith('post'):
             if port is None:
-                port = 5432 
-            conn_str = 'postgresql://%s:%s@%s:%i/%%s' 
+                port = 5432
+            conn_str = 'postgresql://%s:%s@%s:%i/%%s'
             conn_str = conn_str % (user, password, host, port)
         elif server.startswith('mysql') and MYSQL_VAR is not None:
             if port is None:
@@ -155,7 +155,7 @@ class BasicDB(object):
             self.engine = create_engine(self.conn_str % self.dbname)
         except:
             raise RuntimeError("Could not connect to database")
-        
+
         self.metadata =  MetaData(self.engine)
         try:
             self.metadata.reflect()
@@ -182,7 +182,7 @@ class PVDataDB(BasicDB):
         self.pvinfo = None
         if self.dbname is not None:
             self.read_pvinfo()
-            
+
     def read_pvinfo(self):
         "make dictionary of PVName -> PV info (id, data_table, etc)"
         self.pvinfo = {}
@@ -213,7 +213,7 @@ class PVDataDB(BasicDB):
         q = dtab.select().where(dtab.c.pv_id==pv_id).order_by(dtab.c.time)
         q = q.where(dtab.c.time >= tmin).where(dtab.c.time <= tmax)
         return [(float(row.time), row.value) for row in q.execute().fetchall()]
-        
+
 class ArchiveMaster(BasicDB):
     """Archive Master"""
     def __init__(self, dbname='pvarch_master', server= 'mysql',
@@ -237,7 +237,7 @@ class ArchiveMaster(BasicDB):
     def get_pvinfo(self, pvname):
         npv = normalize_pvname(pvname)
         return self.pvinfo.get(npv, npv)
-    
+
 
     def dbs_for_time(self, tmin=0, tmax=MAX_EPOCH):
         "return list of dbs for a selected time range"
@@ -250,13 +250,33 @@ class ArchiveMaster(BasicDB):
         """return list of related PVs to provided pv, in order of score"""
         ptab = self.tables['pairs']
         npv = normalize_pvname(pvname)
-        out = []
+        pairs = []
         for r in self.query(ptab).filter((ptab.c.pv1==npv)|
                                          (ptab.c.pv2==npv)).all():
-            other = r.pv2
-            if npv == r.pv2: other = r.pv1
-            out.append(other)
-        return out
+            other = (int(r.score), r.pv2)
+            if npv == r.pv2: other = (int(r.score), r.pv1)
+            pairs.append(other)
+        pairs.sort()
+        pairs.reverse()
+        return [p[1] for p in pairs]
+
+    def set_pair_score(self, pvname1, pvname2, score=None):
+        """set 'relatedness' score for 2 pvs
+        if score is None it will be incremented by 1
+        """
+        ptab = self.tables['pairs']
+        npv1 = normalize_pvname(pvname1)
+        npv2 = normalize_pvname(pvname2)
+        q = self.query(ptab)
+        pairs  = q.filter((ptab.c.pv1==npv1)&(ptab.c.pv2==npv2)).all()
+        if len(pairs) == 0:
+            pairs = q.filter((ptab.c.pv1==npv2)&(ptab.c.pv2==npv1)).all()
+
+        if len(pairs) < 1:
+            ptab.insert().execute(pv1=npv1, pv2=npv2, score=1)
+        else:
+            pair = pairs[0]
+            ptab.update(whereclause='id=%i' % pair.id).execute(score=pair.score+1)
 
     def cache_row(self, pvname):
         """return full cache row for a pv"""
@@ -283,8 +303,8 @@ class ArchiveMaster(BasicDB):
             # print("  Use DB ", dbname)
             if dbname not in self.data_dbs:
                 self.data_dbs[dbname] = PVDataDB(dbname, **self.conn_opts)
-	    ddb = self.data_dbs[dbname]
-	    for t, v in ddb.get_data(npv, tmin=_tmin, tmax=_tmax):
+            ddb = self.data_dbs[dbname]
+            for t, v in ddb.get_data(npv, tmin=_tmin, tmax=_tmax):
                 ts.append(float(t))
                 try:
                    v = float(v)
@@ -305,7 +325,7 @@ class ArchiveMaster(BasicDB):
             # and current time
             ts.append(time())
             vals.append(val)
-            
+
         ts, vals = np.array(ts), np.array(vals)
         torder = ts.argsort()
         ts, vals = ts[torder], vals[torder]
@@ -319,11 +339,11 @@ class ArchiveMaster(BasicDB):
         ts, vals = ts[tsel], vals[tsel]
         return ts, vals
 
-        
+
     def status_report(self, minutes=10):
         """return a report (list of text lines) for archiving process, """
         npvs  = len(self.pvinfo)
-        
+
         itab = self.tables['info']
         ainfo = itab.select().where(itab.c.process=='archive').execute().fetchone()
         cinfo = itab.select().where(itab.c.process=='cache').execute().fetchone()
@@ -332,7 +352,7 @@ class ArchiveMaster(BasicDB):
         tago = time() - 60.0
         ret = cache.select().where(cache.c.ts > tago).execute().fetchall()
         nnew = len(ret)
-        
+
         out = """Cache:   status=%s, last update %s, %i PVs monitored, %i updated in past minute.
 Archive: status=%s, last update %s, current database %s.""" % (
     cinfo.status, cinfo.datetime, npvs, nnew, ainfo.status, ainfo.datetime, ainfo.db)
@@ -342,7 +362,7 @@ Archive: status=%s, last update %s, current database %s.""" % (
         """return number of PVs archived in past N minutes
         Note:  this can be a slow process!
         """
-        
+
         self.data_dbs[self.current_db]
         n = 0
         tago = time()-minutes*60.
@@ -350,5 +370,5 @@ Archive: status=%s, last update %s, current database %s.""" % (
             tab = cdb.tables['pvdat%3.3i' % i]
             ret = tab.select().where(tab.c.time>=tago).execute().fetchall()
             n  += len(ret)
-            
+
         return '%i new pvs in %.1f minutes' % (n, minutes)
