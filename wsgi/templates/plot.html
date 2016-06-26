@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block body %}
 
-<table><tr>
+a<table><tr>
    <td valign=top>
 
   <form action="{{ url_for('formplot') }}" method=post>
@@ -34,14 +34,45 @@
 	<input type='text' id="date1" name="date1" > <button id="date1_trig">...</button>
 	<input type='text' id="date2" name="date2" > <button id="date2_trig">...</button>
 	<script type='text/javascript'>
-	  Calendar.setup({inputField: "date1",button: "date1_trig", onUpdate: setdate2,
-		ifFormat: "%Y-%m-%d %H:%M:%S", showsTime: true,  timeFormat: 24,
-		showOthers: true, singleClick: false,  weekNumbers: false});
-	  Calendar.setup({inputField: "date2", button: "date2_trig",
-	  ifFormat: "%Y-%m-%d %H:%M:%S"});
 
+	 function setdate2(cal) {
+	     var date  = cal.date;
+	     var time  = date.getTime()
+	     var f1    = document.getElementById("date1");
+	     var f2    = document.getElementById("date2");
+	     var tago  = document.getElementById("timevar");
+	     var tarr  = new Array();
+	     tarr      = tago.value.split(' ');
+	     if (f1 == cal.params.inputField) {
+		 var tunit = Date.MINUTE;
+		 var tstr = tarr[1].substring(0,2);
+		 if      (tstr == 'ho'){ tunit= Date.HOUR;   }
+		 else if (tstr == 'we'){ tunit= Date.WEEK;   }
+		 else if (tstr == 'da'){ tunit= Date.DAY;   }
+		 else if (tstr == 'mo'){ tunit= Date.DAY*31; }
+		 time     += tarr[0] * tunit;
+		 var date2 = new Date(time);
+		 f2.value  = date2.print("%Y-%m-%d %H:%M:%S");
+	       }
+	 }
+	 Calendar.setup({inputField: "date1",
+			button: "date1_trig",
+			onUpdate: setdate2,
+			ifFormat: "%Y-%m-%d %H:%M:%S",
+			showsTime: true,
+			timeFormat: 24,
+			showOthers: true,
+			singleClick: false,
+			weekNumbers: false });
+	 Calendar.setup({inputField: "date2",
+			button: "date2_trig",
+			ifFormat: "%Y-%m-%d %H:%M:%S",
+			showsTime: true,
+			timeFormat: 24,
+			showOthers: true,
+			singleClick: false,
+			weekNumbers: false });
      </script>
-
      </td></tr>
       {% if messages is not none %}
 	<tr><td>Warnings:</td><td colspan=3> <b>{{ messages }}</b></td></tr>
