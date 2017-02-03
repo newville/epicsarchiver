@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<p> <div class=subfont> PVArchiver Alerts  </div>
+
+
+  <table cellspacing=5 cellpadding=2>
+
+    <tr>
+      <td> Name: {% if admin %} (click to edit) {% endif %} </td>
+      <td>PV Name</td><td>Trip Point</td> <td>Active?</td>
+    </tr>
+
+      {% for alert in alerts %}
+      <tr id="{{ loop.cycle('odd', 'even') }}" >
+	<td>
+	  {% if admin %}
+	  <a href="editalert/{{alert.id}}"> {{ alert.name }}  </a>
+	     
+	    {% else %}
+	     {{ alert.name }}
+	     {% endif %}
+	</td>
+	<td> {{ alert.pvname }}  </td>
+	<td> {{ alert.compare }} {{ alert.trippoint}} </td>
+	<td> {{ alert.active }}  </td>
+	</tr>
+      {% endfor %}
+    
+</table>
+
+
+{% endblock %}

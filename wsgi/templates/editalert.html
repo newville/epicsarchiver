@@ -1,0 +1,71 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<p> <div class=subfont> PVArchiver Alert:
+    {%if updated %} (updated) {% endif %}
+    {%if copied %} (new copy) {% endif %}
+  </div>
+
+  {% if admin %}
+  
+  <form action="{{ url_for('submit_alertedits')}}" method=post>
+    <input type=hidden name=alertid value={{alert.id}}>    
+      <table>
+	<tr> <td> Name:</td>
+	  <td><input size=70 type=text name=name
+		     value='{{alert.name|safe}}'></td>
+	</tr>
+	<tr> <td> PV Name:</td>
+	  <td><input size=70 type=text name=pvname
+		     value='{{alert.pvname|safe}}'></td>
+	</tr>
+	<tr> <td> Comparison:</td>
+	  <td> <select name=compare width=120>
+	      {% for key, value in alert_choices.items() %}
+	      <option value={{key}} 
+		      {%if key == alert.compare %} selected=1 {% endif %}>
+		{{ value }}
+	      </option>
+	      {% endfor %}
+	    </select>
+	    </td>
+	</tr>
+	<tr> <td> Threshold:</td>
+	  <td><input size=70 type=text name=trippoint
+		     value='{{alert.trippoint|safe}}'></td>
+	</tr>	
+	<tr> <td> Timeout (sec):</td>
+	  <td><input size=70 type=text name=timeout
+		     value='{{alert.timeout|safe}}'></td>
+	</tr>	
+	<tr> <td> Mail to:</td>
+	  <td><textarea cols=70  rows=7 type=text
+			name=mailto>{{alert.mailto}}</textarea>
+	  </td>
+	</tr>
+	<tr> <td> Message:</td>
+	  <td><textarea cols=70 rows=15 type=text
+			name=mailmsg>{{alert.mailmsg}}</textarea>
+	  </td>
+	</tr>
+
+	<tr> <td> Active:</td>
+	  <td> <select name=active width=75>
+	      <option value=yes
+		      {%if alert.active == 'yes' %} selected=1 {% endif %}>
+		yes </option>
+	      <option value=no
+		      {%if alert.active == 'no' %} selected=1 {% endif %}>
+		no </option>
+	    </select>
+	  </td>
+	</tr>
+
+      <tr><td><input type=submit name=submit value=submit> &nbsp;&nbsp;
+	  <input type=submit name=copy value='copy this alert'></td>
+      </table>
+  </form>
+
+{% endif %}
+
+{% endblock %}

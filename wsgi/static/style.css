@@ -38,12 +38,11 @@ h2 {font:bold 22px verdana,arial,sans-serif;color:#044484;font-weight:bold;}
 .h3font {font:bold 18px verdana,arial,sans-serif;color:#A42424;font-weight:bold;font-style:italic;}
 
 #ptable {background:#FEFEFC;}
-#elem {font: bold 12pt verdana,arial,san-serif; font-family: monospace; font-size: 12pt; font-weight:bold;
-       background:#FFFFFD; text-align:justify;}
-#elem a, a.active {color: #4444AA; solid #880000 ; text-decoration: none; }
-#elem a.active {color: #CC0000;  background: #FAFAE0;}
-#elem a:hover {color: #CC0000;  background: #FAFAE0;}
-
+#pvval {font: bold 12pt verdana,arial,san-serif; 
+	font-size: 12pt; font-weight:bold;
+	background:#FFFFFD; text-align:justify;}
+#pvval a, a.active {color: #000DD;}
+#pvval a:hover {color: #CC0000;}
 
 #spectra {font: bold 11pt verdana,arial,san-serif;  background:#FAFAF8; text-align:justify;}
 #spectra a, a.active {color: #4444AA; solid #880000 ; text-decoration: none; }
@@ -61,17 +60,18 @@ body {margin:10px; padding:0px;background:#FCFCFC; font:bold 14px verdana, arial
           border-top: none;  z-index: 2; }
 
 #tabmenu {font: bold 11px verdana, arial, sans-serif;
-          margin: 0px;  padding: 2px; padding-left: 10px; border-bottom: 4px solid #999955}
+          margin: 0px;  padding: 2px; padding-left: 2px; border-bottom: 4px solid #999955}
 
-#tabmenu ul {margin: 1px;  padding: 2px; padding-left: 20px}
+#tabmenu ul {margin: 1px;  padding: 2px; padding-left: 1px}
 
 #tabmenu li {display: inline;  margin: 1px; list-style-type: none; }
 
-#tabmenu a, a.active {color: #4444AA;background: #FEFEFC;
-                      border-left: 2px solid #999955; border-right: 2px solid #999955;
-             padding: 2px 5px 2px 5px; margin: 0px ;text-decoration: none; }
+#tabmenu a, a.active {color: #0000DD;background: #FEFEFD;
+                      border-left:  3px solid #999955;
+		      border-right: 3px solid #999955;
+             padding: 2px 2px 2px 2px; margin: 0px ;text-decoration: none; }
 
-#tabmenu a.active {color: #CC0000; background: #FAFAE0;}
-#tabmenu a:hover {color: #CC0000; background: #FAFAE0;}
+#tabmenu a:hover  {color: #0000DD; background: #F0F0D0;}
+#tabmenu a.active {color: #DD0000; background: #F0F0D0;}
 
 #time {font: bold 12px verdana, arial, sans-serif; border: 2px; color: #4444AA; margin: 1px;}

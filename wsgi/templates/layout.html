@@ -15,24 +15,33 @@
 	  src='http://millenia.cars.aps.anl.gov/cgi-data/jscal/calendar-setup.js'></script>
 
 </head>
+
 <div class=page>
   <div class=topbar>
   <table cellpadding=1 width=100%>
     <tr>
       <td width=35% padding=5 align=left>
-        <font size=+1>Epics Archive Data</font></td>
-      <td width=65% align=right>
-	<a href="{{ url_for('admin') }}">[Admin Access]</a>
-      </td>
+        <font size=+1>PV Archiver</font></td>
     </tr>
   </table>
 </div>
 
+
 <div id='tab'>
-<ul id='tabmenu'>
-  <li> <a href="{{ url_for('index') }}"> PV Archiver </a> </li>
-  <li> <a href="{{ url_for('help') }}"> Help </a> </li>
+  <ul id='tabmenu'>
+    <li> <a href="{{ url_for('index') }}">Main Page </a> </li>
+    <li> &nbsp;&nbsp; </li>
+    <li> <a href="{{ url_for('help') }}"> Help </a> </li>
+    <li> <a href="{{ url_for('status') }}"> Status </a> </li>
+
+    {% if admin %}
+    <li><a href="{{ url_for('alerts') }}">Alerts</a></li>
+    <li><a href="{{ url_for('logout') }}">Logout</a></li>    
+    {% else %}
+    <li><a href="{{ url_for('login') }}">Login</a></li>    
+    {% endif %}
 </ul>
+
 </div>
 
 {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}

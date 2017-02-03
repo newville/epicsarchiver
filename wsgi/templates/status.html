@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<p> <div class=subfont> PVArchiver Status   {{status.now }}  </div>
+
+  <table>
+    <tr><td>Cache:</td>
+      <td>status={{ status.cache_status }}, 
+	{{status.cache_npvs}} PVS, {{ status.cache_nupdated }} updated in past minute</td></tr>
+    <tr><td>Archive: </td>
+      <td>status={{ status.arch_status }},
+	database={{ status.arch_dbname }}
+    </td></tr>	
+</table>
+
+
+{% endblock %}
