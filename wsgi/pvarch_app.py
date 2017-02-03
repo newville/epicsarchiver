@@ -8,18 +8,18 @@ from flask import (Flask, request, session, redirect, url_for,
 
 from werkzeug import secure_filename
 
-
 import numpy as np
 from epics import PV
 from EpicsArchiver import config
 from EpicsArchiver.SimpleDB import Connection
 from WebStatus import WebStatus
 
-from archive import ArchiveMaster, parse_times, convert_string_data
+from archive import (ArchiveMaster, parse_times, convert_string_data,
+                     __version__, alert_ops)
 
 from make_plot import make_plot
 
-from secret import secret_key
+from secret import secret_key, admin_username, admin_password
 import sys
 sys.path.insert(0, config.template_dir)
 
@@ -30,7 +30,7 @@ app.config.from_object(__name__)
 app.debug = True
 
 app.secret_key = secret_key
-app.config['SESSION_TYPE'] = 'memcached'
+# app.config['SESSION_TYPE'] = 'memcached'
 
 dbconn = Connection(dbname=config.master_db, user=config.dbuser,
                     passwd=config.dbpass, host=config.dbhost)
@@ -52,33 +52,148 @@ ago_choices = [{'val':'15_minutes', 'label':'15 minutes'},
                {'val':'42_days', 'label': '6 weeks'}]
 
 
+def session_init(session):
+    if 'is_admin' not in session:
+        session['is_admin'] = False
 
 def toNone(val):
     if val in ('', 'None', None):
         val = None
     return val
 
-
 @app.route('/')
 def index():
     return redirect(url_for('show', page='General'))
 
-
 @app.route('/help')
 def help():
-    return render_template('help.html')
+    config.pvdat1 = config.dat_format % (config.dat_prefix, 1)
+    config.pvdat2 = config.dat_format % (config.dat_prefix, 2)
+    config.pvdat128 = config.dat_format % (config.dat_prefix, 128)
+    return render_template('help.html', version=__version__, config=config)
 
+@app.route('/status')
+def status():
+    session_init(session)
+    return render_template('status.html',
+                           status=arch.status_report(),
+                           admin=session['is_admin'])                           
+
+@app.route('/alerts')
+def alerts():
+    session_init(session)
+    return render_template('alerts.html',
+                           alerts=arch.get_alerts(),
+                           admin=session['is_admin'],
+                           alert_choices=alert_ops)
+
+
+
+
+@app.route('/editalert/<int:alertid>')
+def editalert(alertid=None):
+    session_init(session)
+    alerts=arch.get_alerts()
+    thisalert = None
+    for a in alerts:
+        if a.id == alertid:
+            thisalert = a
+            
+    if thisalert is None or not session['is_admin']:
+        return render_template('alerts.html',
+                               admin=session['is_admin'],
+                               alert_choices=alert_ops)
+
+    return render_template('editalert.html',
+                           updated=False,
+                           admin=session['is_admin'],
+                           alert=thisalert,
+                           alert_choices=alert_ops)
+
+@app.route('/submit_alertedits', methods=['GET', 'POST'])
+def submit_alertedits(options=None):
+    session_init(session)
+    
+    if request.method == 'POST':
+        alertid  = int(request.form['alertid'])
+        submit   = 'submit' in request.form.keys()
+        makecopy = 'copy' in request.form.keys()
+        name     = request.form['name']
+        pvname   = request.form['pvname']
+        compare  = request.form['compare']
+        trippoint= request.form['trippoint']
+        active   = request.form['active']
+        mailto   = request.form['mailto']
+        mailmsg  = request.form['mailmsg']
+        timeout  = request.form['timeout']
+
+        alerts = arch.get_alerts()
+        for a in alerts:
+            if a.id == alertid:
+                thisalert = a
+
+        print(" ALERT ", alertid, name, pvname, compare)
+        
+                
+        if makecopy:
+            arch.add_alert(pvname=pvname, name="%s (copy)" % name,
+                           mailto=mailto, mailmsg=mailmsg, timeout=timeout,
+                           compare=compare, trippoint=trippoint)
+        else:
+            arch.update_alert(alertid=alertid, pvname=pvname, name=name,
+                              mailto=mailto, mailmsg=mailmsg, timeout=timeout,
+                              compare=compare, trippoint=trippoint)
+            
+            
+                
+        return render_template('editalert.html',
+                               updated=submit,
+                               copied=makecopy,
+                               admin=session['is_admin'],
+                               alert=thisalert,
+                               alert_choices=alert_ops)
+
+
+    
 @app.route('/admin')
 @app.route('/admin/<option>')
 def admin(option=None):
-    return Response(arch.status_report())
+    session_init(session)    
+    return render_template('admin.html',
+                           admin=session['is_admin'])
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    session_init(session)
+    session['username'] = None
+    session['is_admin'] = False
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        if (username.lower() == admin_username and
+            admin_password == password):
+            session['is_admin'] = True
+            session['username'] = username
+
+    if session['username'] is not None:
+        return redirect(url_for('show', page='General'))
+    else:
+        return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session_init(session)
+    session['is_admin'] = False
+    return redirect(url_for('show', page='General'))
+    
 @app.route('/show/<page>')
 def show(page=None):
     """
     Could be translated to static pages ?
     """
-    p = WebStatus(cache=None, dbconn=dbconn)
+    session_init(session)
+    admin = session['is_admin']
+    p = WebStatus(cache=None, dbconn=dbconn, admin=admin)
     page = str(page)
 
     p.begin_page(page, pagelist, refresh=60)
@@ -100,6 +215,8 @@ def show(page=None):
 @app.route('/data/<pv>/<timevar>/<date1>/<date2>')
 @app.route('/data/<pv>/<timevar>/<date1>/<date2>/<extra>')
 def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
+    session_init(session)
+    admin = session['is_admin']
 
     if date1 is not None and date1.endswith('.dat'): date1 = None
     if date2 is not None and date2.endswith('.dat'): date2 = None

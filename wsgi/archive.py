@@ -1,18 +1,21 @@
 #!/usr/bin/env python
 #  SQLAlchemy interface to Epics Archive
 
-from time import time, mktime
+from time import time, mktime, strftime
 from datetime import datetime, timedelta
 from dateutil.parser import parse as dateparser
 import numpy as np
+
 
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import sessionmaker,  mapper, relationship, backref
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import  NoResultFound
 
-from EpicsArchiver.util import normalize_pvname, MAX_EPOCH, SEC_DAY
+import epics
 
+from EpicsArchiver.util import normalize_pvname, MAX_EPOCH, SEC_DAY
+from EpicsArchiver import __version__
 # which mysql libraries are available?
 MYSQL_VAR = None
 try:
@@ -28,6 +31,33 @@ except ImportError:
             MYSQL_VAR = 'pymysql'
         except ImportError:
             pass
+
+motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS',
+                '.DIR','_able.VAL','.SPMG','.DESC')
+
+alert_ops = {'eq': 'equal',
+             'ne': 'not equal',
+             'lt': 'less than',
+             'gt': 'greater than',
+             'le': 'less than or equal to',
+             'ge': 'greater than or equal to'}
+
+def clean_input(x, maxlen=1024):
+    """clean input, forcing it to be a string, with comments stripped,
+    and guarding against extra sql statements"""
+    if not isinstance(x,(unicode,str)):
+        x = str(x)
+    if len(x) > maxlen:
+        x = x[:maxlen-1]
+    x.replace('#','\#')
+    eol = x.find(';')
+    if eol > -1:
+        x = x[:eol]
+    return x.strip()
+                       
+def safe_string(x):
+    #if "'" in x:  x = escape_string(x)
+    return  string_literal(x)
 
 def get_timerange(timevar='time_ago', time_ago='1_days',
                   date1=None, date2=None):
@@ -273,7 +303,7 @@ class ArchiveMaster(BasicDB):
             pairs = q.filter((ptab.c.pv1==npv2)&(ptab.c.pv2==npv1)).all()
 
         if len(pairs) < 1:
-            ptab.insert().execute(pv1=npv1, pv2=npv2, score=1)
+            ptab.insert().execute(pv1=npv1, pv2=npv2, score=2)
         else:
             pair = pairs[0]
             ptab.update(whereclause='id=%i' % pair.id).execute(score=pair.score+1)
@@ -339,7 +369,128 @@ class ArchiveMaster(BasicDB):
         ts, vals = ts[tsel], vals[tsel]
         return ts, vals
 
+    def get_alerts(self):
+        alerts = self.tables['alerts']
+        return alerts.select().execute().fetchall()
 
+    def add_alert(self, pvname=None, name=None,
+                  mailto=None, mailmsg=None, timeout=30,
+                  compare='ne', trippoint=None, **kw):
+        """add  a new alert"""
+        if pvname is None:
+            return
+        
+        pvname = normalize_pvname(pvname)        
+        if name is None:
+            name = pvname
+        if pvname not in self.pvinfo:
+            self.add_pv(pvname)
+
+        active = 'yes'
+        if mailto  is None:
+            active, mailto = ('no','')
+        if mailmsg  is None:
+            active, mailmsg= ('no','')
+        if trippoint is None:
+            active, trippoint = ('no', 0.)
+
+        if compare not in alert_ops:
+            compare = 'ne'
+        
+        alerts = self.tables['alerts']
+        alerts.insert().execute(name=name, pvname=pvname, active=active,
+                                mailto=mailto, mailmsg=mailmsg,
+                                timeout=timeout, compare=compare,
+                                trippoint=trippoint)
+                  
+    def update_alert(self, alertid=None, **kw):
+        """modify an existing alert, index with id, and passing in
+        keyword args for ('pvname','name','mailto','mailmsg',
+        'trippoint','compare','status','active')
+        """
+        if alertid is None:
+            return
+
+        mykws = {}
+        for k, v in kw.items():
+            if k in ('pvname','name','mailto','mailmsg','timeout',
+                     'trippoint','compare', 'active'):
+                maxlen = 1024
+                if k == 'mailmsg': maxlen = 32768
+                v = clean_input(v, maxlen=maxlen)
+                if 'compare' == k:
+                    if not v in alert_ops:
+                        v = 'ne'
+                elif 'status' == k:
+                    if v != 'ok': v = 'alarm'
+                elif 'active' == k:
+                    if v != 'no': v = 'yes'
+                mykws[k]=v
+
+        alerts = self.tables['alerts']                
+        alerts.update(whereclause='id=%i'% alertid).execute(**mykws)
+
+
+    def request_pv_cache(self, pvname):
+        """request a PV to be included in caching.
+        will take effect once a 'process_requests' is executed."""
+        npv = normalize_pvname(pvname)
+        if npv in self.pvinfo:
+            return
+
+        requests = self.tables['requests']
+        requests.insert().execute(pvname=pvname, action='add', ts=time.time())
+
+    def add_pv(self, pvname, set_motor_pairs=True):
+        """adds a PV to the cache: actually requests the addition, which will
+        be handled by the next process_requests in mainloop().
+
+        Here, we check for 'Motor' PV typs and make sure all motor fields are
+        requested together, and that the motor fields are 'related' by assigning
+        a pair_score = 10.                
+        """
+
+        pvname = normalize_pvname(pvname.strip())
+        fields = (pvname,)
+        if not valid_pvname(pvname):
+            return 
+        
+        prefix = pvname
+        isMotor = False
+        if pvname.endswith('.VAL'):
+            prefix = pvname[:-4]
+
+        p = epics.PV(pvname)
+        p.wait_for_connection(timeout=0.25)
+
+        if p.connected: 
+            self.request_pv_cache(pvname)
+            if ('.' not in prefix and p.type == 'double'):
+                rtype = epics.PV(prefix+'.RTYP')
+                rtype.wait_for_connection(0.1)
+                if rtype is not None:
+                    isMotor = 'motor' == rtype.get()
+            if isMotor:
+                fields.extend(["%s%s" % (prefix,i) for i in motor_fields])
+                pvs = []
+                for pvn in fields:
+                    pvs.append(epics.PV(pvn))
+
+                epics.poll()
+                for p in pvs:
+                    p.wait_for_connection(timeout=0.5)
+                    if p.connected:
+                        self.request_pv_cache(p.pvname)
+                    
+        if isMotor and set_motor_pairs:
+            time.sleep(0.25)
+            for f1 in fields:
+                for f2 in fields:
+                    if f1 != f2:
+                        self.set_pair_score(f1, f2, score=10)
+        return
+        
+    
     def status_report(self, minutes=10):
         """return a report (list of text lines) for archiving process, """
         npvs  = len(self.pvinfo)
@@ -356,7 +507,16 @@ class ArchiveMaster(BasicDB):
         out = """Cache:   status=%s, last update %s, %i PVs monitored, %i updated in past minute.
 Archive: status=%s, last update %s, current database %s.""" % (
     cinfo.status, cinfo.datetime, npvs, nnew, ainfo.status, ainfo.datetime, ainfo.db)
-        return out
+
+        return {'cache_status': cinfo.status,
+                'cache_date': cinfo.datetime,
+                'cache_npvs': npvs,
+                'cache_nupdated': nnew,
+                'now': strftime("%Y-%m-%d %H:%M:%S"),
+                'arch_status': ainfo.status,
+                'arch_dbname': ainfo.db,
+                'arch_date': ainfo.datetime}
+                 
 
     def report_recently_archived(self, minutes=10):
         """return number of PVs archived in past N minutes
