@@ -60,7 +60,8 @@ def make_plot(ts, dat, ylabel='Data', ylog=False, enums=None,
     fig    = Figure(figsize=(8., 5.0), dpi=300)
     gspec  = GridSpec(1, 1)
     canvas = FigureCanvas(fig)
-    axes   = fig.add_subplot(gspec[0], axisbg='#FFFFFF')
+    axes   = fig.add_subplot(gspec[0], facecolor='#FFFFFF')
+
 
 
     if ylog: #  and False:
