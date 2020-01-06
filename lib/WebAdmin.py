@@ -1,7 +1,7 @@
-from EpicsArchiver import MasterDB, Archiver, config
-from EpicsArchiver.util import clean_string, clean_input, normalize_pvname, clean_mail_message
+from . import MasterDB, Archiver, config
+from .util import clean_string, clean_input, normalize_pvname, clean_mail_message
 
-from HTMLWriter import HTMLWriter
+from .HTMLWriter import HTMLWriter
 
 DEBUG = False
 
@@ -90,7 +90,7 @@ class WebAdmin(HTMLWriter):
             settings = []
             for key in ('description', 'graph_hi', 'graph_lo', 'deadtime',
                         'deadband', 'active', 'graph_type'):
-                if self.kw.has_key(key):
+                if key in self.kw:
                     val = clean_input(self.kw[key].strip())
                     if key in ('active','graph_type','description'):
                         if val != '':
@@ -350,7 +350,7 @@ class WebAdmin(HTMLWriter):
                     self.endhtml()
                     return self.get_buffer()
 
-        if not self.kw.has_key('id'): self.kw['id'] = a['id']
+        if 'id' not in self.kw: self.kw['id'] = a['id']
 
         self.startform(action=alerts_page, hiddenkeys=('pv','id'))            
 
@@ -426,7 +426,7 @@ class WebAdmin(HTMLWriter):
                     kw[i] = ''
                 for i in ('pv0','pv1','pv2'):
                     kw.pop(i)
-                for pv2,action in kw.items():
+                for pv2,action in list(kw.items()):
                     if action.startswith('setval'):
                         set_score(pv1,pv2,int(action[7:]))
                        

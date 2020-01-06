@@ -46,7 +46,7 @@ def daemonize(stdout='/dev/null', stderr=None, stdin='/dev/null',
     try: 
         pid = os.fork() 
         if pid > 0: sys.exit(0) # Exit first parent.
-    except OSError, e: 
+    except OSError as e: 
         sys.stderr.write("fork #1 failed: (%d) %s\n" % (e.errno, e.strerror))
         sys.exit(1)
         
@@ -59,7 +59,7 @@ def daemonize(stdout='/dev/null', stderr=None, stdin='/dev/null',
     try: 
         pid = os.fork() 
         if pid > 0: sys.exit(0) # Exit second parent.
-    except OSError, e: 
+    except OSError as e: 
         sys.stderr.write("fork #2 failed: (%d) %s\n" % (e.errno, e.strerror))
         sys.exit(1)
     
@@ -87,7 +87,7 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
     fname = ''
     if callable(func): fname = "(%s)" % func.__name__
     if action not in ('start','stop','restart','status'):
-        print "startstop: %s %s start|stop|restart|status" % (process_name,fname)
+        print("startstop: %s %s start|stop|restart|status" % (process_name,fname))
         sys.exit(2)        
     try:
         pf  = file(pidfile,'r')
@@ -118,14 +118,14 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
                while 1:
                    os.kill(pid,SIGTERM)
                    time.sleep(0.5)
-            except OSError, err:
+            except OSError as err:
                err = str(err)
                if err.find("No such process") > 0:
                    os.remove(pidfile)
                    if 'retart' == action: action = 'start'
                    pid = None
                else:
-                   print str(err)
+                   print(str(err))
                    sys.exit(1)
     if 'status' == action:
         msg = 'running'
@@ -167,7 +167,7 @@ if __name__ == "__main__":
     args= sys.argv
     args.append(None)
 
-    print args
+    print(args)
     startstop(stdout='/tmp/daemon1.log',  pidfile='/tmp/daemon1.pid',
               process_name = args[0],   action=args[1], func=test)
     

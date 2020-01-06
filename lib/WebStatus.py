@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import time
-from EpicsArchiver import Cache, config
-from util import normalize_pvname
+from . import Cache, config
+from .util import normalize_pvname
 pagetitle  = config.pagetitle
 footer     = config.footer
 
@@ -247,7 +247,7 @@ class WebStatus:
 
 
         tags = ionpump_pvs['GSE']
-        if (ionpump_pvs.has_key(type)):  tags = ionpump_pvs[type]
+        if (type in ionpump_pvs):  tags = ionpump_pvs[type]
         vpv = "%s%s" % (pv, tags[0])
         ipv = "%s%s" % (pv, tags[1])
         ppv = "%s%s" % (pv, tags[2])

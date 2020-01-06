@@ -6,16 +6,16 @@ import MySQLdb
 import os
 import array
 import time
-from Queue import Queue, Empty, Full
+from queue import Queue, Empty, Full
 
 import warnings
 warnings.filterwarnings("ignore", "Unknown table.*")
 warnings.filterwarnings("ignore", ".*drop database.*")
 warnings.filterwarnings("ignore", ".*drop table.*")
 
-from util import string_literal, clean_string, safe_string, clean_input
+from .util import string_literal, clean_string, safe_string, clean_input
 
-from config import master_db, dbuser, dbpass, dbhost, mysqldump
+from .config import master_db, dbuser, dbpass, dbhost, mysqldump
 
 class Connection:
     def __init__(self,dbname=master_db,user=dbuser,passwd=dbpass,host=dbhost):
@@ -94,14 +94,14 @@ class SimpleTable:
         """ check that the keys of the passed args are all available
         as table columns.
         returns 0 on failure, 1 on success   """
-        return self.check_columns(args.keys())
+        return self.check_columns(list(args.keys()))
 
     def check_columns(self,l):
         """ check that the list of args are all available as table columns
         returns 0 on failure, 1 on success
         """
         for i in l:
-            if not self.fieldtypes.has_key(i.lower()): return False
+            if i.lower() not in self.fieldtypes: return False
         return True
     
     def select_all(self):
@@ -111,7 +111,7 @@ class SimpleTable:
         """check for a table row, and return matches"""
         if (self.check_args(**args)):
             q = "select * from %s where 1=1" % (self._name)
-            for k,v in args.items():
+            for k,v in list(args.items()):
                 k = clean_input(k)
                 v = safe_string(v)
                 q = "%s and %s=%s" % (q,k,v)
@@ -141,8 +141,8 @@ class SimpleTable:
             return
         try:
             s = []
-            for k,v in kw.items():
-                if self.fieldtypes.has_key(k):
+            for k,v in list(kw.items()):
+                if k in self.fieldtypes:
                     ftype = self.fieldtypes[k]
                     k = clean_input(k)
                     if ftype == 'str':
@@ -165,12 +165,12 @@ class SimpleTable:
             self.db.write("Bad argument for insert ")
             return 0
         q  = []
-        for k,v in args.items():
-            if self.fieldtypes.has_key(k):
+        for k,v in list(args.items()):
+            if k in self.fieldtypes:
                 ftype = self.fieldtypes[k]
                 field = clean_input(k.lower())
                 if (v == None): v = ''
-                if isinstance(v,(str,unicode)):
+                if isinstance(v,str):
                     v = safe_string(v)
                 else:
                     v = str(v)
@@ -248,7 +248,7 @@ class SimpleDB:
         if self.conn is None:
             self.write("Could not start MySQL on %s for database %s" %
                        (self.host, self.dbname),   status='fatal')
-            raise IOError, "no database connection to  %s" %  self.dbname
+            raise IOError("no database connection to  %s" %  self.dbname)
 
         self.cursor = self.conn.cursor
         return self.cursor
@@ -293,11 +293,11 @@ class SimpleDB:
 
     def write(self, msg,status='normal'):
         " write message, with status "
-        if (status not in self.message_types.keys()): status = 'normal'
+        if (status not in list(self.message_types.keys())): status = 'normal'
         
         self.messenger.write("## %s%s\n" % (self.message_types[status], msg))
         if (status ==  'fatal'):
-            raise IOError, msg
+            raise IOError(msg)
        
     def source_file(self,file=None,report=100):
         """ execute a file of sql commands """
@@ -340,7 +340,7 @@ class SimpleDB:
         self.tables     = {}
         x = self.exec_fetch("show TABLES")
         # print 'Read Table Info ', x
-        self.table_list = [i.values()[0] for i in x]
+        self.table_list = [list(i.values())[0] for i in x]
         for i in self.table_list:
             self.tables[i] = SimpleTable(i,db=self)
          
@@ -380,7 +380,7 @@ class SimpleDB:
         t =  {}
         if self.debug==1: sys.stdout.write( '_normalize dict: ')
         if (indict == None): return t
-        for k,v in indict.items():
+        for k,v in list(indict.items()):
             key = k.lower()
             val = v
             if isinstance(v,array.array):
@@ -388,7 +388,7 @@ class SimpleDB:
                     val = v.tostring()
                 else:
                     val = v.tolist()
-            elif isinstance(v,unicode):
+            elif isinstance(v,str):
                 val = str(v)
             t[key] = val
         return t

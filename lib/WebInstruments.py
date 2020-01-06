@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 import time
-from EpicsArchiver import Instruments, config
+from . import Instruments, config
 
-from HTMLWriter import HTMLWriter, jscal_get_date
+from .HTMLWriter import HTMLWriter, jscal_get_date
 
-from util import normalize_pvname,  clean_input, \
+from .util import normalize_pvname,  clean_input, \
      tformat, time_str2sec, write_saverestore
 
 pagetitle  = config.pagetitle
@@ -47,7 +47,7 @@ class WebInstruments(HTMLWriter):
         if DEBUG: self.show_dict(self.kw)
         
         inst_id = -1        
-        if self.kw.has_key('inst_id'):
+        if 'inst_id' in self.kw:
             try:
                 inst_id = int(self.kw['inst_id'])
             except:
@@ -55,11 +55,11 @@ class WebInstruments(HTMLWriter):
 
 
         newpos_name = ''
-        if self.kw.has_key('newpos_name'):
+        if 'newpos_name' in self.kw:
             newpos_name =clean_input(self.kw.get('newpos_name','').strip())
 
         tsec = -1
-        if self.kw.has_key('date'):
+        if 'date' in self.kw:
             try:
                 tsec  = time_str2sec(self.kw.get('date','').strip())
             except:
@@ -92,7 +92,7 @@ class WebInstruments(HTMLWriter):
         self.startform(action=instpage,hiddenkeys=('pv',))
 
         if station == '':
-            station_list = self.stations.keys() ; station_list.sort()
+            station_list = list(self.stations.keys()) ; station_list.sort()
             station = station_list[0]
 
 
@@ -110,7 +110,7 @@ class WebInstruments(HTMLWriter):
             for s in self.arch.list_instruments(station=station):
                 self.instruments[s['name']] = (s['id'],s['notes'])
 
-            inst_list = self.instruments.keys() ; inst_list.sort()
+            inst_list = list(self.instruments.keys()) ; inst_list.sort()
             
             for inst in inst_list:
                 ilink = "<a href='%s?station=%s&instrument=%s'>%s</a>" % (instpage,station,inst,inst)
@@ -186,8 +186,8 @@ class WebInstruments(HTMLWriter):
         
         inst_id = int(mykw['inst_id'])
         
-        if mykw.has_key('submit'):
-            for k,v in mykw.items():
+        if 'submit' in mykw:
+            for k,v in list(mykw.items()):
                 hide = ('hidden' == v and k not in (None,''))
                 self.arch.hide_position(inst_id=inst_id,name=k,hide=hide)
                 if 'remove' == v and k not in (None,''):
@@ -261,7 +261,7 @@ class WebInstruments(HTMLWriter):
             
         save_ctime = tformat(save_time,format="%Y-%m-%d %H:%M:%S")
 
-        if mykw.has_key('submit'):
+        if 'submit' in mykw:
             form = 'plain'
             if mykw['submit'].startswith('IDL'):
                 form = 'idl'
@@ -274,7 +274,7 @@ class WebInstruments(HTMLWriter):
             wr(write_saverestore(pv_vals,format=form,header=headers))
             return self.get_buffer()
 
-        elif mykw.has_key('save_position') and mykw.has_key('newpos_name') and date>0:
+        elif 'save_position' in mykw and 'newpos_name' in mykw and date>0:
             try:
                 inst_id = int(mykw['inst'])
             except:
@@ -297,7 +297,7 @@ class WebInstruments(HTMLWriter):
         for pvname,val in pv_vals:
             curval  = 'Unknown'
             cacheval =  self.arch.cache.select_one(where="pvname='%s'"%pvname)
-            if cacheval.has_key('value'):  curval = str(cacheval['value'])
+            if 'value' in cacheval:  curval = str(cacheval['value'])
             wr("<tr><td width=20%% >%s</td><td width=30%% >%s</td><td width=30%% >%s</td></tr>" % (pvname,str(val),curval))
 
         wr("<tr><td colspan =3 ><hr></td></tr></table>")
@@ -345,7 +345,7 @@ class WebInstruments(HTMLWriter):
         for s in self.arch.list_stations():
             self.stations[s['name']] = (s['id'],s['notes'])
 
-        station_list = self.stations.keys() ; station_list.sort()
+        station_list = list(self.stations.keys()) ; station_list.sort()
         wr("<table><tr><td>Name</td><td>Description</td></tr><tr><td colspan=2><hr></td></tr")
         for s in station_list:
             wr("<tr><td>&nbsp;%s &nbsp;&nbsp;</td><td>&nbsp;%s</td></tr>" % (s,self.stations[s][1]))
@@ -379,7 +379,7 @@ class WebInstruments(HTMLWriter):
             if len(sname)>1:
                 self.arch.create_instrument(name=sname,station=station,notes=sdesc)
             pvlist = []
-            for k,v in mykw.items():
+            for k,v in list(mykw.items()):
                 if k.startswith('pv') and (v != '' and v is not None):
                     pvlist.append(clean_input(v).strip())
             self.arch.set_instrument_pvs(pvlist,name=sname,station=station)
@@ -440,7 +440,7 @@ class WebInstruments(HTMLWriter):
             # add and remove pvs as directed
             pvs_add = []
             pvs_del = []
-            for k,v in mykw.items():
+            for k,v in list(mykw.items()):
                 if 'remove' == v:
                     pvs_del.append(k)
                 elif k.startswith('_addpv_') and len(v) >0:
@@ -506,7 +506,7 @@ class WebInstruments(HTMLWriter):
         for s in self.arch.list_stations():
             self.stations[s['name']] = (s['id'],s['notes'])
 
-        station_list = self.stations.keys() ; station_list.sort()
+        station_list = list(self.stations.keys()) ; station_list.sort()
 
         wr("""<font class='h3font'>Station:</font>
         <select id='station' name='station' onChange='showStation(this.form.station);'>""")

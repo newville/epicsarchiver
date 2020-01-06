@@ -5,10 +5,10 @@ import time
 import sys
 
 import epics
-from debugtime import debugtime
-from MasterDB import MasterDB
+from .debugtime import debugtime
+from .MasterDB import MasterDB
 
-from util import clean_input, clean_string, motor_fields, \
+from .util import clean_input, clean_string, motor_fields, \
      normalize_pvname, tformat, valid_pvname
 
 def add_pv(pvname=None,cache=None,**kw):
@@ -58,7 +58,7 @@ def add_pvfile(fname):
           on the line a 'pair score' of 10.
 
     """
-    print 'Adding PVs listed in file ', fname
+    print(('Adding PVs listed in file ', fname))
     f = open(fname,'r')
     lines = f.readlines()
     f.close()
@@ -85,15 +85,15 @@ def add_pvfile(fname):
             pairs.append(tuple(words[:]))
 
         t2 = time.time()-t0
-        print ' Add PVs: [ %s ] ' % (' '.join(words))
+        print((' Add PVs: [ %s ] ' % (' '.join(words))))
 
         if len(pairs) > 100:
-            print 'set a few pair scores...'
+            print('set a few pair scores...')
             for i in range(20):
                 words = pairs.pop(0)
                 cache.set_allpairs(words, score=10)
 
-    print 'Waiting for all pvs requested to be put in cache....'
+    print('Waiting for all pvs requested to be put in cache....')
     # now wait for all requests to be fulfilled, and then set the remaining pair scores
 
     req_table= cache.db.tables['requests']
@@ -140,7 +140,7 @@ class Cache(MasterDB):
         return self.cache_report(brief=brief,dt=dt)
 
     def epics_connect(self,pvname):
-        if self.pvs.has_key(pvname):
+        if pvname in self.pvs:
             return self.pvs[pvname]
 
         p = epics.PV(pvname)
@@ -166,16 +166,23 @@ class Cache(MasterDB):
         # take keys as of right now, and pop off the latest values
         # for these pvs.   Be careful to NOT set self.data = {} as
         # this can blow away any changes that occur during this i/io
-        for nam in self.data.keys():
+        for nam in list(self.data.keys()):
             val, cval, ts = self.data.pop(nam)
+            ts = str(val)
             val = str(val)
             if ';' in val:  #
                 val = val[:val.find(';')]
-                if len(val) > 250: # must fit in tinyblob!
-                    val = val[:250]
+            if len(val) > 250: # must fit in tinyblob!
+                val = val[:250]
             updates.append((val, cval, ts, nam))
+            try:
+                self.db.cursor.execute(fmt, (val, cval, ts, nam))
+            except:
+                print(("Failed ", fmt, (val, cval, ts, nam)))
+            #if len(updates) > 20:
+            #    break
 
-        self.db.cursor.executemany(fmt, updates)
+        # self.db.cursor.executemany(fmt, updates)
         self.db.cursor.execute("commit")
         self.set_date()
         return len(updates)
@@ -219,7 +226,7 @@ class Cache(MasterDB):
         time.sleep(0.0001*npvs)
         epics.ca.poll()
         unconn = 0
-        for pv in self.pvs.values():
+        for pv in list(self.pvs.values()):
             if not pv.connected:
                 time.sleep(0.002)
                 if not pv.connected:
@@ -228,7 +235,7 @@ class Cache(MasterDB):
         epics.ca.poll()
         d.add("Connected to PVs (%i not connected)" %  unconn, verbose=False)
         self.data = {}
-        for pv in self.pvs.values():
+        for pv in list(self.pvs.values()):
             if pv is not None and pv.connected:
                 cval = pv.get(as_string=True)
                 self.data[pv.pvname] = (pv.value, cval, time.time())
@@ -324,7 +331,7 @@ class Cache(MasterDB):
 
     def exit(self):
         self.close()
-        for i in self.pvs.values():
+        for i in list(self.pvs.values()):
             i.disconnect()
 
         sys.exit()
@@ -396,10 +403,10 @@ class Cache(MasterDB):
         for r in req:
             nam, rid, action, ts = r['pvname'], r['id'], r['action'], r['ts']
             where = "pvname='%s'" % nam
-            print 'Request: ', nam, rid, action
+            print(('Request: ', nam, rid, action))
             if valid_pvname(nam) and (now-ts < 3000.0):
                 if 'suspend' == action:
-                    if self.pvs.has_key(nam):
+                    if nam in self.pvs:
                         self.pvs[nam].clear_callbacks()
                         self.cache.update(active='no',where=where)
                         drop_ids.append(rid)
@@ -423,7 +430,7 @@ class Cache(MasterDB):
                         else:
                             sys.stdout.write('could not connect to PV %s\n' % nam)
                     else:
-                        print '? already in self.pvnames ', nam
+                        print(('? already in self.pvnames ', nam))
                         drop_ids.append(rid)
             else:
                 drop_ids.append(rid)
@@ -439,7 +446,7 @@ class Cache(MasterDB):
     def add_epics_pv(self,pv):
         """ add an epics PV to the cache"""
         if not pv.connected:
-            print 'add_epics_pv: NOT CONNECTED ', pv
+            print(('add_epics_pv: NOT CONNECTED ', pv))
             return
 
         self.get_pvnames()
@@ -471,18 +478,18 @@ class Cache(MasterDB):
         # sys.stdout.write('processing alerts at %s\n' % time.ctime())
         msg = 'Alert sent for PV=%s / Label =%s at %s\n'
         # self.db.set_autocommit(1)
-        for pvname, alarm in self.alert_data.items():
+        for pvname, alarm in list(self.alert_data.items()):
             value = alarm.get('last_value', None)
             last_notice = alarm.get('last_notice', -1)
             if value is not None and alarm['active'] == 'yes':
                 if debug:
-                    print 'Process Alert for ', pvname, last_notice, alarm['timeout']
+                    print(('Process Alert for ', pvname, last_notice, alarm['timeout']))
 
                 notify= (time.time() - last_notice) > alarm['timeout']
                 ok, notified = self.check_alert(alarm['id'], value,
                                                 sendmail=notify)
                 if debug:
-                    print 'Alert: val OK? ', ok, ' Notified? ', notified
+                    print(('Alert: val OK? ', ok, ' Notified? ', notified))
                 if notified:
                     self.alert_data[pvname]['last_notice'] = time.time()
                     self.alert_data[pvname]['last_value']  = None
@@ -490,6 +497,6 @@ class Cache(MasterDB):
                 elif ok:
                     self.alert_data[pvname]['last_value']  = None
 
-                if debug: print '  >>process_alert done ', self.alert_data[pvname]['last_notice']
+                if debug: print(('  >>process_alert done ', self.alert_data[pvname]['last_notice']))
 
         self.db.set_autocommit(0)

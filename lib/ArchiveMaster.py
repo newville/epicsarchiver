@@ -3,10 +3,10 @@
 import sys
 import time
 from epics import PV
-from MasterDB import MasterDB
-from SimpleDB import SimpleDB, SimpleTable
-from config   import dbuser, dbpass, dbhost, master_db, dat_prefix, dat_format
-from util     import normalize_pvname, tformat, MAX_EPOCH
+from .MasterDB import MasterDB
+from .SimpleDB import SimpleDB, SimpleTable
+from .config   import dbuser, dbpass, dbhost, master_db, dat_prefix, dat_format
+from .util     import normalize_pvname, tformat, MAX_EPOCH
 
 
 def nextname(current=None,dbname=None):

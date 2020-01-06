@@ -2,9 +2,9 @@
 # from EpicsArchiver import  config
 # from EpicsArchiver.util import SEC_DAY
 
-import config
+from . import config
 import time
-from util import SEC_DAY, clean_input, normalize_pvname
+from .util import SEC_DAY, clean_input, normalize_pvname
 
 adminpage  = "%s/admin/" % config.cgi_url
 pvinfopage = "%s/admin/pvinfo"       % config.cgi_url
@@ -95,7 +95,7 @@ class HTMLWriter:
 
     def show_dict(self,d):
         self.write(' <p> Passed Parameters:</p>')
-        for k,v in d.items():
+        for k,v in list(d.items()):
             self.write("%s= '%s' <br> " % (k,v))                    
         self.write(' <p> =============== </p>')            
 
@@ -153,7 +153,7 @@ class HTMLWriter:
                 link = "%s/%s" % (link,pv)
             if link == instpage and inst_id not in (-1,None):
                 link = "%s/%i" % (link,inst_id)
-            if link == helppage and kw.has_key('help'):
+            if link == helppage and 'help' in kw:
                 link = "%s/%s" % (link,kw['help'])
             
             self.write("<li><a %s href='%s'>%s</a></li>" % (is_active, link, title))
@@ -176,7 +176,7 @@ class HTMLWriter:
     def starttable(self,ncol=2,**kw):
         self.ncol.append(ncol)
         s = []
-        for k,v in kw.items():
+        for k,v in list(kw.items()):
             s.append(self._make_keyval(k,v))
 
         s = ' '.join(s).strip()
@@ -191,15 +191,15 @@ class HTMLWriter:
         nargs = len(args)
         
         spans = [1]*ncol
-        if kw.has_key('spans'): spans = list(kw['spans'])
+        if 'spans' in kw: spans = list(kw['spans'])
         if len(spans)< ncol:
             spans.extend(['']*(ncol-len(spans)+2))
 
-        print kw
+        print(kw)
         opts = ['']*ncol
-        print opts
+        print(opts)
         if len(kw)>0:
-            for k,v in kw.items():
+            for k,v in list(kw.items()):
                 if isinstance(v,(tuple,list)):
                     vals = list(v)
                     if len(vals) < ncol: vals.extend(['']*(ncol-len(vals)+2))
@@ -212,7 +212,7 @@ class HTMLWriter:
 #         if kw.has_key('options'): opts = list(kw['options'] )
 #         if len(opts)< ncol:
 #             opts.extend(['']*(ncol-len(opts)+2))
-        print 'opts: ', opts
+        print('opts: ', opts)
         
         self.write("<tr>")
         wr = self.write
@@ -238,9 +238,9 @@ class HTMLWriter:
         "make a key/val pair for html"
         istyped = False
         fmt="%s='%s'"
-        if isinstance(v,(int,long)):      fmt,istyped = "%s=%i",True
+        if isinstance(v,int):      fmt,istyped = "%s=%i",True
         elif isinstance(v,(float)):       fmt,istyped = "%s=%f",True
-        elif isinstance(v,(str,unicode)): fmt,istyped = "%s='%s'",True
+        elif isinstance(v,str): fmt,istyped = "%s='%s'",True
         
         if not istyped: v = str(v)
         return fmt % (k,v)
@@ -248,11 +248,11 @@ class HTMLWriter:
 
     def _input(self,type='text',**kw):
         s = ["<input type='%s'" % type]
-        if 'radio' == type and kw.has_key('checked'):
+        if 'radio' == type and 'checked' in kw:
             r_checked = kw.pop('checked')
             if r_checked:  s.append("checked='true'")
             
-        for k,v in kw.items():
+        for k,v in list(kw.items()):
             s.append(self._make_keyval(k,v))
         s.append("/>")
         return " ".join(s)
@@ -309,4 +309,4 @@ if __name__ == '__main__':
     
     t.endtable()
 
-    print t.get_buffer()
+    print(t.get_buffer())

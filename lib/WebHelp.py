@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from EpicsArchiver import HTMLWriter, config, __version__
+from . import HTMLWriter, config, __version__
 
 xdbname1 = config.dat_format % (config.dat_prefix,1)
 xdbname2 = config.dat_format % (config.dat_prefix,2)
@@ -33,8 +33,8 @@ The current version of Epics PV Archiver is %s.<p>
 
 The Epics PV Archiver was written by M. Newville at the University of Chicago.  The
 latest source code and documentation is available at 
-  <a href='http://millenia.cars.aps.anl.gov/~newville/Epics/PVArchiver/'>
-  http://millenia.cars.aps.anl.gov/~newville/Epics/PVArchiver/</a>.
+  <a href='https://millenia.cars.aps.anl.gov/~newville/Epics/PVArchiver/'>
+  https://millenia.cars.aps.anl.gov/~newville/Epics/PVArchiver/</a>.
 """ % __version__
 
 setup = """
@@ -877,7 +877,7 @@ class WebHelp(HTMLWriter):
         self.starthtml()
         self.show_links(active_tab='Help')
         
-        if section not in section_map.keys(): section = 'overview'
+        if section not in list(section_map.keys()): section = 'overview'
         
         self.write("<h3>Epics PV Archiver Documentation: %s</h3>" % section.title())
 
@@ -900,7 +900,7 @@ def dehtml(s):
                    "table align='center'","font size=+1",
                    "td width=30%", "td width=70%")
     
-    for k,v in replacements.items(): s = s.replace(k,v)
+    for k,v in list(replacements.items()): s = s.replace(k,v)
 
     for i in remove_tags:
         s = s.replace('<%s>'%i,'').replace('</%s>'%i,'').replace('\n\n\n','\n\n').replace('\t','   ')
@@ -908,7 +908,7 @@ def dehtml(s):
 
 if __name__ == '__main__':
     for name in section_names:        
-        print "##== %s ==##" % name.title()
-        print dehtml(section_map[name])
-        print "========================================="
+        print("##== %s ==##" % name.title())
+        print(dehtml(section_map[name]))
+        print("=========================================")
         

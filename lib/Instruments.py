@@ -1,8 +1,8 @@
 import time
 
-from MasterDB import MasterDB
-from Archiver import Archiver
-from util import normalize_pvname
+from .MasterDB import MasterDB
+from .Archiver import Archiver
+from .util import normalize_pvname
 
 class Instruments(MasterDB):
     """ interface to Instruments"""
@@ -80,10 +80,10 @@ class Instruments(MasterDB):
     def remove_instrument_pvs(self,pvlist,name=None,station=None,notes=''):
         insts = self.get_instruments(name=name,station=station)
         if len(insts)> 1:
-            print 'multiple instruments matched name/station=%s/%s' % (name,station)
+            print('multiple instruments matched name/station=%s/%s' % (name,station))
             return None
         if not isinstance(pvlist,(tuple,list)):
-            print 'must provide list of PVs for instrument %s' % (name)
+            print('must provide list of PVs for instrument %s' % (name))
             return None
         inst_id = insts[0]['id']
         q = "delete from instrument_pvs where inst=%i and pvname='%s'"
@@ -95,10 +95,10 @@ class Instruments(MasterDB):
     def set_instrument_pvs(self,pvlist,name=None,station=None,notes=''):
         insts = self.get_instruments(name=name,station=station)
         if len(insts)> 1:
-            print 'multiple instruments matched name/station=%s/%s' % (name,station)
+            print('multiple instruments matched name/station=%s/%s' % (name,station))
             return None
         if not isinstance(pvlist,(tuple,list)):
-            print 'must provide list of PVs for instrument %s' % (name)
+            print('must provide list of PVs for instrument %s' % (name))
             return None
         inst_id = insts[0]['id']
 
@@ -122,7 +122,7 @@ class Instruments(MasterDB):
         insts = self.get_instruments(name=name,station=station)
         out = []
         if len(insts)> 1:
-            print 'multiple instruments matched name/station=%s/%s' % (name,station)
+            print('multiple instruments matched name/station=%s/%s' % (name,station))
         else:
             where = "inst=%i" % insts[0]['id']
             x = self.inst_pvs.select(where=where)
@@ -137,7 +137,7 @@ class Instruments(MasterDB):
             if len(inst_id) == 0: warn = 'no'
             if len(inst_id)  > 1: warn = 'multiple'
             if len(inst_id) != 1:
-                print "warning: %s instruments found for name='%s', station='%s'" %(warn,inst,station)
+                print("warning: %s instruments found for name='%s', station='%s'" %(warn,inst,station))
                 if len(inst_id)==0:
                     return
             inst_id = inst_id[0]
@@ -219,7 +219,7 @@ class Instruments(MasterDB):
 
         a.db.close()
         
-        pvnames = data.keys()
+        pvnames = list(data.keys())
         pvnames.sort()
         vals = [(p,data[p]) for p in pvnames]
         return vals,ts
@@ -236,19 +236,19 @@ class Alerts(MasterDB):
 
     def show_all(self):
         for i in self.alerts.select():
-            print i
+            print(i)
 
     def show_for_pv(self,pvname):
         pvname = normalize_pvname(pvname)
         for i in self.alerts.select(where="pvname='%s'" % pvname):
-            print i
+            print(i)
 
     def add(self,pvname=None,name=None,
             mailto=None,  mailmsg=None,
             compare='ne', trippoint=None, **kw):
 
         if pvname is None:
-            print 'must provide a pvname for an alert'
+            print('must provide a pvname for an alert')
             return
         
         pvname = normalize_pvname(pvname)        
@@ -299,7 +299,7 @@ class Alerts(MasterDB):
         if id is None: return
         where = "id=%i"% id        
         mykw = {}
-        for k,v in kw.items():
+        for k,v in list(kw.items()):
             if k in ('pvname','name','mailto','mailmsg',
                      'trippoint','compare','status','active'):
                 v = clean_input(v)

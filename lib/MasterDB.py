@@ -6,11 +6,11 @@ import time
 import smtplib
 
 import epics
-from SimpleDB import SimpleDB, SimpleTable
-from config import dbuser, dbpass, dbhost, master_db, \
+from .SimpleDB import SimpleDB, SimpleTable
+from .config import dbuser, dbpass, dbhost, master_db, \
      mailserver, mailfrom, cgi_url
 
-from util import normalize_pvname, tformat, clean_input, \
+from .util import normalize_pvname, tformat, clean_input, \
      MAX_EPOCH, SEC_DAY, motor_fields, valid_pvname
 
 re_showpv = re.compile(r".*%PV\((.*)\)%.*").match
@@ -108,7 +108,7 @@ class MasterDB:
 
         cmd = "insert into requests (pvname,action,ts) values ('%s','add',%f)" % (npv,time.time())
         self.db.execute(cmd)
-        print 'REQUEST_PV_CACHE: add ', pvname
+        print('REQUEST_PV_CACHE: add ', pvname)
         
     def add_pv(self,pvname,set_motor_pairs=True):
         """adds a PV to the cache: actually requests the addition, which will
@@ -132,7 +132,7 @@ class MasterDB:
 
         p = epics.PV(pvname)
         p.wait_for_connection(timeout=0.1)
-        print 'Master Add PVname = ', pvname, p.connected
+        print('Master Add PVname = ', pvname, p.connected)
         if p.connected: 
             self.request_pv_cache(pvname)
             if ('.' not in prefix and p.type == 'double'):
@@ -487,7 +487,7 @@ class MasterDB:
         if id is None: return
         where = "id=%i"% id        
         mykw = {}
-        for k,v in kw.items():
+        for k,v in list(kw.items()):
             if k in ('pvname','name','mailto','mailmsg','timeout',
                      'trippoint','compare','status','active'):
                 maxlen = 1024
@@ -519,7 +519,7 @@ class MasterDB:
 
         # coerce values to strings or floats for comparisons
         convert = str
-        if isinstance(value,(int,long,float,complex)):  convert = float
+        if isinstance(value,(int,float,complex)):  convert = float
 
         value     = convert(value)
         trippoint = convert(alarm['trippoint'])
@@ -571,9 +571,9 @@ class MasterDB:
             if tok == compare: opstr = desc
 
         # fill in 'template' values in mail message
-        for k,v in {'PV': pvname,  'LABEL':label,
+        for k,v in list({'PV': pvname,  'LABEL':label,
                     'COMP': opstr, 'VALUE': str(value),  
-                    'TRIP': str(trippoint)}.items():
+                    'TRIP': str(trippoint)}.items()):
             msg = msg.replace("%%%s%%" % k, v)
 
         # do %PV(XX)% replacements

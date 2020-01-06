@@ -6,11 +6,11 @@ import os
 import getopt
 
 import epics
-from SimpleDB import SimpleDB
-from MasterDB import MasterDB
+from .SimpleDB import SimpleDB
+from .MasterDB import MasterDB
 
-import config
-from util import normalize_pvname, get_force_update_time, tformat, \
+from . import config
+from .util import normalize_pvname, get_force_update_time, tformat, \
      escape_string, clean_string, SEC_DAY, MAX_EPOCH, valid_pvname, motor_fields
 
 class Archiver:
@@ -43,7 +43,7 @@ class Archiver:
         self.last_collect = 0
         self.pvinfo = {}
         self.pvs    = {}
-        for k,v in args.items():
+        for k,v in list(args.items()):
             if   (k == 'debug'):      self.debug     = v
             elif (k == 'messenger'):  self.messenger = v
 
@@ -75,7 +75,7 @@ class Archiver:
             self.dbname = ret[0]['db']
             self.db.use(self.dbname)
         except:
-            raise IOError, 'cannot determine archive database name'
+            raise IOError('cannot determine archive database name')
         return self.dbname
         
     def get_cache_changes(self,dt=30):
@@ -93,7 +93,7 @@ class Archiver:
         try:
             return s[0]
         except:
-            print 'Could not get cache for pvname "%s"' % pv
+            print('Could not get cache for pvname "%s"' % pv)
             return  {'type':None,'value':None}
             
 
@@ -147,10 +147,10 @@ n       """
         cache_values = []
         self.get_cache_names()
         pvtable_data = self.pv_table.select()
-        print ' This is sync with cache ', update_vals, len(self.cache_names), len(pvtable_data)
+        print(' This is sync with cache ', update_vals, len(self.cache_names), len(pvtable_data))
         self.db.use(self.master_db)
         now = time.time()
-        print 'masterdb %s / data=%s' % ( self.master_db, len(pvtable_data))
+        print('masterdb %s / data=%s' % ( self.master_db, len(pvtable_data)))
         if update_vals:
             x = self.db.exec_fetch("select pvname,value,ts from cache")
             current_cache = {}
@@ -181,7 +181,7 @@ n       """
             self.db.use(self.dbname)
             for name,ts,value in cache_values:
                 self.update_value(name,ts,value)
-        print 'Sync with Cache Done'
+        print('Sync with Cache Done')
 
     def get_pv(self,pvname):
         " "
@@ -485,7 +485,7 @@ n       """
         # iff the last insert was longer ago than the deadtime:
         tnow = time.time()
         # print '====== Collect: ', len(new_Changes) , len(newvals), len(self.dtime_limbo), time.ctime()
-        for name in self.dtime_limbo.keys():
+        for name in list(self.dtime_limbo.keys()):
             info = self.pvinfo[name]
             if info['active'] == 'no': continue
             last_ts   = info['last_ts']
@@ -503,7 +503,7 @@ n       """
             self.check_for_new_pvs()
             self.refresh_pv_table()
 
-            for name, info in self.pvinfo.items():
+            for name, info in list(self.pvinfo.items()):
                 last_ts  = info['last_ts']
                 last_val = info['last_value']
                 if info['active'] == 'no': continue
@@ -511,9 +511,9 @@ n       """
                 try:
                     force = tnow-last_ts > ftime
                 except:
-                    print 'Cannot Figure out whether to force recording??'
-                    print tnow, last_ts, ftime
-                    print 'They should all be floats???'
+                    print('Cannot Figure out whether to force recording??')
+                    print(tnow, last_ts, ftime)
+                    print('They should all be floats???')
                     force = False
                     
                 if force:
@@ -537,7 +537,7 @@ n       """
                             newvals[name] = (tnow,str(r['value']))
                             n_forced = n_forced + 1
 
-        for name,data in newvals.items():
+        for name,data in list(newvals.items()):
             self.update_value(name,data[0],data[1])
 
         # self.db.commit_transaction()

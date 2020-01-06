@@ -14,7 +14,7 @@ valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._
 def clean_input(x,maxlen=None):
     """clean input, forcing it to be a string, with comments stripped,
     and guarding against extra sql statements"""
-    if not isinstance(x,(unicode,str)): x = str(x)
+    if not isinstance(x,str): x = str(x)
 
     if maxlen is None: maxlen = 1024
     if len(x) > maxlen:   x = x[:maxlen-1]
@@ -60,7 +60,7 @@ def timehash():
     Number of possibilites = 16^11 >~ 10^13
     the hash is a linear-in-milliseconds timestamp, so collisions
     cannot happen for 10^12 milliseconds (33 years). """ 
-    return hex(long(10000.*time.time()))[2:-1]
+    return hex(int(10000.*time.time()))[2:-1]
 
 def tformat(t=None,format="%Y-%m-%d %H:%M:%S"):
     """ time formatting"""

@@ -3,11 +3,11 @@ import os
 import time
 import epics
 
-from EpicsArchiver import Archiver, config
-from EpicsArchiver.util import SEC_DAY, clean_string, clean_input, \
+from . import Archiver, config
+from .util import SEC_DAY, clean_string, clean_input, \
      normalize_pvname, timehash, time_sec2str, time_str2sec
 
-from EpicsArchiver.HTMLWriter import HTMLWriter, jscal_get_2dates
+from .HTMLWriter import HTMLWriter, jscal_get_2dates
 
 DEBUG=False
 HAS_GNUPLOT = False
@@ -27,7 +27,7 @@ class PlotViewer(HTMLWriter):
                  '1 hour', '2 hours', '3 hours', '6 hours','8 hours','12 hours', 
                  '1 day','2 days','3 days', '1 week', '2 weeks', '1 month')
 
-    years   = range(2001, time.localtime()[0]+1)
+    years   = list(range(2001, time.localtime()[0]+1))
     months  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
     days    = (31,28,31,30,31,30,31,31,30,31,30,31)
     minutes = ('00','05','10','15','20','25', '30','35','40','45','50','55')
@@ -239,7 +239,7 @@ set ytics nomirror
         if DEBUG:
             self.write(" GRAPH %s / %s " % (pvname1,pvname2))
             self.write('<p> === Keys: === </p>')
-            for key,val in self.kw.items():
+            for key,val in list(self.kw.items()):
                 self.write(" %s :  %s <br>" % (key,val))
     
         t1 = time.time() + 10.0 # now+10seconds (make sure we don't lose "now")
@@ -282,17 +282,15 @@ set ytics nomirror
         self.gpfile = open(f_gp,'w')
 
         # get PV and related data
-	epv1 = self.arch.get_pv(pvname1)
+        epv1 = self.arch.get_pv(pvname1)
         pvinfo = self.arch.get_info(pvname1)
         pv2info = pvinfo
 
         if epv1 is None or pvinfo=={}: return ('','')
         if (epv1.pvname in (None,'')): return ('','')
 
-
         pvlabel = pvname1
         legend, tics = self.get_enum_legend(epv1)
-        
         desc = pvinfo.get('description','')
         if desc in ('',None):
             desc = self.get_pvdesc(epv1)
@@ -308,17 +306,16 @@ set ytics nomirror
 
         curvalue = "<font size=-1>Last value: %s = %s" % (pvname1, dat[-1][1])
 
-        wait_for_pngfile = npts > 1       
+        wait_for_pngfile = npts > 1
         npts2 = 0
         n_dat = 1
-        
         # start gnuplot session, set basic properties
-        self.gp(self.gp_base)	 
-	
+        self.gp(self.gp_base)
+
         # are we plotting a second data set?
         if DEBUG:
              self.write("<br> pv2???  %s, %s <br>" % (pvname2, str(pvname2=='')))
-            
+
         if pvname2 != '':
             epv2  = self.arch.get_pv(pvname2)
             epv2.connect()
@@ -328,11 +325,10 @@ set ytics nomirror
             if DEBUG:
                  self.write(" PV#2  !!! %s, %s" % (str(pvname2 is None), epv2.pvname))
 
-                
+
             if epv2 is not None and epv2.pvname != '':
                 val = epv2.get()
                 leg2, tics2 = self.get_enum_legend(epv2)
-                
                 desc2 = pv2info.get('description','')
                 if desc2 in ('',None):
                     desc2 = self.get_pvdesc(epv2)
@@ -469,7 +465,7 @@ set ytics nomirror
 
 
     def show_keys(self,**kw):
-        for k,v in kw.items():
+        for k,v in list(kw.items()):
             self.write("%s : %s<br>" % (k,v))
             
     def get_pvdesc(self,pv):
@@ -674,6 +670,6 @@ set ytics nomirror
 
     def show_keys(self,title=''):
         self.write('===== %s Keys: === </p>' % title)
-        for key,val in self.kw.items():
+        for key,val in list(self.kw.items()):
             self.write(" %s :  '%s' <br>" % (key,val))
         self.write('=====')

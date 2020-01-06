@@ -12,7 +12,7 @@ from distutils.dir_util import mkpath, copy_tree
 try:
     import config
 except:
-    print "Error: cannot import config: Typo in config.py?"
+    print("Error: cannot import config: Typo in config.py?")
     sys.exit(1)
 
 try:
@@ -59,22 +59,22 @@ try:
         raise TypeError('Need a Data Table Prefix ("dat_prefix" in config.py)!')
 except:
     xtype, errmsg, tb = sys.exc_info()
-    print 
-    print "==  There were errors in config.py:"
-    print "==  %s" % errmsg
+    print() 
+    print("==  There were errors in config.py:")
+    print("==  %s" % errmsg)
 
     sys.exit(1)
     
 
 def create_dir(dir,desc='?'):
     if not os.path.exists(dir):
-        print 'Warning: %s directory %s does not exist.' % (desc,dir)
-        print '         trying to create %s' % (dir)
+        print('Warning: %s directory %s does not exist.' % (desc,dir))
+        print('         trying to create %s' % (dir))
         try:
             mkpath(dir)
         except OSError:
-            print 'Error: could not create %s' % dir
-            print 'perhaps you need more permission?'
+            print('Error: could not create %s' % dir)
+            print('perhaps you need more permission?')
     
 
 shutil.copyfile('config.py','lib/config.py')
@@ -176,14 +176,14 @@ if 'install' == cmd:
         os.system("%s %s" % (setperms, newso))
 
     
-print  """=================================================
+print("""=================================================
 Writing Apache configuration to httpd_pvarch.conf
 
 You will need to edit Apache's configuration to
 include this configuration.  (See httpd.conf)
 =================================================
 
-Read INSTALL for the next installation steps."""
+Read INSTALL for the next installation steps.""")
 
 
 # 

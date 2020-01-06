@@ -1,4 +1,4 @@
-from WebStatus import WebStatus
+from .WebStatus import WebStatus
 
 class GSEWebStatus(WebStatus):
     def __init__(self, cache=None, dbconn=None, **kws):
