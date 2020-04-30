@@ -116,8 +116,6 @@ f = open('httpd_pvarch.conf','w')
 f.write(httpdconf % config.cgi_bin)
 f.close()
 
-bin_dir = os.path.join(sys.prefix,'bin')
-
 # generate list of template files
 template_files = []
 for i in os.listdir('templates'):
@@ -141,10 +139,10 @@ setup(
     license     = 'Python',
     script_name = script_name,
     description = 'A library for Archiving Epics PVs.',
+    scripts     = ['bin/pvarch',],
     package_dir = {'EpicsArchiver': 'lib'},
     packages    = ['EpicsArchiver'], 
-    data_files  = [(bin_dir, ['bin/pvarch']),
-                   (config.cgi_bin, cgifiles),
+    data_files  = [(config.cgi_bin, cgifiles),
                    (config.template_dir, template_files)
                    ]
     )
