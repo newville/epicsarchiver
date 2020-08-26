@@ -21,7 +21,7 @@ import sqlalchemy
     
 from .util import string_literal, clean_input, escape_string, timehash, tformat, clean_mail_message
 
-from .SimpleDB import SimpleDB, SimpleTable,ConnectionPool
+from .SimpleDB import SimpleDB, SimpleTable,ConnectionPool, cpool
 
 from .MasterDB       import MasterDB
 from .Instruments    import Instruments, Alerts

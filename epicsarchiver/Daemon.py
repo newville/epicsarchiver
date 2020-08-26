@@ -18,7 +18,7 @@
       2001/07/10 by J?rgen Hermann
       2002/08/28 by Noah Spurrier
       2003/02/24 by Clark Evans
-      
+
       http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/66012
 """
 import sys, os, time
@@ -64,13 +64,14 @@ def daemonize(stdout='/dev/null', stderr=None, stdin='/dev/null',
         sys.exit(1)
     
     # Open file descriptors and print start message
-    si = file(stdin, 'r')
-    so = file(stdout, 'w+')
-    se = file(stderr, 'w+', 0)
+    si = open(stdin, 'r')
+    so = open(stdout, 'w+')
+    se = open(stderr, 'w+')
     pid = str(os.getpid())
     sys.stderr.write("%s\n" % startmsg % pid)
     sys.stderr.flush()
-    if pidfile: file(pidfile,'w+').write("%s\n" % pid)
+    if pidfile:
+        open(pidfile,'w+').write("%s\n" % pid)
     
     # Redirect standard file descriptors.
     os.dup2(si.fileno(), sys.stdin.fileno())
@@ -100,18 +101,18 @@ def startstop(stdout='/dev/null', stderr=None, stdin='/dev/null',
     pid_status='unknown'
     if pid:
         try:
-            procio_file = file('/proc/%i/io' % pid,'r')
+            procio_file = open('/proc/%i/io' % pid,'r')
             l  = procio_file.readlines()
             if len(l) > 1: pid_status = 'alive'
         except IOError:
-            pid_status = 'not running'            
-            
+            pid_status = 'not running'
     # print 'startstop: ', action, pid_status, pid, pidfile
     if action in ('stop','restart'):
         if not pid:
             mess = "Warning: Could not stop, pid file '%s' missing.\n"
             sys.stderr.write(mess % pidfile)
-            if 'restart' == action: action = 'start'
+            if 'restart' == action:
+                action = 'start'
             pid = None
         else:
             try:

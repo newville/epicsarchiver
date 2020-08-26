@@ -1,15 +1,28 @@
 #!/usr/bin/env python
 
 import os
+import re
 import time
 import sys
+import smtplib
+import numpy as np
+import sqlalchemy
+from sqlalchemy import (MetaData, and_, create_engine, text, func,
+                        Table, Column, ColumnDefault, ForeignKey,
+                        Integer, Float, String, Text, DateTime, 
+                        UniqueConstraint)
+
+from sqlalchemy.orm import sessionmaker, mapper, relationship
+from sqlalchemy.pool import SingletonThreadPool
 
 import epics
-from .debugtime import debugtime
-from .MasterDB import MasterDB
 
-from .util import clean_input, clean_string, motor_fields, \
-     normalize_pvname, tformat, valid_pvname
+from .util import (clean_input, clean_string, 
+                   normalize_pvname, tformat, valid_pvname,
+                   clean_mail_message)
+
+from .config import (dbuser, dbpass, dbhost, master_db,
+                     mailserver, mailfrom, cgi_url)
 
 def add_pv(pvname=None,cache=None,**kw):
     """ add a PV to the Cache and Archiver
@@ -114,40 +127,131 @@ def add_pvfile(fname):
     epics.poll(evt=0.01,iot=5.0)
 
 
-class Cache(MasterDB):
-    """ class for access to Master database as the Meta table of Archive databases
+
+
+def get_dbengine(dbname, server='sqlite', create=False,
+                 user='', password='',  host='', port=None):
+    """create database engine"""
+    if server == 'sqlite':
+        return create_engine('sqlite:///%s' % (dbname),
+                             poolclass=SingletonThreadPool)
+    elif server == 'mysql':
+        conn_str= 'mysql+mysqldb://%s:%s@%s:%d/%s'
+        if port is None:
+            port = 3306
+        return create_engine(conn_str % (user, password, host, port, dbname))
+
+    elif server.startswith('p'):
+        conn_str= 'postgresql://%s:%s@%s:%d/%s'
+        if port is None:
+            port = 5432
+        return create_engine(conn_str % (user, password, host, port, dbname))
+
+def None_or_one(result):
+    """expect result (as from query.fetchall() to return 
+    either None or exactly one result
     """
+    if isinstance(result, sqlalchemy.engine.result.ResultProxy):
+        return result
+    try:
+        return result[0]
+    except:
+        return None
 
-    null_pv_value = {'value':None,'ts':0,'cvalue':None,'type':None}
-    q_getfull     = "select value,cvalue,type,ts from cache where pvname='%s'"
+class Cache(object):
 
-    def __init__(self,dbconn=None,pidfile='/tmp/cache.pid', **kw):
-        # use of Master assumes that there are not a lot of new PVs being
-        # added to the cache so that this lookup of PVs can be done once.
-        MasterDB.__init__(self,dbconn=dbconn,**kw)
+    optokens = ('ne', 'eq', 'le', 'lt', 'ge', 'gt')
+    opstrings= ('not equal to', 'equal to',
+                'less than or equal to',    'less than',
+                'greater than or equal to', 'greater than')
+    ops = {'eq':'__eq__', 'ne':'__ne__', 
+           'le':'__le__', 'lt':'__lt__', 
+           'ge':'__ge__', 'gt':'__gt__'}
 
-        self.db.set_autocommit(1)
-        self.pid   = self.get_cache_pid()
+    def __init__(self, pidfile='/tmp/cache.pid', **kws):
         self.pidfile = pidfile
-        self._table_alerts = self.db.tables['alerts']
+
+        self.engine = get_dbengine(master_db, server='mysql', user=dbuser,
+                                   password=dbpass,  host=dbhost)
+        self.metadata = MetaData(self.engine)
+        self.metadata.reflect()
+        self.conn    = self.engine.connect()
+        self.session = sessionmaker(bind=self.engine, autocommit=True)()
+        self.tables  = self.metadata.tables
+        self.pid = self.get_pid()
+        self.last_update = 0
         self.pvs   = {}
         self.data  = {}
         self.alert_data = {}
-        self.db.set_autocommit(0)
-        self.last_update = 0
+        t0 = time.monotonic()
+        for pvname in self.get_pvnames():
+            self.pvs[pvname] = epics.get_pv(pvname)
+        self.read_alert_table()
+        print('created %d PVs in %.3f sec' % (len(self.pvs), time.monotonic()-t0))
 
-    def status_report(self,brief=False,dt=60):
-        return self.cache_report(brief=brief,dt=dt)
+    def get_info(self, name='db', process='cache'):
+        " get value from info table"
+        table = self.tables['info']
+        where = text("process='%s'" % process)
+        return None_or_one(table.select(whereclause=where).execute().fetchall())
 
-    def epics_connect(self,pvname):
-        if pvname in self.pvs:
-            return self.pvs[pvname]
+    def set_info(self, process='cache', **kws):
+        " set value(s) in the info table"
+        table = self.tables['info']
+        where = text("process='%s'" % process)
 
-        p = epics.PV(pvname)
-        epics.poll()
-        if p.connected:
-            self.pvs[pvname] = p
-        return p
+        q = table.update().where(table.c.process==process)
+        vals = {}
+        for key, val in kws.items():
+            k = getattr(table.c, key, None)
+            if k is not None:
+                vals[k] = val
+        q.values(vals).execute()
+        self.session.flush()
+
+    def get_pid(self):
+        self.pid = self.get_info('pid', process='cache').pid
+        return self.pid
+
+    def get_pvnames(self):
+        """ generate self.pvnames: a list of pvnames in the cache"""
+        q = self.tables['cache'].select().execute()
+        return [row.pvname for row in q.fetchall()]
+
+    def status_report(self, brief=False, dt=60):
+        # return self.cache_report(brief=brief,dt=dt)
+        out = []
+        pid = self.get_pid()
+        table = self.tables['cache']
+        where = text("ts>'%d'" % int(time.time()-dt))
+        q = table.select(whereclause=where).order_by(table.c.ts).execute()
+        ret= q.fetchall()
+        fmt = " %s  %.35s   %s"
+        if not brief:
+            for r in ret:
+                out.append(fmt % (tformat(t=float(r.ts),format="%H:%M:%S"),
+                                  r.pvname +' '*35, r.value.decode('utf-8')))
+
+        fmt = '%d of %d PVs had values updated in the past %.1f seconds. pid=%d'
+        out.append(fmt % (len(ret), len(self.pvs), dt, pid))
+        return '\n'.join(out)
+
+    def connect_pvs(self):
+        """connect to unconnected PVs, make sure callback is defined"""
+        nnew = 0
+        t0 = time.time()
+        for pvname, pv in self.pvs.items():
+            if pv.connected:
+                cval = pv.get(as_string=True)
+                if len(pv.callbacks) < 1:
+                    nnew += 1
+                    pv.add_callback(self.onChanges)
+                    self.data[pvname] = (pv.value, cval, time.time())
+                    if pvname in self.alert_data:
+                        self.alert_data[pvname]['last_value'] = pv.value
+                        self.alert_data[pvname]['last_notice'] = time.time() - 30.0
+        print("connect to pvs: %.3f sec, %d new entries" % (time.time()-t0, nnew))
+        return nnew
 
     def onChanges(self, pvname=None, value=None, char_value=None,
                   timestamp=None, **kw):
@@ -155,179 +259,73 @@ class Cache(MasterDB):
             if timestamp is None:
                 timestamp = time.time()
             self.data[pvname] = (value, char_value, timestamp)
-            if  pvname in self.alert_data:
+            if pvname in self.alert_data:
                 self.alert_data[pvname]['last_value'] = value
 
-    def update_cache(self):
-        t0 = time.time()
-        fmt = "update cache set value=%s,cvalue=%s,ts=%s where pvname=%s"
-        self.db.cursor.execute("start transaction")
-        updates = []
-        # take keys as of right now, and pop off the latest values
-        # for these pvs.   Be careful to NOT set self.data = {} as
-        # this can blow away any changes that occur during this i/io
-        for nam in list(self.data.keys()):
-            val, cval, ts = self.data.pop(nam)
-            ts = str(val)
-            val = str(val)
-            if ';' in val:  #
-                val = val[:val.find(';')]
-            if len(val) > 250: # must fit in tinyblob!
-                val = val[:250]
-            updates.append((val, cval, ts, nam))
-            try:
-                self.db.cursor.execute(fmt, (val, cval, ts, nam))
-            except:
-                print(("Failed ", fmt, (val, cval, ts, nam)))
-            #if len(updates) > 20:
-            #    break
-
-        # self.db.cursor.executemany(fmt, updates)
-        self.db.cursor.execute("commit")
-        self.set_date()
-        return len(updates)
-
-    def look_for_unconnected_pvs(self):
-        """ look for PVs that have no callbacks defined --
-        must have been unconnected -- but are now connected"""
-        nout = 0
-        for pvname in self.pvnames:
-            pv = self.pvs[pvname]
-            if pv is None:
-                nout = nout + 1
-                continue
-            if not pv.connected:
-                time.sleep(0.0025)
-                if not pv.connected:
-                    nout = nout + 1
-
-            if pv.connected and len(pv.callbacks) < 1:
-                pv.add_callback(self.onChanges)
-                self.data[pvname] = (pv.value, pv.char_value, time.time())
-        return nout
-
-    def connect_pvs(self, npvs=None):
-        d = debugtime()
-        self.get_pvnames()
-        if npvs is None:
-            npvs = len(self.pvnames)
-        elif npvs < len(self.pvnames):
-            self.pvnames = self.pvnames[:npvs]
-        n_notify = npvs / 10
-        d.add("connecting to %i PVs" %  npvs)
-        for pvname in self.pvnames:
-            try:
-                self.pvs[pvname] = epics.PV(pvname,
-                                            connection_timeout=1.0)
-            except epics.ca.ChannelAccessException:
-                sys.stderr.write(' Could not create PV %s \n' % pvname)
-        d.add('Created %i PV Objects' % len(self.pvs), verbose=False)
-
-        time.sleep(0.0001*npvs)
-        epics.ca.poll()
-        unconn = 0
-        for pv in list(self.pvs.values()):
-            if not pv.connected:
-                time.sleep(0.002)
-                if not pv.connected:
-                    unconn =  unconn + 1
-
-        epics.ca.poll()
-        d.add("Connected to PVs (%i not connected)" %  unconn, verbose=False)
-        self.data = {}
-        for pv in list(self.pvs.values()):
-            if pv is not None and pv.connected:
-                cval = pv.get(as_string=True)
-                self.data[pv.pvname] = (pv.value, cval, time.time())
-
-        d.add("got initial values for PVs", verbose=False)
-        #for pvname, vals in self.data.items():
-        #    print pvname, vals
-        self.last_update = 0
-        self.update_cache()
-        d.add("Entered values for %i PVs to Db" %  npvs)
-        for i, pv in enumerate(self.pvs.values()):
-            if pv is not None and pv.connected:
-                pv.add_callback(self.onChanges)
-        d.add("added callbacks for PVs")
-        #
-        unconn =self.look_for_unconnected_pvs()
-        d.add("looked for unconnected pvs: %i not connected" % unconn)
-        d.show()
-
-
     def set_date(self):
-        self.last_update = t = time.time()
-        s = time.ctime()
-        self.info.update("process='cache'", datetime=s,ts=t)
-
-    def get_pid(self):
-        return self.get_cache_pid()
+        self.last_update = time.time()
+        self.set_info(datetime=time.ctime(self.last_update), ts=self.last_update)
 
     def mainloop(self, npvs=None):
         " "
         sys.stdout.write('Starting Epics PV Archive Caching: \n')
-        self.db.get_cursor()
-
         t0 = time.time()
         self.pid = os.getpid()
-        self.db.set_autocommit(1)
-        self.set_cache_status('running')
-        self.set_cache_pid(self.pid)
+        self.set_info(status='running', pid=self.pid)
+        self.set_date()
 
         fout = open(self.pidfile, 'w')
         fout.write('%i\n' % self.pid)
         fout.close()
-        self.db.set_autocommit(0)
-        self.read_alert_settings()
-        self.db.get_cursor()
-        self.connect_pvs(npvs=npvs)
-        fmt = 'pvs connected, ready to run. Cache Process ID= %i\n'
-        sys.stdout.write(fmt % self.pid)
 
-        status_str = '%s: %i values cached since last notice %i loops\n'
-        ncached = 0
-        nloop_count = 0
-        mlast   = -1
-        self.db.set_autocommit(0)
-        alert_timer_on = True
+
+        # self.db.get_cursor()
+        nconn = self.connect_pvs()
+        fmt = '%d/%d pvs connected, ready to run. Cache Process ID= %i\n'
+        sys.stdout.write(fmt % (nconn, len(self.pvs), self.pid))
+
+        for alert in self.alert_data.values():
+            if alert['last_value'] is None and alert['pvname'] in self.pvs:
+                pv = self.pvs[alert['pvname']]
+                if pv.connected:
+                    alert['last_value'] = pv.value
+
+        print("Alerts: ")
+        for name, alert in self.alert_data.items():
+            print(name,  alert['last_value'], alert['trippoint'], alert['pvname'])
+        
+        status_str = '%s: %d values cached since last notice %d loops\n'
+        ncached, nloop = 0, 0
+        last_report = 0
+        last_request_process = 0
         while True:
             try:
-                # self.db.begin_transaction()
-                epics.poll(evt=1.e-4, iot=1.0)
+                epics.poll(evt=1.e-2, iot=1.0)
                 n = self.update_cache()
-                ncached +=  n
-                nloop_count   +=  1
-                # self.db.commit_transaction()
-                tmin, tsec = time.localtime()[4:6]
-
-                # make sure updates and alerts get processed often,
-                # but not on every cycle.  Here they get processed
-                # once every 15 seconds.
-                if (tsec % 15) > 10:
-                    alert_timer_on = True
-                elif (tsec % 15) < 3 and alert_timer_on:
-                    self.process_requests()
-                    self.process_alerts()
-                    alert_timer_on = False
-
-                sys.stdout.flush()
-                if self.get_pid() != self.pid:
-                    sys.stdout.write('  No longer master! Exiting %i / %i !!\n' % (self.pid, self.get_pid()))
-                    self.exit()
-                if (tsec == 0) and (tmin != mlast) and (tmin % 5 == 0): # report once per 5 minutes
-                    mlast = tmin
-                    sys.stdout.write(status_str % (time.ctime(),ncached,nloop_count))
-                    sys.stdout.flush()
-                    self.read_alert_settings()
-                    self.look_for_unconnected_pvs()
-                    ncached = 0
-                    nloop_count = 0
-
             except KeyboardInterrupt:
-                return
+                break
+            ncached +=  n
+            nloop   +=  1
 
-        self.db.free_cursor()
+            # process alerts every 15 seconds:
+            if (time.time() > last_request_process + 15):
+                self.process_requests()
+                self.process_alerts()
+                last_request_process = time.time()
+                if self.get_pid() != self.pid:
+                    sys.stdout.write('no longer master, exiting\n\n')
+                    sys.stdout.flush()
+                    self.exit()
+            # report and reconnect once ever 5 minutes
+            if time.time() > last_report + 60:
+                sys.stdout.write(status_str % (time.ctime(), ncached, nloop))
+                sys.stdout.flush()
+                last_report = time.time()
+                self.read_alert_table()
+                self.connect_pvs()
+                ncached = 0
+                nloop = 0
+
 
     def exit(self):
         self.close()
@@ -340,163 +338,247 @@ class Cache(MasterDB):
         self.set_cache_pid(0)
         self.exit()
 
-    def sql_exec(self,sql):
-        self.db.execute(sql)
-
-    def sql_exec_fetch(self,sql):
-        self.sql_exec(sql)
-        try:
-            return self.db.fetchall()
-        except:
-            return [{}]
-
-    def get_full(self,pv,add=False):
+    def get_full(self, pvname, add=False):
         " return full information for a cached pv"
-        npv = normalize_pvname(pv)
-        if len(self.pvnames)== 0: self.get_pvnames()
-        if add and (npv not in self.pvnames):
-            self.add_pv(npv)
+        pvname = normalize_pvname(pvname)
+        self.get_pvnames()
+        if add and pvname not in self.pvs:
+            self.add_pv(pvname)
             sys.stdout.write('adding PV.....\n')
-            return self.get_full(pv,add=False)
-        w = self.q_getfull % npv
-        try:
-            return self.sql_exec_fetch(w)[0]
-        except:
-            return self.null_pv_value
+            return self.get_full(pvname, add=False)
 
-    def get(self,pv,add=False,use_char=True):
+        where = text("pvname='%s'" % pvname)
+        table = self.tables['cache']
+        out = None_or_one(table.select(whereclause=where).execute().fetchall())
+        if out is None:
+            out = {'value':None, 'ts':0, 'cvalue':None, 'type':None}
+        return out
+
+    def get(self, pvname, add=False, use_char=True):
         " return cached value of pv"
-        ret = self.get_full(pv,add=add)
-        if use_char: return ret['cvalue']
+        ret = self.get_full(pvname, add=add)
+        if use_char:
+            return ret['cvalue']
         return ret['value']
 
-    def set_value(self,pv=None,**kws):
-        v    = [clean_string(i) for i in [pv.value,pv.char_value,time.time()]]
-        v.append(pv.pvname)
-        qval = "update cache set value=%s,cvalue=%s,ts=%s where pvname='%s'" % tuple(v)
-        self.db.execute(qval)
+    def update_cache(self):
+        # take new pvnames as of right now, and pop off the latest
+        # values for these pvs.
+        # Note: be careful to not set self.data = {}, which would
+        # blow away any changes that occur during this processing
+        newdata = {}
+        for pvname in list(self.data.keys()):
+            val, cval, tstamp = self.data.pop(pvname)
+            if isinstance(val, np.ndarray):
+                val = val.tolist()
+            newdata[pvname] = {'ts': tstamp,
+                               'val': clean_string(val, maxlen=254),
+                               'cval': clean_string(cval)}
 
-    def process_requests(self):
-        " process requests for new PV's to be cached"
-        req   = self.sql_exec_fetch("select * from requests")
-        if len(req) == 0:
-            return
+        table = self.tables['cache']
+        with self.session.begin():
+            for pvname, dat in newdata.items():
+                row = table.update().where(table.c.pvname==pvname)
+                row.values({table.c.ts: dat['ts'],
+                            table.c.value: dat['val'],
+                            table.c.cvalue: dat['cval']}).execute()
+        self.set_date()
+        return len(newdata)
 
-        del_cache= "delete from cache where %s"
+    def set_value(self, pv):
+        table = self.tables['cache']
+        val = pv.value
+        if isinstance(val, np.ndarray):
+            val = val.tolist()
+        vals = {table.c.ts: time.time(),
+                table.c.value: clean_string(val, maxlen=254),
+                table.c.cvalue: clean_string(pv.char_value)}
+        table.update().where(table.c.pvname==pv.pvname).values(vals).execute()
 
-        # note: if a requested PV does not connect,
-        #       wait a few minutes before dropping from
-        #       the request table.
 
-        if len(req)>0:
-            sys.stdout.write("processing %i requests at %s\n" % (len(req), time.ctime()))
-            sys.stdout.flush()
-        es = clean_string
-        sys.stdout.write( 'Process Req: %i\n' % len(self.pvnames))
-        if len(self.pvnames)== 0:
-            self.get_pvnames()
-        sys.stdout.write( 'Process Req: %i\n' % len(self.pvnames))
-
-        now = time.time()
-        self.db.set_autocommit(1)
-        drop_ids = []
-        for r in req:
-            nam, rid, action, ts = r['pvname'], r['id'], r['action'], r['ts']
-            where = "pvname='%s'" % nam
-            print(('Request: ', nam, rid, action))
-            if valid_pvname(nam) and (now-ts < 3000.0):
-                if 'suspend' == action:
-                    if nam in self.pvs:
-                        self.pvs[nam].clear_callbacks()
-                        self.cache.update(active='no',where=where)
-                        drop_ids.append(rid)
-                elif 'drop' == action:
-                    if nam in self.pvnames:
-                        self.sql_exec(del_cache % where)
-                        drop_ids.append(rid)
-
-                elif 'add' == action:
-                    if nam not in self.pvnames:
-                        pv = self.epics_connect(nam)
-                        xval = pv.get(as_string=True)
-                        conn = pv.wait_for_connection(timeout=1.0)
-                        if conn:
-                            self.add_epics_pv(pv)
-                            self.set_value(pv=pv)
-                            pv.add_callback(self.onChanges)
-                            self.pvs[nam] = pv
-                            drop_ids.append(rid)
-                            sys.stdout.write('added PV = %s\n' % nam)
-                        else:
-                            sys.stdout.write('could not connect to PV %s\n' % nam)
-                    else:
-                        print(('? already in self.pvnames ', nam))
-                        drop_ids.append(rid)
-            else:
-                drop_ids.append(rid)
-
-        time.sleep(0.01)
-        self.get_pvnames()
-        for rid in drop_ids:
-            self.sql_exec( "delete from requests where id=%i" % rid )
-
-        time.sleep(0.01)
-        self.db.set_autocommit(0)
-
-    def add_epics_pv(self,pv):
+    def add_epics_pv(self ,pv):
         """ add an epics PV to the cache"""
+        if pv.pvname in self.pvs:
+            return
+
         if not pv.connected:
-            print(('add_epics_pv: NOT CONNECTED ', pv))
+            print('PV %s not connected' % repr(pv))
             return
 
-        self.get_pvnames()
-        if pv.pvname in self.pvnames:
-            return
-        self.cache.insert(pvname=pv.pvname,type=pv.type)
-
-        where = "pvname='%s'" % pv.pvname
-        o = self.cache.select_one(where=where)
-        if o['pvname'] not in self.pvnames:
-            self.pvnames.append(o['pvname'])
-
-    def read_alert_settings(self):
-        for i in self._table_alerts.select():
-            #  sys.stdout.write('PV ALERT %s\n' % repr(i['pvname']))
-            pvname = i.pop('pvname')
-            if pvname not in self.alert_data:
-                self.alert_data[pvname] = i
-            else:
-                self.alert_data[pvname].update(i)
-            if 'last_notice' not in self.alert_data[pvname]:
-                self.alert_data[pvname]['last_notice'] = -1
-            if 'last_value' not in self.alert_data[pvname]:
-                self.alert_data[pvname]['last_value'] = None
-        # sys.stdout.write("read %i alerts \n" % len(self.alert_data))
-        sys.stdout.flush()
+        cval = pv.get(as_string=True)
+        table = self.tables['cache']
+        table.insert().execute(pvname=pv.pvname, type=pv.type)
+        self.pvs[pvname] = pv
+        self.data[pvname] = (pv.value, pv.char_value, time.time())
+        pv.add_callback(self.onChanges)
+        self.connect_pvs()
 
     def process_alerts(self, debug=False):
         # sys.stdout.write('processing alerts at %s\n' % time.ctime())
         msg = 'Alert sent for PV=%s / Label =%s at %s\n'
         # self.db.set_autocommit(1)
-        for pvname, alarm in list(self.alert_data.items()):
-            value = alarm.get('last_value', None)
-            last_notice = alarm.get('last_notice', -1)
-            if value is not None and alarm['active'] == 'yes':
-                if debug:
-                    print(('Process Alert for ', pvname, last_notice, alarm['timeout']))
+        table = self.tables['alerts']
+        print(" Process alerts ")
+        for pvname, alert in list(self.alert_data.items()):
+            value = alert.get('last_value', None)
+            if alert['active'] == 'no' or value is None:
+                continue
+            last_notice = alert.get('last_notice', -1)
+            # if debug:
+            #     print(('Process Alert for ', pvname, last_notice, alert['timeout']))
+            notify= (time.time() - last_notice) > alert['timeout']
 
-                notify= (time.time() - last_notice) > alarm['timeout']
-                ok, notified = self.check_alert(alarm['id'], value,
-                                                sendmail=notify)
-                if debug:
-                    print(('Alert: val OK? ', ok, ' Notified? ', notified))
-                if notified:
-                    self.alert_data[pvname]['last_notice'] = time.time()
-                    self.alert_data[pvname]['last_value']  = None
-                    sys.stdout.write(msg % (pvname, alarm['name'], time.ctime()))
-                elif ok:
-                    self.alert_data[pvname]['last_value']  = None
+            # coerce values to strings or floats for comparisons
+            convert = str
+            if isinstance(value,(int, float)):
+                convert = float
 
-                if debug: print(('  >>process_alert done ', self.alert_data[pvname]['last_notice']))
+            value     = convert(value)
+            trippoint = convert(alert['trippoint'])
+            cmp       = self.ops[alert['compare']]
 
-        self.db.set_autocommit(0)
+            # compute new alarm status: note form  'value.__ne__(trippoint)'
+            value_ok = not getattr(value, cmp)(trippoint)
+
+            old_value_ok = (alert['status'] == 'ok')
+            notify = notify and old_value_ok and (not value_ok)
+            if old_value_ok != value_ok:
+                # update the status field in the alerts table
+                status = 'alarm'
+                if value_ok:
+                    status = 'ok'
+                table.update(whereclause=text("pvname='%s'" %  pvname)).execute(status=status)
+                if notify:
+                    self.send_alert_mail(alert, value)
+
+            if debug:
+                print(('Alert: val OK? ', ok, ' Notified? ', notified))
+            if notify:
+                alert['last_notice'] = time.time()
+                sys.stdout.write(msg % (pvname, alert['name'], time.ctime()))
+            if value_ok or notify:
+                alert['last_value']  = None
+
+            if debug:
+                print(('  >>process_alert done ', alert['last_notice']))
+
+    def send_alert_mail(self, alert, value):
+        """ send an alert email from an alert dict holding
+        the appropriate row of the alert table.        
+        """
+        mailto = alert['mailto']
+        pvname = alert['pvname']
+        label  = alert['name']
+        compare= alert['compare']
+        msg    = alert['mailmsg']
+
+        if mailto in ('', None) or pvname in ('', None):
+            return
+
+        mailto = mailto.replace('\r','').replace('\n','')
+
+        trippoint = str(alert['trippoint'])
+        mailto    = tuple(mailto.split(','))
+        subject   = "[Epics Alert] %s" % (label)
+
+        if msg in ('', None):
+            msg = self.def_alert_msg
+
+        msg  = clean_mail_message(msg)
+
+        opstr = 'not equal to'
+        for tok,desc in zip(self.optokens, self.opstrings):
+            if tok == compare: opstr = desc
+
+        # fill in 'template' values in mail message
+        for k, v in list({'PV': pvname,  'LABEL':label,
+                          'COMP': opstr, 'VALUE': str(value),  
+                          'TRIP': str(trippoint)}.items()):
+            msg = msg.replace("%%%s%%" % k, v)
+
+        # do %PV(XX)% replacements
+        re_showpv = re.compile(r".*%PV\((.*)\)%.*").match
+        mlines = msg.split('\n')
+
+        for i,line in enumerate(mlines):
+            nmatch = 0
+            match = re_showpv(line)
+            while match is not None and nmatch<25:
+                pvn = match.groups()[0]
+                line = line.replace('%%PV(%s)%%' % pvn, self.get(pvn))
+                # except:
+                #     line = line.replace('%%PV(%s)%%' % pvn, 'Unknown_PV(%s)' % pvn)
+                match = re_showpv(line)
+                nmatch = nmatch + 1
+            mlines[i] = line
+        msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/plot/%s\n" % \
+              (mailfrom,subject,'\n'.join(mlines),cgi_url,pvname)
+
+        try:
+            s = smtplib.SMTP(mailserver)
+            # s.sendmail(mailfrom, mailto, msg)
+            print("Would Send Mail ", msg)
+            s.quit()
+        except:
+            sys.stdout.write("Could not send Alert mail:  mail not configured??")
+
+    def process_requests(self):
+        " process requests for new PV's to be cached"
+        reqtable = self.tables['requests']
+        req = reqtable.select().execute().fetchall()
+        if len(req) == 0:
+            return
+
+        sys.stdout.write("processing requests:\n")
+        cache = self.tables['cache']
+        drop_ids = []
+        for row in req:
+            pvname, action = row.pvname, row.action
+            msg = 'could not process request for'
+            drop_ids.append(row.id)
+            if valid_pvname(pvname):
+                if 'suspend' == action:
+                    if pvname in self.pvs:
+                        self.pvs[pvname].clear_callbacks()
+                        cache.update(cache.c.id==row.id).execute(active='no')
+                        msg = 'suspended'
+                elif 'drop' == action:
+                    if pvname in self.pvs:
+                        cache.delete().where(cache.c.id==row.id)
+                        msg = 'dropped'
+                elif 'add' == action:
+                    if pvname not in self.pvs:
+                        pv = epics.get_pv(pvname)
+                        conn = pv.wait_for_connection(timeout=3.0)
+                        if conn:
+                            self.add_epics_pv(pv)
+                            self.set_value(pv)
+                            msg = 'added'
+                        else:
+                            msg = 'could not add'
+                    else:
+                        msg = 'already added'
+            sys.stdout.write('%s PV: %s\n' % (msg, pvname))
+
+        time.sleep(0.01)
+        for rid in drop_ids:
+            reqtable.delete().where(reqtable.c.id==rid)
+
+        sys.stdout.flush()
+
+
+    def read_alert_table(self):
+        for alert in self.tables['alerts'].select().execute().fetchall():
+            pvname = alert.pvname
+            if pvname not in self.alert_data:
+                self.alert_data[pvname] = dict(alert)
+            else:
+                self.alert_data[pvname].update(dict(alert))
+            if 'last_notice' not in self.alert_data[pvname]:
+                self.alert_data[pvname]['last_notice'] = 0
+            if 'last_value' not in self.alert_data[pvname]:
+                value = None
+                if pvname in self.pvs:
+                    value = self.pvs[pvname].value
+                self.alert_data[pvname]['last_value'] = value
+

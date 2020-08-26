@@ -11,25 +11,32 @@ motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS',
 
 valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._-'
 
-def clean_input(x,maxlen=None):
+def clean_input(x, maxlen=1024):
     """clean input, forcing it to be a string, with comments stripped,
     and guarding against extra sql statements"""
-    if not isinstance(x,str): x = str(x)
 
-    if maxlen is None: maxlen = 1024
-    if len(x) > maxlen:   x = x[:maxlen-1]
-    x.replace('#','\#')
+    if not isinstance(x, str):
+        x = str(x)
+
+    x = x[:maxlen].replace('#','\#')
     eol = x.find(';')
-    if eol > -1: x = x[:eol]
+    if eol > -1:
+        x = x[:eol]
     return x.strip()
-                       
+
 def safe_string(x):
     #if "'" in x:  x = escape_string(x)
     return  string_literal(x)
 
-def clean_string(x,maxlen=None):
-    x = clean_input(x,maxlen=maxlen)
-    return safe_string(x)
+def clean_string(x, maxlen=2048):
+    return clean_input(x, maxlen=maxlen).encode('utf-8')
+
+def clean_mail_message(s):
+    "cleans a stored escaped mail message for real delivery"
+    s = s.strip()
+    s = s.replace("\\r","\r").replace("\\n","\n")
+    s = s.replace("\\'","\'").replace("\\","").replace('\\"','\"')
+    return s
 
 def normalize_pvname(p):
     """ normalizes a PV name (so that it ends in .VAL if needed)."""
