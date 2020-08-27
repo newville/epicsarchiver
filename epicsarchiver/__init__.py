@@ -16,19 +16,21 @@ import sys
 from . import config
 
 import sqlalchemy
-# sys.path.insert(0, config.share_dir)
-
     
-from .util import string_literal, clean_input, escape_string, timehash, tformat, clean_mail_message
 
-from .SimpleDB import SimpleDB, SimpleTable,ConnectionPool, cpool
+from .util import (string_literal, clean_input, escape_string,
+                   timehash, tformat, clean_mail_message )
 
-from .MasterDB       import MasterDB
-from .Instruments    import Instruments, Alerts
-from .ArchiveMaster  import ArchiveMaster
-from .Cache          import Cache, add_pvfile
-from .Archiver       import Archiver
-from .Daemon         import startstop
+from .cache import Cache, add_pvfile
+
+
+from .archiver       import Archiver
+from .daemon         import startstop
+
+# from .SimpleDB import SimpleDB, SimpleTable,ConnectionPool, cpool
+# from .MasterDB       import MasterDB
+# from .Instruments    import Instruments, Alerts
+# from .ArchiveMaster  import ArchiveMaster
 # from .HTMLWriter     import HTMLWriter
 # from .PlotViewer     import PlotViewer
 # from .WebStatus      import WebStatus

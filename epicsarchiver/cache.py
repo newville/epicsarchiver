@@ -509,7 +509,7 @@ class Cache(object):
                 nmatch = nmatch + 1
             mlines[i] = line
         msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/plot/%s\n" % \
-              (mailfrom,subject,'\n'.join(mlines),cgi_url,pvname)
+              (mailfrom, subject,'\n'.join(mlines), cgi_url, pvname)
 
         try:
             s = smtplib.SMTP(mailserver)
