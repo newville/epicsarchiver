@@ -5,21 +5,15 @@ import re
 import time
 import sys
 import smtplib
+from decimal import Decimal
 import numpy as np
-import sqlalchemy
-from sqlalchemy import (MetaData, and_, create_engine, text, func,
-                        Table, Column, ColumnDefault, ForeignKey,
-                        Integer, Float, String, Text, DateTime, 
-                        UniqueConstraint)
-
-from sqlalchemy.orm import sessionmaker, mapper, relationship
-from sqlalchemy.pool import SingletonThreadPool
+from sqlalchemy import MetaData, create_engine, engine, text
+from sqlalchemy.orm import sessionmaker
 
 import epics
 
-from .util import (clean_input, clean_string, 
-                   normalize_pvname, tformat, valid_pvname,
-                   clean_mail_message)
+from .util import (clean_input, clean_string, normalize_pvname,
+                   tformat, valid_pvname, clean_mail_message)
 
 from .config import (dbuser, dbpass, dbhost, master_db,
                      mailserver, mailfrom, cgi_url)
@@ -127,14 +121,11 @@ def add_pvfile(fname):
     epics.poll(evt=0.01,iot=5.0)
 
 
-
-
 def get_dbengine(dbname, server='sqlite', create=False,
                  user='', password='',  host='', port=None):
     """create database engine"""
     if server == 'sqlite':
-        return create_engine('sqlite:///%s' % (dbname),
-                             poolclass=SingletonThreadPool)
+        return create_engine('sqlite:///%s' % (dbname))
     elif server == 'mysql':
         conn_str= 'mysql+mysqldb://%s:%s@%s:%d/%s'
         if port is None:
@@ -151,7 +142,7 @@ def None_or_one(result):
     """expect result (as from query.fetchall() to return 
     either None or exactly one result
     """
-    if isinstance(result, sqlalchemy.engine.result.ResultProxy):
+    if isinstance(result, engine.result.ResultProxy):
         return result
     try:
         return result[0]
@@ -170,7 +161,7 @@ class Cache(object):
 
     def __init__(self, pidfile='/tmp/cache.pid', **kws):
         self.pidfile = pidfile
-
+        t0 = time.monotonic() 
         self.engine = get_dbengine(master_db, server='mysql', user=dbuser,
                                    password=dbpass,  host=dbhost)
         self.metadata = MetaData(self.engine)
@@ -183,11 +174,11 @@ class Cache(object):
         self.pvs   = {}
         self.data  = {}
         self.alert_data = {}
-        t0 = time.monotonic()
+
         for pvname in self.get_pvnames():
             self.pvs[pvname] = epics.get_pv(pvname)
         self.read_alert_table()
-        print('created %d PVs in %.3f sec' % (len(self.pvs), time.monotonic()-t0))
+        print('created %d PVs , ready to run mainloop  %.3f sec' % (len(self.pvs), time.monotonic()-t0))
 
     def get_info(self, name='db', process='cache'):
         " get value from info table"
@@ -278,7 +269,6 @@ class Cache(object):
         fout.write('%i\n' % self.pid)
         fout.close()
 
-
         # self.db.get_cursor()
         nconn = self.connect_pvs()
         fmt = '%d/%d pvs connected, ready to run. Cache Process ID= %i\n'
@@ -300,7 +290,7 @@ class Cache(object):
         last_request_process = 0
         while True:
             try:
-                epics.poll(evt=1.e-2, iot=1.0)
+                epics.poll(evt=0.02, iot=1.0)
                 n = self.update_cache()
             except KeyboardInterrupt:
                 break
@@ -384,6 +374,13 @@ class Cache(object):
                             table.c.cvalue: dat['cval']}).execute()
         self.set_date()
         return len(newdata)
+
+    def get_values(self, all=False, time_ago=60.0):
+        table = self.tables['cache']
+        query = table.select()
+        if not all:
+            query = query.where(table.c.ts>Decimal(time.time() - time_ago))
+        return query.execute().fetchall()
 
     def set_value(self, pv):
         table = self.tables['cache']
