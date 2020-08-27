@@ -4,6 +4,7 @@ import os
 import re
 import time
 import sys
+import logging
 import smtplib
 from decimal import Decimal
 import numpy as np
@@ -12,11 +13,13 @@ from sqlalchemy.orm import sessionmaker
 
 import epics
 
-from .util import (clean_input, clean_string, normalize_pvname,
+from .util import (clean_bytes, normalize_pvname,
                    tformat, valid_pvname, clean_mail_message)
 
-from .config import (dbuser, dbpass, dbhost, master_db,
-                     mailserver, mailfrom, cgi_url)
+from .config import (dbserver, dbuser, dbpass, dbhost, master_db,
+                     mailserver, mailfrom, url_root)
+
+logging.basicConfig(level=logging.INFO)
 
 def add_pv(pvname=None,cache=None,**kw):
     """ add a PV to the Cache and Archiver
@@ -34,7 +37,7 @@ def add_pv(pvname=None,cache=None,**kw):
         cache = Cache()
     cache.add_pv(pvname)
     time.sleep(0.05)
-    print("Wait for PV %s to get to cache...")
+    logging.info("Wait for PV %s to get to cache" % (pvname))
 
     cache.process_requests()
 
@@ -65,7 +68,7 @@ def add_pvfile(fname):
           on the line a 'pair score' of 10.
 
     """
-    print(('Adding PVs listed in file ', fname))
+    loggin.debug('Adding PVs listed in file: %s ' % fname)
     f = open(fname,'r')
     lines = f.readlines()
     f.close()
@@ -92,15 +95,14 @@ def add_pvfile(fname):
             pairs.append(tuple(words[:]))
 
         t2 = time.time()-t0
-        print((' Add PVs: [ %s ] ' % (' '.join(words))))
+        logging.info("Adding PVs: [ %s ] " % (' '.join(words)))
 
         if len(pairs) > 100:
-            print('set a few pair scores...')
             for i in range(20):
                 words = pairs.pop(0)
                 cache.set_allpairs(words, score=10)
 
-    print('Waiting for all pvs requested to be put in cache....')
+    logging.debug('Waiting for all pvs requested to be put in cache....')
     # now wait for all requests to be fulfilled, and then set the remaining pair scores
 
     req_table= cache.db.tables['requests']
@@ -111,7 +113,7 @@ def add_pvfile(fname):
         requests_pending = len(pending_requests) > 2
         time.sleep(1)
 
-    # print 'Finally, set remaining of pair scores:'
+    logging.debug('Finally, set remaining of pair scores:')
     while pairs:
         words = pairs.pop(0)
         cache.set_allpairs(words,score=10)
@@ -162,8 +164,9 @@ class Cache(object):
     def __init__(self, pidfile='/tmp/cache.pid', **kws):
         self.pidfile = pidfile
         t0 = time.monotonic() 
-        self.engine = get_dbengine(master_db, server='mysql', user=dbuser,
-                                   password=dbpass,  host=dbhost)
+        self.engine = get_dbengine(master_db, server=dbserver,
+                                   user=dbuser, password=dbpass,
+                                   host=dbhost)
         self.metadata = MetaData(self.engine)
         self.metadata.reflect()
         self.conn    = self.engine.connect()
@@ -178,7 +181,7 @@ class Cache(object):
         for pvname in self.get_pvnames():
             self.pvs[pvname] = epics.get_pv(pvname)
         self.read_alert_table()
-        print('created %d PVs , ready to run mainloop  %.3f sec' % (len(self.pvs), time.monotonic()-t0))
+        logging.info('created %d PVs , ready to run mainloop  %.3f sec' % (len(self.pvs), time.monotonic()-t0))
 
     def get_info(self, name='db', process='cache'):
         " get value from info table"
@@ -241,7 +244,7 @@ class Cache(object):
                     if pvname in self.alert_data:
                         self.alert_data[pvname]['last_value'] = pv.value
                         self.alert_data[pvname]['last_notice'] = time.time() - 30.0
-        print("connect to pvs: %.3f sec, %d new entries" % (time.time()-t0, nnew))
+        logging.info("connect to pvs: %.3f sec, %d new entries" % (time.time()-t0, nnew))
         return nnew
 
     def onChanges(self, pvname=None, value=None, char_value=None,
@@ -259,7 +262,7 @@ class Cache(object):
 
     def mainloop(self, npvs=None):
         " "
-        sys.stdout.write('Starting Epics PV Archive Caching: \n')
+        logging.info('Starting Epics PV Archive Caching:')
         t0 = time.time()
         self.pid = os.getpid()
         self.set_info(status='running', pid=self.pid)
@@ -272,7 +275,7 @@ class Cache(object):
         # self.db.get_cursor()
         nconn = self.connect_pvs()
         fmt = '%d/%d pvs connected, ready to run. Cache Process ID= %i\n'
-        sys.stdout.write(fmt % (nconn, len(self.pvs), self.pid))
+        logging.info(fmt % (nconn, len(self.pvs), self.pid))
 
         for alert in self.alert_data.values():
             if alert['last_value'] is None and alert['pvname'] in self.pvs:
@@ -280,11 +283,10 @@ class Cache(object):
                 if pv.connected:
                     alert['last_value'] = pv.value
 
-        print("Alerts: ")
         for name, alert in self.alert_data.items():
-            print(name,  alert['last_value'], alert['trippoint'], alert['pvname'])
+            logging.debug('Add Alert: %s / %s' % (name,  alert['pvname']))
         
-        status_str = '%s: %d values cached since last notice %d loops\n'
+        status_str = '%s: %d values cached since last notice %d loops'
         ncached, nloop = 0, 0
         last_report = 0
         last_request_process = 0
@@ -303,13 +305,11 @@ class Cache(object):
                 self.process_alerts()
                 last_request_process = time.time()
                 if self.get_pid() != self.pid:
-                    sys.stdout.write('no longer master, exiting\n\n')
-                    sys.stdout.flush()
+                    logging.debug('no longer main cache program, exiting\n\n')
                     self.exit()
             # report and reconnect once ever 5 minutes
             if time.time() > last_report + 60:
-                sys.stdout.write(status_str % (time.ctime(), ncached, nloop))
-                sys.stdout.flush()
+                logging.info(status_str % (time.ctime(), ncached, nloop))
                 last_report = time.time()
                 self.read_alert_table()
                 self.connect_pvs()
@@ -321,7 +321,6 @@ class Cache(object):
         self.close()
         for i in list(self.pvs.values()):
             i.disconnect()
-
         sys.exit()
 
     def shutdown(self):
@@ -334,7 +333,7 @@ class Cache(object):
         self.get_pvnames()
         if add and pvname not in self.pvs:
             self.add_pv(pvname)
-            sys.stdout.write('adding PV.....\n')
+            logging.debug('adding PV  %s ' % pvname)
             return self.get_full(pvname, add=False)
 
         where = text("pvname='%s'" % pvname)
@@ -362,8 +361,8 @@ class Cache(object):
             if isinstance(val, np.ndarray):
                 val = val.tolist()
             newdata[pvname] = {'ts': tstamp,
-                               'val': clean_string(val, maxlen=254),
-                               'cval': clean_string(cval)}
+                               'val': clean_bytes(val, maxlen=254),
+                               'cval': clean_bytes(cval)}
 
         table = self.tables['cache']
         with self.session.begin():
@@ -388,8 +387,8 @@ class Cache(object):
         if isinstance(val, np.ndarray):
             val = val.tolist()
         vals = {table.c.ts: time.time(),
-                table.c.value: clean_string(val, maxlen=254),
-                table.c.cvalue: clean_string(pv.char_value)}
+                table.c.value: clean_bytes(val, maxlen=254),
+                table.c.cvalue: clean_bytes(pv.char_value)}
         table.update().where(table.c.pvname==pv.pvname).values(vals).execute()
 
 
@@ -399,7 +398,7 @@ class Cache(object):
             return
 
         if not pv.connected:
-            print('PV %s not connected' % repr(pv))
+            logging.debug('PV %s not connected' % repr(pv))
             return
 
         cval = pv.get(as_string=True)
@@ -411,18 +410,15 @@ class Cache(object):
         self.connect_pvs()
 
     def process_alerts(self, debug=False):
-        # sys.stdout.write('processing alerts at %s\n' % time.ctime())
+        logging.debug('processing alerts at %s\n' % time.ctime())
         msg = 'Alert sent for PV=%s / Label =%s at %s\n'
         # self.db.set_autocommit(1)
         table = self.tables['alerts']
-        print(" Process alerts ")
         for pvname, alert in list(self.alert_data.items()):
             value = alert.get('last_value', None)
             if alert['active'] == 'no' or value is None:
                 continue
             last_notice = alert.get('last_notice', -1)
-            # if debug:
-            #     print(('Process Alert for ', pvname, last_notice, alert['timeout']))
             notify= (time.time() - last_notice) > alert['timeout']
 
             # coerce values to strings or floats for comparisons
@@ -449,15 +445,15 @@ class Cache(object):
                     self.send_alert_mail(alert, value)
 
             if debug:
-                print(('Alert: val OK? ', ok, ' Notified? ', notified))
+                logging.debug('Alert: val OK? %r Notified" %r' % ( ok, notified))
             if notify:
                 alert['last_notice'] = time.time()
-                sys.stdout.write(msg % (pvname, alert['name'], time.ctime()))
+                logging.debug(msg % (pvname, alert['name'], time.ctime()))
             if value_ok or notify:
                 alert['last_value']  = None
 
             if debug:
-                print(('  >>process_alert done ', alert['last_notice']))
+                logging.debug('  >>process_alert done %s' %  alert['last_notice'])
 
     def send_alert_mail(self, alert, value):
         """ send an alert email from an alert dict holding
@@ -509,15 +505,15 @@ class Cache(object):
                 nmatch = nmatch + 1
             mlines[i] = line
         msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/plot/%s\n" % \
-              (mailfrom, subject,'\n'.join(mlines), cgi_url, pvname)
+              (mailfrom, subject,'\n'.join(mlines), url_root, pvname)
 
         try:
             s = smtplib.SMTP(mailserver)
             # s.sendmail(mailfrom, mailto, msg)
-            print("Would Send Mail ", msg)
+            logging.info("Would Send Mail : %s" % msg)
             s.quit()
         except:
-            sys.stdout.write("Could not send Alert mail:  mail not configured??")
+            logging.warning("Could not send Alert mail:  mail not configured??")
 
     def process_requests(self):
         " process requests for new PV's to be cached"
@@ -526,7 +522,7 @@ class Cache(object):
         if len(req) == 0:
             return
 
-        sys.stdout.write("processing requests:\n")
+        logging.info("processing requests:\n")
         cache = self.tables['cache']
         drop_ids = []
         for row in req:
@@ -555,13 +551,11 @@ class Cache(object):
                             msg = 'could not add'
                     else:
                         msg = 'already added'
-            sys.stdout.write('%s PV: %s\n' % (msg, pvname))
+            logging.debug('%s PV: %s\n' % (msg, pvname))
 
         time.sleep(0.01)
         for rid in drop_ids:
             reqtable.delete().where(reqtable.c.id==rid)
-
-        sys.stdout.flush()
 
 
     def read_alert_table(self):
