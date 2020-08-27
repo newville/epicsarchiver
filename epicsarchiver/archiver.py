@@ -6,19 +6,31 @@ import os
 import getopt
 
 import epics
-from .SimpleDB import SimpleDB
-from .MasterDB import MasterDB
+from sqlalchemy import MetaData, create_engine, engine, text
+from sqlalchemy.orm import sessionmaker
 
-from . import config
-from .util import normalize_pvname, get_force_update_time, tformat, \
-     escape_string, clean_string, SEC_DAY, MAX_EPOCH, valid_pvname, motor_fields
+# from .SimpleDB import SimpleDB
+# from .MasterDB import MasterDB
+
+from .config import (dbuser, dbpass, dbhost, master_db, dat_prefix,
+                     dat_format, pv_deadtime_dble, pv_deadtime_enum)
+
+from .util import (normalize_pvname, get_force_update_time, tformat,
+                   clean_bytes, clean_string, SEC_DAY,
+                   MAX_EPOCH, valid_pvname, motor_fields)
+                   
+from .cache import get_dbengine
 
 class Archiver:
     MIN_TIME = 100
     sql_insert  = "insert into %s (pv_id,time,value) values (%i,%f,%s)"
-    def __init__(self,dbconn=None,**args):
+    def __init__(self, dbconn=None, **args):
 
-        self.master_db = config.master_db
+        self.master_engine = get_dbengine(master_db, server='mysql',
+                                          user=dbuser,
+                                          password=dbpass,
+                                          host=dbhost)
+
         self.dbname = None
         self.db = SimpleDB(dbconn=dbconn)
         self.dbconn = self.db.conn
@@ -171,7 +183,7 @@ n       """
 
         if len(newpvs)>0:
             epics.poll()
-            m = MasterDB()
+            m = None #  MasterDB()
             for pvname, pv in newpvs:
                 if pv.connected:
                     m.add_pv(pvname)
@@ -391,8 +403,9 @@ n       """
                     gr['type'] = 'log'
         
         if (deadtime == None):
-            deadtime = config.pv_deadtime_dble
-            if dtype in ('enum','string'):   deadtime = config.pv_deadtime_enum
+            deadtime = pv_deadtime_dble
+            if dtype in ('enum','string'):
+                deadtime = pv_deadtime_enum
             if (gr['type'] == 'log'): deadtime = 5.0  # (pressures change very frequently)
 
         if (deadband == None):

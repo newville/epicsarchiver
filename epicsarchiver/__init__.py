@@ -18,11 +18,15 @@ from . import config
 import sqlalchemy
     
 
-from .util import (string_literal, clean_input, escape_string,
+from .config import dbserver, dbuser, dbpass, dbhost
+
+dconn = dict(server=dbserver, user=dbuser, password=dbpass, host=dbhost)
+
+from .util import (string_literal,
+                   clean_bytes, # escape_string,
                    timehash, tformat, clean_mail_message )
 
 from .cache import Cache, add_pvfile
-
 
 from .archiver       import Archiver
 from .daemon         import startstop

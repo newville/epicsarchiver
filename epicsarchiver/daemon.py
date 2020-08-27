@@ -86,6 +86,8 @@ def startstop(func, stdout='/dev/null', stderr=None,
               stdin='/dev/null', process_name='', pidfile='pid.txt',
               startmsg = 'started with pid %s', action='start', *args, **kws):
 
+    print("Start Stop ", func, stdout, pidfile)
+    
     fname = ''
     if callable(func):
         fname = "(%s)" % func.__name__
