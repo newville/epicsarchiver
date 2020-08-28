@@ -8,16 +8,16 @@ import logging
 import smtplib
 from decimal import Decimal
 import numpy as np
-from sqlalchemy import MetaData, create_engine, engine, text
-from sqlalchemy.orm import sessionmaker
-
+from sqlalchemy import text
 import epics
-
-from .util import (clean_bytes, normalize_pvname,
-                   tformat, valid_pvname, clean_mail_message)
 
 from .config import (dbserver, dbuser, dbpass, dbhost, master_db,
                      mailserver, mailfrom, url_root)
+
+from .util import (clean_bytes, normalize_pvname,
+                   tformat, valid_pvname, clean_mail_message,
+                   DatabaseConnection, None_or_one, MAX_EPOCH)
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -123,36 +123,7 @@ def add_pvfile(fname):
     epics.poll(evt=0.01,iot=5.0)
 
 
-def get_dbengine(dbname, server='sqlite', create=False,
-                 user='', password='',  host='', port=None):
-    """create database engine"""
-    if server == 'sqlite':
-        return create_engine('sqlite:///%s' % (dbname))
-    elif server == 'mysql':
-        conn_str= 'mysql+mysqldb://%s:%s@%s:%d/%s'
-        if port is None:
-            port = 3306
-        return create_engine(conn_str % (user, password, host, port, dbname))
-
-    elif server.startswith('p'):
-        conn_str= 'postgresql://%s:%s@%s:%d/%s'
-        if port is None:
-            port = 5432
-        return create_engine(conn_str % (user, password, host, port, dbname))
-
-def None_or_one(result):
-    """expect result (as from query.fetchall() to return 
-    either None or exactly one result
-    """
-    if isinstance(result, engine.result.ResultProxy):
-        return result
-    try:
-        return result[0]
-    except:
-        return None
-
 class Cache(object):
-
     optokens = ('ne', 'eq', 'le', 'lt', 'ge', 'gt')
     opstrings= ('not equal to', 'equal to',
                 'less than or equal to',    'less than',
@@ -164,24 +135,19 @@ class Cache(object):
     def __init__(self, pidfile='/tmp/cache.pid', **kws):
         self.pidfile = pidfile
         t0 = time.monotonic() 
-        self.engine = get_dbengine(master_db, server=dbserver,
-                                   user=dbuser, password=dbpass,
-                                   host=dbhost)
-        self.metadata = MetaData(self.engine)
-        self.metadata.reflect()
-        self.conn    = self.engine.connect()
-        self.session = sessionmaker(bind=self.engine, autocommit=True)()
-        self.tables  = self.metadata.tables
+        self.db = DatabaseConnection(master_db, server=dbserver,
+                                     user=dbuser, password=dbpass,
+                                     host=dbhost)
+        self.tables  = self.db.tables
         self.pid = self.get_pid()
         self.last_update = 0
         self.pvs   = {}
         self.data  = {}
         self.alert_data = {}
 
-        for pvname in self.get_pvnames():
-            self.pvs[pvname] = epics.get_pv(pvname)
+        self.get_pvnames()
         self.read_alert_table()
-        logging.info('created %d PVs , ready to run mainloop  %.3f sec' % (len(self.pvs), time.monotonic()-t0))
+        logging.info('created %d PVs %.3f sec' % (len(self.pvs), time.monotonic()-t0))
 
     def get_info(self, name='db', process='cache'):
         " get value from info table"
@@ -201,7 +167,7 @@ class Cache(object):
             if k is not None:
                 vals[k] = val
         q.values(vals).execute()
-        self.session.flush()
+        self.db.flush()
 
     def get_pid(self):
         self.pid = self.get_info('pid', process='cache').pid
@@ -209,8 +175,10 @@ class Cache(object):
 
     def get_pvnames(self):
         """ generate self.pvnames: a list of pvnames in the cache"""
-        q = self.tables['cache'].select().execute()
-        return [row.pvname for row in q.fetchall()]
+        for row in self.tables['cache'].select().execute().fetchall():
+            if row.pvname not in self.pvs:
+                self.pvs[row.pvname] = epics.get_pv(row.pvname)
+        return self.pvs.keys()
 
     def status_report(self, brief=False, dt=60):
         # return self.cache_report(brief=brief,dt=dt)
@@ -334,18 +302,19 @@ class Cache(object):
         if add and pvname not in self.pvs:
             self.add_pv(pvname)
             logging.debug('adding PV  %s ' % pvname)
+            time.sleep(0.1)
             return self.get_full(pvname, add=False)
 
         where = text("pvname='%s'" % pvname)
         table = self.tables['cache']
         out = None_or_one(table.select(whereclause=where).execute().fetchall())
-        if out is None:
-            out = {'value':None, 'ts':0, 'cvalue':None, 'type':None}
         return out
 
     def get(self, pvname, add=False, use_char=True):
         " return cached value of pv"
         ret = self.get_full(pvname, add=add)
+        if ret is None:
+            return None
         if use_char:
             return ret['cvalue']
         return ret['value']
@@ -365,7 +334,7 @@ class Cache(object):
                                'cval': clean_bytes(cval)}
 
         table = self.tables['cache']
-        with self.session.begin():
+        with self.db.session.begin():
             for pvname, dat in newdata.items():
                 row = table.update().where(table.c.pvname==pvname)
                 row.values({table.c.ts: dat['ts'],
@@ -573,3 +542,13 @@ class Cache(object):
                     value = self.pvs[pvname].value
                 self.alert_data[pvname]['last_value'] = value
 
+
+    def get_runs(self, start_time=0, stop_time=None):
+        runs = self.tables['runs']
+        if stop_time is None:
+            stop_time = MAX_EPOCH
+        q = runs.select().where(runs.c.start_time <= Decimal(stop_time))
+        q = q.where(runs.c.stop_time >= Decimal(start_time))
+        return q.execute().fetchall()
+    
+            

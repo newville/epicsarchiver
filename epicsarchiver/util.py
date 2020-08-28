@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 #
 import time
-from MySQLdb import string_literal, escape_string
+from random import randint
+from MySQLdb import string_literal
+from sqlalchemy import MetaData, create_engine, engine, text
+from sqlalchemy.orm import sessionmaker
 
 MAX_EPOCH = 2147483647.0   # =  2**31 - 1.0 (max unix timestamp)
 SEC_DAY   = 86400.0
@@ -9,27 +12,73 @@ SEC_DAY   = 86400.0
 motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS',
                 '.DIR','_able.VAL','.SPMG','.DESC')
 
-valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._-'
+valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._-{}'
 
-def clean_input(x, maxlen=1024):
-    """clean input, forcing it to be a string, with comments stripped,
-    and guarding against extra sql statements"""
+def get_dbengine(dbname, server='sqlite', create=False,
+                 user='', password='',  host='', port=None):
+    """create database engine"""
+    if server == 'sqlite':
+        return create_engine('sqlite:///%s' % (dbname))
+    elif server == 'mysql':
+        conn_str= 'mysql+mysqldb://%s:%s@%s:%d/%s'
+        if port is None:
+            port = 3306
+        return create_engine(conn_str % (user, password, host, port, dbname))
 
+    elif server.startswith('p'):
+        conn_str= 'postgresql://%s:%s@%s:%d/%s'
+        if port is None:
+            port = 5432
+        return create_engine(conn_str % (user, password, host, port, dbname))
+
+def None_or_one(result):
+    """expect result (as from query.fetchall() to return 
+    either None or exactly one result
+    """
+    if isinstance(result, engine.result.ResultProxy):
+        return result
+    try:
+        return result[0]
+    except:
+        return None
+
+class DatabaseConnection:
+    def __init__(self, dbname, user, password, host='localhost',
+                 server='mysql', autocommit=True):
+        self.dbname = dbname
+        self.engine = get_dbengine(dbname, server=server, user=user,
+                                   password=password, host=host)
+        
+        self.metadata = MetaData(self.engine)
+        self.metadata.reflect()
+        self.conn    = self.engine.connect()
+        self.session = sessionmaker(bind=self.engine, autocommit=autocommit)()
+        self.tables  = self.metadata.tables
+
+    def flush(self):
+        self.session.flush()
+    
+def clean_bytes(x, maxlen=1024, encoding='utf-8'):
+    """
+    clean data as a string with comments stripped,
+    guarding against extra sql statements, 
+    and force back to bytes object / utf-8
+    """
+    if isinstance(x, bytes):
+        x = x.decode(encoding)
     if not isinstance(x, str):
         x = str(x)
-
-    x = x[:maxlen].replace('#','\#')
-    eol = x.find(';')
-    if eol > -1:
-        x = x[:eol]
-    return x.strip()
-
-def safe_string(x):
-    #if "'" in x:  x = escape_string(x)
-    return  string_literal(x)
+    for char in (';', '#'):
+        eol = x.find(char)
+        if eol > -1:
+            x = x[:eol]
+    return x.strip().encode(encoding)
 
 def clean_string(x, maxlen=2048):
-    return clean_input(x, maxlen=maxlen).encode('utf-8')
+    return clean_bytes(x, maxlen=maxlen).decode('utf-8')
+
+def safe_string(x):
+    return  string_literal(x)
 
 def clean_mail_message(s):
     "cleans a stored escaped mail message for real delivery"
@@ -40,7 +89,7 @@ def clean_mail_message(s):
 
 def normalize_pvname(p):
     """ normalizes a PV name (so that it ends in .VAL if needed)."""
-    x = clean_input(p.strip())
+    x = clean_string(p.strip())
     if len(x) > 2 and x.find('.') < 1: return '%s.VAL' % x
     return x
 
@@ -53,14 +102,11 @@ def clean_mail_message(s):
     
 def get_force_update_time():
     """ inserts will be forced into the Archives for stale values
-    between 18 and 21 hours after last insert.
+    between 18 and 22 hours after last insert.
     This will spread out inserts, and means that every PV is
     recorded at least once in any 24 hour period.  
     """
-    from random import randint
-    return 3 * (21600  + randint(0,3600))
-    # return (10800 + randint(0,3600))
-    # return 2 * (120  + randint(0,720))
+    return 64800 + (4 * randint(0, 3600))
 
 def timehash():
     """ generate a simple, 10 character hash of the timestamp:
