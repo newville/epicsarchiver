@@ -22,22 +22,11 @@ from .config import dbserver, dbuser, dbpass, dbhost
 
 dconn = dict(server=dbserver, user=dbuser, password=dbpass, host=dbhost)
 
-from .util import (string_literal,
-                   clean_bytes, # escape_string,
+from .util import (string_literal,  clean_bytes, 
                    timehash, tformat, clean_mail_message )
 
 from .cache import Cache, add_pvfile
+from .archiver  import Archiver
 
-from .archiver       import Archiver
-from .daemon         import startstop
+from .pvarch import pvarch_main
 
-# from .SimpleDB import SimpleDB, SimpleTable,ConnectionPool, cpool
-# from .MasterDB       import MasterDB
-# from .Instruments    import Instruments, Alerts
-# from .ArchiveMaster  import ArchiveMaster
-# from .HTMLWriter     import HTMLWriter
-# from .PlotViewer     import PlotViewer
-# from .WebStatus      import WebStatus
-# from .WebHelp        import WebHelp
-# from .WebAdmin       import WebAdmin
-# from .WebInstruments import WebInstruments

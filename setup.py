@@ -6,27 +6,37 @@ import os
 import sys
 import shutil
 import distutils
-from distutils.core import setup
-from distutils.dir_util import mkpath, copy_tree
-#
+from setuptools import setup, find_packages
+
 try:
-    import config
+    from epicsarchiver import config
 except:
     print("Error: cannot import config: Typo in config.py?")
     sys.exit(1)
 
-try:
-    import Gnuplot
-except:
-    pass
-import epics
-    
-# This is useful for debugging / re-installing:
-# a "full install" will mean that any running cache and 
-# archiver will stop (abruptly -- the _mysql.so changes)
-full_install = True
-# full_install = False
+pkg_data = {'epicsarchiver.templates': ['templates/*'],
+            'epicsarchiver.static': ['static/*']}
+setup(name        = 'epicsarchiver',
+      version     = '2.0',
+      author      = 'Matthew Newville',
+      author_email= 'newville@cars.uchicago.edu',
+      url         = 'https://github.com/newville/epicsarchiver/',
+      license     = 'BSD',
+      description = 'archiver for Epics PVs with web display',
+      zip_safe    = False,
+      package_dir = {'epicsarchiver': 'epicsarchiver'},
+      packages    = ['epicsarchiver'],
+      entry_points = {'console_scripts': ['pvarch = epicsarchiver:pvarch_main']},
+      package_data = pkg_data,
+      install_requires=['pyepics>=3.4.0',
+                        'numpy>=1.14',
+                        'sqlalchemy>0.9',
+                        'mysqlclient',
+                        'flask'])
 
+
+old = '''
+    
 script_name= sys.argv[0]
 try:
     cmd  = sys.argv[1]
@@ -131,24 +141,7 @@ cgifiles  = []
 for i in os.listdir('cgi-bin'):
     f = os.path.join('cgi-bin',i)
     if f.endswith('.py') and os.path.isfile(f): cgifiles.append(f)
-
-setup(
-    name        = 'EpicsArchiver',
-    version     = '1.2.0',
-    author      = 'Matthew Newville',
-    author_email= 'newville@cars.uchicago.edu',
-    url         = 'http://millenia.cars.aps.anl.gov/~newville/Epics/PVArchiver/',
-    license     = 'Python',
-    script_name = script_name,
-    description = 'A library for Archiving Epics PVs.',
-    package_dir = {'EpicsArchiver': 'lib'},
-    packages    = ['EpicsArchiver'], 
-    data_files  = [(bin_dir, ['bin/pvarch']),
-                   (config.cgi_bin, cgifiles),
-                   (config.template_dir, template_files)
-                   ]
-    )
-
+  
     
 
 
@@ -218,3 +211,4 @@ x =  """The next installation steps are:
   
  """ % (config.template_dir,config.cgi_bin)
 
+'''
