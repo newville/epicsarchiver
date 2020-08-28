@@ -325,16 +325,16 @@ class Archiver:
         """ one pass of collecting new values, deciding what to archive"""
         newvals, forced = {},{}
         tnow = time.time()
-        dt  =  max(2.0, 2.*(tnow - self.last_collect))
-        self.last_collect = tnow
+        dt  =  3.0*(tnow - self.last_collect)
+        self.last_collect = tnow 
         for dat in self.cache.get_values(time_ago=dt):
             name  = dat.pvname
+            if name not in self.pvinfo:
+                self.add_pv(name)
             if dat.active == 'no':
                 continue
             val = dat.value
             ts  = float(dat.ts)
-            if name not in self.pvinfo:
-                self.add_pv(name)
 
             info = self.pvinfo[name]
             do_save = ts > float(info['last_ts'])+float(info['deadtime'])
@@ -368,9 +368,9 @@ class Archiver:
 
         n_new     = len(newvals)
         n_forced  = 0
-        # check for stale values and re-read db settings every 5 minutes or so
-        if tnow - self.force_checktime >= 300.0:
-            # print('looking for stale values, checking for new settings...%s\n'  %time.ctime() )
+        # check for stale values and re-read db settings every 5 minutes 
+        if tnow > (self.force_checktime + 300):
+            # print('looking for stale values %s'  %time.ctime() )
             self.force_checktime = tnow
             self.refresh_pvinfo()
             for p in self.cache.get_pvnames():
@@ -388,7 +388,7 @@ class Archiver:
                 except:
                     force = False
                 if force and name in fullcache and name not in newvals:
-                    newvals[name] = fullcache[name] 
+                    newvals[name] = time.time(), fullcache[name][1]
                     n_forced = n_forced + 1
 
         for name, data in newvals.items():
@@ -440,7 +440,7 @@ class Archiver:
         print('collecting to database %s ' % self.dbname)        
         while collecting:
             try:
-                time.sleep(0.001)
+                time.sleep(5e-4)
                 n1, n2 = self.collect()
                 n_changed = n_changed + n1
                 n_forced  = n_forced  + n2
