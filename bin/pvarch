@@ -1,56 +1,19 @@
-#!/usr/bin/env python
-#
+#!/usr/bin/env python3.8
+
 # main pvarch application
 
-import sys, os, time, getopt
-from threading import Thread
+import sys
+import os
+import time
+from argparse import ArgumentParser
 
 try:
-
-    import EpicsArchiver
+    import epicsarchiver
 except:
-    print('cannot import EpicsArchiver')
+    print('cannot import epicsarchiver')
     sys.exit(1)
 
-from EpicsArchiver import MasterDB, Cache, ArchiveMaster, Archiver, \
-     tformat, add_pvfile, startstop, ConnectionPool
-
-from EpicsArchiver.config import logdir, master_db, data_dir, webfile_prefix
-from EpicsArchiver.util import SEC_DAY
-
-
-cpool = ConnectionPool()
-
-def show_usage():
-    print("""    pvarch:   run and interact with Epics PV Archiver and MySQL process
-    pvarch -h            shows this message.
-    pvarch status        shows cache and archiving status, some recent statistics.
-    pvarch check         print # of archivedsin past 10 minutes. Should be >1!
-
-
-    pvarch start         start the archiving process
-    pvarch stop          stop the archiving process
-    pvarch restart       restart the archiving process
-    pvarch next          restart with 'next run' of data archives
-    pvarch setinfo       set the run information for the most recent run
-
-    pvarch add_pv        add a PV to the cache and archive
-    pvarch add_pvfile    read a file of PVs to add to the Archiver
-
-    pvarch drop_pv       remove a PV from cahce and archive
-
-    pvarch list          prints a list of recent data archives
-    pvarch save          save a list of recent data archives
-    pvarch clean         clean up temporary data files used for web plotting.
-
-    pvarch cache start        start cache process (if it's not already running)
-           cache stop         stop  cache process
-           cache restart      restart cache process
-           cache status   t   show # of PVs cached in past t seconds (default=60)
-           cache activity t   show list of PVs cached in past t seconds (default=60)
-    """)
-    sys.exit()
-
+from epicsarchiver import Cache, Archiver
 
 def set_runinfo():
     master  = ArchiveMaster()
@@ -61,7 +24,6 @@ def set_runinfo():
             master.set_runinfo(dbname)
             print('done.')
     master.close()
-
 
 def next_archive():
     master  = ArchiveMaster()
@@ -117,13 +79,13 @@ def run_archive(action='start'):
     if 'start'==action:
         pid,status = a.get_pidstatus()
         if (pid != 0 and status != 'offline'):
-            ret = a.get_nchanged(minutes=2,limit=10)
+            ret = a.get_nchanged(minutes=2, limit=10)
             if ret >  5:
                 print("Archive appears to be running... try 'restart'?")
                 cpool.put(dbconn)
                 return
 
-    startstop(stdout =sout,stderr=serr, pidfile=pidfile,
+    startstop(stdout=sout,stderr=serr, pidfile=pidfile,
               process_name='pvarch', action=action)
 
     dbconn  = cpool.get()
@@ -215,19 +177,22 @@ def cache_status(action='activity', dt=60):
         print(msg % (len(ret), int(dt), pid, status))
 
 
-def show_archive_status(minutes=10):
-    m    = MasterDB(dbconn=None)
-    stat = m.arch_report(minutes=minutes)
-    for i in stat: print(i)
-    nchanged = m.arch_nchanged(minutes=minutes)
-    print("%i values archived in past %i minutes" % (nchanged, minutes))
-    m.close()
+def show_status(a, cache_time=60, archive_minutes=10):
+    cache_info = dict(a.cache.get_info(process='cache').items())
+    cache_info.update({ 'ncache': len(a.cache.get_values(time_ago=cache_time)),
+                        'cache_time': cache_time})
+    arch_info = dict(a.cache.get_info(process='archive').items())
+    arch_info.update({ 'narch': a.get_nchanged(minutes=archive_minutes),
+                       'arch_time': archive_minutes})
 
-def archived_values(minutes=10):
-    m    = MasterDB(dbconn=None)
-    nchanged = m.arch_nchanged(minutes=minutes)
-    m.close()
-    return nchanged
+    print("""Cache: '{status:s}', process_id : {pid:d}
+   last update: {datetime:s}, values cached in past {cache_time:d} seconds : {ncache:d}
+    """.format(**cache_info))
+
+    
+    print("""Archiver: '{status:s}', process_id : {pid:d}
+   last update: {datetime:s}, values archived in past {arch_time:d} minutes: {narch:d}
+    """.format(**arch_info))
 
 
 def drop_pv(pvname):
@@ -235,47 +200,85 @@ def drop_pv(pvname):
     Archiver(dbconn=dbconn).drop_pv(pvname)
     MasterDB(dbconn=dbconn).drop_pv(pvname)
 
+def start_archiver(a, force=False):
+    if not force:
+        nchanged  = a.get_nchanged(minutes=2)
+        if nchanged > 5:
+            print("Archive appears to be running... try 'restart'?")
+            return
+    a.mainloop()
+
+def start_cache(a, force=False):
+    if not force:
+        nchanged  = a.cache.get_values(time_ago=15)
+        if nchanged > 5:
+            print("Cache appears to be running... try 'restart'?")
+    a.cache.mainloop()
+        
+        
 def main():
-    opts, rawargs = getopt.getopt(sys.argv[1:], "h", ["help"])
-    try:
-        cmd = rawargs.pop(0)
-    except IndexError:
-        cmd = 'help'
-    for (k,v) in opts:
-        if k in ("-h", "--help"): cmd = 'help'
+    parser = ArgumentParser(prog='pvarch',
+                            description='control EpicsAarchiver processes',
+                            add_help=False)
+    parser.add_argument('-h', '--help', dest='help', action='store_true',
+                        default=False, help='show help')
+    parser.add_argument('options', nargs='*')
+    
+    args = parser.parse_args()
+    if args.help:
+        print("""pvarch: control EpicsArchiver processes
+    pvarch -h            shows this message.
+    pvarch status        shows cache and archiving status, some recent statistics.
+    pvarch check         print # of archivedsin past 10 minutes. Should be >1!
 
-    args = []
-    for arg in rawargs:
-        if ',' in arg:
-            for i in arg.split(','):
-                if len(i)>0:  args.append(i.strip())
-        elif len(arg)>0:
-            args.append(arg)
+    pvarch start         start the archiving process
+    pvarch stop          stop the archiving process
+    pvarch restart       restart the archiving process
+    pvarch next          restart with 'next run' of data archives
+    pvarch setinfo       set the run information for the most recent run
 
-    if   'help' == cmd:
-        show_usage()
+    pvarch add_pv        add a PV to the cache and archive
+    pvarch add_pvfile    read a file of PVs to add to the Archiver
 
-    elif 'status' == cmd:
-        if read_pid(name='cache') is None:
-            print("Cache is not running: start Cache with 'pvarch cache start'!")
-        else:
-            print('Cache is running')
+    pvarch drop_pv       remove a PV from cahce and archive
 
-        if read_pid(name='pvarch') is None:
-            print("Archiver is not running: start with 'pvarch start'")
-        else:
-            show_archive_status()
+    pvarch list          prints a list of recent data archives
+    pvarch save          save a list of recent data archives
+    pvarch clean         clean up temporary data files used for web plotting.
+
+    pvarch cache start        start cache process (if it's not already running)
+           cache stop         stop  cache process
+           cache restart      restart cache process
+           cache status   t   show # of PVs cached in past t seconds (default=60)
+           cache activity t   show list of PVs cached in past t seconds (default=60)
+    """)
+
+        sys.exit()
+    
+    cmd = args.options.pop()
+    t0 = time.time()
+    a = Archiver()
+    
+    if 'status' == cmd:
+        show_status(a)
 
     elif 'check' == cmd:
-        print(archived_values())
+        print(a.get_nchanged(minutes=10))
 
-    elif cmd in ('start','stop','restart'):
-        if 'restart' == cmd:
-            run_archive(action='stop')
-            time.sleep(3)
-            run_archive(action='start')
-        else:
-            run_archive(action=cmd)
+    elif cmd == 'start':
+        start_archiver(a)
+
+    elif cmd == 'stop':
+        a.cache.set_info(process='archive', status='stopping')
+        time.sleep(1)
+        a.cache.set_info(process='archive', status='offline')
+
+    elif cmd == 'restart':
+        a.cache.set_info(process='archive', status='stopping')
+        time.sleep(1)
+        a.cache.set_info(process='archive', status='offline')
+        time.sleep(1)
+        start_archiver(a, force=True)
 
     elif 'next' == cmd:
         next_archive()
@@ -285,9 +288,6 @@ def main():
     elif 'save' == cmd:
         save_archives(args)
 
-    elif 'clean' == cmd:
-        clean_web_datafiles()
-
     elif 'list' == cmd:
         list_archives()
 
@@ -295,23 +295,14 @@ def main():
         set_runinfo()
 
     elif 'add_pv' == cmd:
-        c    = Cache()
         for pv in args:
-            c.add_pv(pv)
+            a.cache.add_pv(pv)
         if len(args)>1:
-            c.set_allpairs(args)
+            a.cache.set_allpairs(args)
 
         time.sleep(0.1)
         print("Wait for PV to get to cache...")
-
-        c.process_requests()
-        req_table= c.db.tables['requests']
-        requests_pending = True
-        while requests_pending:
-            pending_requests  = req_table.select()
-            requests_pending = len(pending_requests) > 2
-            time.sleep(0.5)
-        c.close()
+        a.cache.process_requests()
 
     elif 'add_pvfile' == cmd:
         for pvfile in args:
