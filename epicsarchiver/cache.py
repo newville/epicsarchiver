@@ -144,10 +144,9 @@ class Cache(object):
         self.pvs   = {}
         self.data  = {}
         self.alert_data = {}
-
         self.get_pvnames()
         self.read_alert_table()
-        logging.info('created %d PVs %.3f sec' % (len(self.pvs), time.monotonic()-t0))
+        # logging.info('created %d PVs %.3f sec' % (len(self.pvs), time.monotonic()-t0))
 
     def get_info(self, name='db', process='cache'):
         " get value from info table"
