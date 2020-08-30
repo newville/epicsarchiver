@@ -11,6 +11,7 @@
 """
 __version__ = '2.1'
 
+from .util import get_config
 from .cache import Cache, add_pvfile
 from .archiver  import Archiver
 from .pvarch import pvarch_main

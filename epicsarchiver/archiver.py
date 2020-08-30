@@ -24,9 +24,9 @@ logging.basicConfig(level=logging.INFO)
 class Archiver:
     MIN_TIME = 100
     sql_insert  = "insert into %s (pv_id,time,value) values (%i,%f,%s)"
-    def __init__(self, config_envvar='PVARCH_CONFIG'):
-        self.config = get_config(envar=config_envvar)
-        self.cache = Cache(config_envvar=config_envvar)
+    def __init__(self, envvar='PVARCH_CONFIG', **kws):
+        self.config = get_config(envar=envvar, **kws)
+        self.cache = Cache(envvar=envvar, **kws)
         self.dbname = None
         self.messenger = sys.stdout
         self.force_checktime = 0
@@ -393,7 +393,7 @@ class Archiver:
         self.cache.set_info(process='archive', **vals)
 
     def set_infotime(self,ts):
-        self.cache.set_info(process='archive', ts=ts, datetime=time.ctime(ts))
+        self.cache.set_info(process='archive', ts=ts, datetime=tformat(ts))
 
     def get_pidstatus(self):
         row = self.cache.get_info(process='archive')

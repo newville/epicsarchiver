@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#
+
 import os
 import toml
 import time
@@ -17,48 +17,44 @@ motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS',
 valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._-+:[]<>;{}'
 
 class Config:
-    logdir =  '/var/log/pvarch'
-    baseurl = 'https://localhost/'
+    def __init__(self, **kws):
+        self.logdir =  '/var/log/pvarch'
+        self.baseurl = 'https://localhost/'
+    
+        self.server = 'mysql'
+        self.host = 'localhost'
+        self.user = 'epics'
+        self.password = 'change_this_password!'
+        self.sql_dump = 'usr/bin/mysqldump -opt'
 
-    db_server = 'mysql'
-    db_host = 'localhost'
-    db_user = 'epics'
-    db_password = 'change_this_password!'
-    db_dump = 'usr/bin/mysqldump -opt'
+        self.mail_server =  'localhost'
+        self.mail_from = 'pvarchiver@aps.anl.gov'
+        self.master_db = 'pvarch_master'
+        self.dat_prefix = 'pvdata'
+        self.dat_format = '%s_%.5d'
+        self.pv_deadtime_double = 5
+        self.pv_deadtime_enum = 1
 
-    mail_server =  'localhost'
-    mail_from = 'pvarchiver@aps.anl.gov'
-    master_db = 'pvarch_master'
-    dat_prefix = 'pvdata'
-    dat_format = '%s_%.5d'
-    pv_deadtime_double = 5
-    pv_deadtime_enum = 1
+        for key, val in kws.items():
+            setattr(self, key, val)
+        
+    def asdict(self):
+        out = {}
+        for k in dir(self):
+            if (k.startswith('__') and k.endswith('__')) or  k in ('asdict', ):
+                continue
+            out[k] = getattr(self, k)
+        return out
 
 
-def get_config(envvar='PVARCH_CONFIG'):
+def get_config(envvar='PVARCH_CONFIG', **kws):
     """read config file defined by environmental variable PVARCH_CONFIG"""
-    conf = {'logdir': '/var/log/pvarch',
-            'baseurl': 'https://localhost/',
-            'mail_server':  'localhost',
-            'mail_from': 'pvarchiver@aps.anl.gov',
-            'db_server': 'mysql',
-            'db_host': 'localhost',
-            'db_user': 'epics',
-            'db_password': 'change_this_password!',
-            'db_dump': 'usr/bin/mysqldump -opt',
-            'master_db': 'pvarch_master',
-            'dat_prefix': 'pvdata',
-            'dat_format': '%s_%.5d',
-            'pv_deadtime_double': 5,
-            'pv_deadtime_enum': 1}
-
     fconf = os.environ.get(envvar, None)
+    conf = {}
     if fconf is not None and os.path.exists(fconf):
         conf.update(toml.load(open(fconf)))
-    config = Config()
-    for k, v in conf.items():
-        settar(config, k, v)
-    return config
+    conf.update(kws)
+    return Config(**conf)
 
 def get_dbengine(dbname, server='sqlite', create=False,
                  user='', password='',  host='', port=None):
@@ -82,10 +78,10 @@ class DatabaseConnection:
     def __init__(self, dbname, config, autocommit=True):
         self.dbname = dbname
         self.engine = get_dbengine(dbname,
-                                   server=config.db_server,
-                                   user=config.db_user,
-                                   password=config.db_password,
-                                   host=config.db_host)
+                                   server=config.server,
+                                   user=config.user,
+                                   password=config.password,
+                                   host=config.host)
         
         self.metadata = MetaData(self.engine)
         self.metadata.reflect()

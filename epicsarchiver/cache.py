@@ -18,7 +18,7 @@ from .util import (clean_bytes, normalize_pvname, tformat, valid_pvname,
 
 logging.basicConfig(level=logging.INFO)
 
-def add_pv(pvname=None), cache=None, with_motor_fields=True):
+def add_pv(pvname, cache=None, with_motor_fields=True):
     """ add a PV to the Cache and Archiver
 
     For a PV that is the '.VAL' field for an Epics motor will
@@ -116,15 +116,14 @@ class Cache(object):
            'le':'__le__', 'lt':'__lt__', 
            'ge':'__ge__', 'gt':'__gt__'}
 
-    def __init__(self, config_envvar='PVARCH_CONFIG'):
-        self.config = get_config(envar=config_envvar)
+    def __init__(self, envvar='PVARCH_CONFIG', **kws):
+        self.config = get_config(envar=envvar, **kws)
         
-        self.pidfile = pidfile
+        self.pidfile = os.path.join(self.config.logdir,  'pvcache.pid')
         t0 = time.monotonic() 
         self.db = DatabaseConnection(self.config.master_db, self.config)
-        self.check_for_updates()
-        
         self.tables  = self.db.tables
+        # self.check_for_updates()
         self.pid = self.get_pid()
         self.last_update = 0
         self.pvs   = {}
@@ -134,42 +133,43 @@ class Cache(object):
         self.read_alert_table()
         logging.info('created %d PVs %.3f sec' % (len(self.pvs), time.monotonic()-t0))
 
-    def check_for_updates():
+    def check_for_updates(self):
         """
         check db version and maybe repair datatypes or otherwise check and alter tables
         """
-        version_row = self.cache.get_info(process='version')
+        version_row = self.get_info(process='version')
+        print(" VERSION ROW ", version_row)
         if version_row is None:
             logging.info("upgrading database to version 1")
-            stmt in  ("alter table info modify process varchar(256);",
-                      "alter table cache modify value varchar(4096);";
-                      "alter table cache modify cvalue varchar(4096);";
-                      "alter table pairs modify pv1 varchar(128);";
-                      "alter table pairs modify pv2 varchar(128);";
-                      "update cache set type='double' where type='time_double';",
-                      "update cache set type='double' where type='time_float';",
-                      "update cache set type='double' where type='float';",
-                      "update cache set type='string' where type='time_string';",
-                      "update cache set type='string' where type='time_char';",
-                      "update cache set type='string' where type='char';",
-                      "update cache set type='enum' where type='time_enum';",
-                      "update cache set type='int' where type='time_int';",
-                      "update cache set type='int' where type='time_long';",
-                      "update cache set type='int' where type='time_short';",
-                      "update cache set type='int' where type='long';",
-                      "update cache set type='int' where type='short';"):
+            for stmt in  ("alter table info modify process varchar(256);",
+                          "alter table cache modify value varchar(4096);",
+                          "alter table cache modify cvalue varchar(4096);",
+                          "alter table pairs modify pv1 varchar(128);",
+                          "alter table pairs modify pv2 varchar(128);",
+                          "update cache set type='double' where type='time_double';",
+                          "update cache set type='double' where type='time_float';",
+                          "update cache set type='double' where type='float';",
+                          "update cache set type='string' where type='time_string';",
+                          "update cache set type='string' where type='time_char';",
+                          "update cache set type='string' where type='char';",
+                          "update cache set type='enum' where type='time_enum';",
+                          "update cache set type='int' where type='time_int';",
+                          "update cache set type='int' where type='time_long';",
+                          "update cache set type='int' where type='time_short';",
+                          "update cache set type='int' where type='long';",
+                          "update cache set type='int' where type='short';"):
                 self.db.engine.execute(stmt)
-            self.db.tables['info'].insert().execute(process='verion', db='1')
-
+            now = time.time()                
+            self.tables['info'].insert().execute(process='version', db='1',
+                                                 datetime=tformat(now), ts=now)
             time.sleep(0.25)            
             self.db = DatabaseConnection(self.config.master_db, self.config)
             
         
     def get_info(self, process='cache'):
         " get value from info table"
-        table = self.tables['info']
-        where = text("process='%s'" % process)
-        return None_or_one(table.select(whereclause=where).execute().fetchall())
+        info = self.tables['info']
+        return None_or_one(info.select().where(info.c.process==process).execute().fetchall())
 
     def set_info(self, process='cache', **kws):
         " set value(s) in the info table"
@@ -242,7 +242,7 @@ class Cache(object):
 
     def set_date(self):
         self.last_update = time.time()
-        self.set_info(datetime=time.ctime(self.last_update), ts=self.last_update)
+        self.set_info(datetime=tformat(self.last_update), ts=self.last_update)
 
     def mainloop(self, npvs=None):
         " "
@@ -412,8 +412,9 @@ class Cache(object):
                 rtype = epics.get_pv(prefix+'.RTYP')
                 if 'motor' != rtype.get():
                     continue
-                extra_pvs = [epics.get_pv("%s%s" % (prefix,i)) for i in motor_fields]
-                namelist = [pv.pvname] + ["%s%s" % (prefix,i)) for i in motor_fields]
+                namelist = ["%s%s" % (prefix, i) for i in motor_fields]
+                extra_pvs = [epics.get_pv(n) for n in namelist]
+                namelist.append(pv.pvname)
                 for epv in extra_pvs:
                     if pv.wait_for_connection(timeout=1):
                         add_pv2cache(pv)
