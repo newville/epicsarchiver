@@ -16,7 +16,10 @@ from .util import (clean_bytes, normalize_pvname, tformat, valid_pvname,
                    clean_mail_message, DatabaseConnection, None_or_one,
                    MAX_EPOCH, get_config, motor_fields, get_pvpair)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO,
+                    format='%(levelname)s [%(asctime)s]  %(message)s',
+                    datefmt='%Y-%b-%d %H:%M:%S') 
+
 
 def add_pv(pvname, cache=None, with_motor_fields=True):
     """ add a PV to the Cache and Archiver
@@ -121,9 +124,9 @@ class Cache(object):
         
         self.pidfile = os.path.join(self.config.logdir,  'pvcache.pid')
         t0 = time.monotonic() 
-        self.db = DatabaseConnection(self.config.master_db, self.config)
+        self.db = DatabaseConnection(self.config.cache_db, self.config)
         self.tables  = self.db.tables
-        # self.check_for_updates()
+        self.check_for_updates()
         self.pid = self.get_pid()
         self.last_update = 0
         self.pvs   = {}
@@ -138,7 +141,6 @@ class Cache(object):
         check db version and maybe repair datatypes or otherwise check and alter tables
         """
         version_row = self.get_info(process='version')
-        print(" VERSION ROW ", version_row)
         if version_row is None:
             logging.info("upgrading database to version 1")
             for stmt in  ("alter table info modify process varchar(256);",
@@ -163,7 +165,7 @@ class Cache(object):
             self.tables['info'].insert().execute(process='version', db='1',
                                                  datetime=tformat(now), ts=now)
             time.sleep(0.25)            
-            self.db = DatabaseConnection(self.config.master_db, self.config)
+            self.db = DatabaseConnection(self.config.cache_db, self.config)
             
         
     def get_info(self, process='cache'):
@@ -258,7 +260,7 @@ class Cache(object):
 
         # self.db.get_cursor()
         nconn = self.connect_pvs()
-        fmt = '%d/%d pvs connected, ready to run. Cache Process ID= %i\n'
+        fmt = '%d/%d pvs connected, ready to run. Cache Process ID= %d'
         logging.info(fmt % (nconn, len(self.pvs), self.pid))
 
         for alert in self.alert_data.values():
@@ -270,13 +272,13 @@ class Cache(object):
         for name, alert in self.alert_data.items():
             logging.debug('Add Alert: %s / %s' % (name,  alert['pvname']))
         
-        status_str = '%s: %d values cached since last notice %d loops'
+        status_str = '%d values cached since last notice %d loops'
         ncached, nloop = 0, 0
         last_report = 0
         last_request_process = 0
         while True:
             try:
-                epics.poll(evt=0.02, iot=1.0)
+                epics.poll(evt=0.01, iot=1.0)
                 n = self.update_cache()
             except KeyboardInterrupt:
                 break
@@ -284,16 +286,16 @@ class Cache(object):
             nloop   +=  1
 
             # process alerts every 15 seconds:
-            if (time.time() > last_request_process + 15):
+            if time.time() > last_request_process + self.config.cache_alert_period:
                 self.process_requests()
                 self.process_alerts()
                 last_request_process = time.time()
                 if self.get_pid() != self.pid:
-                    logging.debug('no longer main cache program, exiting\n\n')
+                    logging.debug('no longer main cache program, exiting.')
                     self.exit()
             # report and reconnect once ever 5 minutes
-            if time.time() > last_report + 60:
-                logging.info(status_str % (time.ctime(), ncached, nloop))
+            if time.time() > last_report + self.config.cache_report_period:
+                logging.info(status_str % (ncached, nloop))
                 last_report = time.time()
                 self.read_alert_table()
                 self.connect_pvs()
@@ -434,8 +436,8 @@ class Cache(object):
             self.data.pop(pvname)
 
     def process_alerts(self, debug=False):
-        logging.debug('processing alerts at %s\n' % time.ctime())
-        msg = 'Alert sent for PV=%s / Label =%s at %s\n'
+        logging.info('processing alerts')
+        msg = 'Alert sent for PV=%s, Label=%s'
         # self.db.set_autocommit(1)
         table = self.tables['alerts']
         for pvname, alert in list(self.alert_data.items()):
@@ -469,10 +471,10 @@ class Cache(object):
                     self.send_alert_mail(alert, value)
 
             if debug:
-                logging.debug('Alert: val OK? %r Notified" %r' % ( ok, notified))
+                logging.debug('Alert: val OK? %r Notified" %r' % (ok, notified))
             if notify:
                 alert['last_notice'] = time.time()
-                logging.debug(msg % (pvname, alert['name'], time.ctime()))
+                logging.debug(msg % (pvname, alert['name']))
             if value_ok or notify:
                 alert['last_value']  = None
 
@@ -547,7 +549,7 @@ class Cache(object):
         if len(req) == 0:
             return
 
-        logging.info("processing requests:\n")
+        logging.info("processing requests:")
         cache = self.tables['cache']
         drop_ids = []
         for row in req:
@@ -587,7 +589,7 @@ class Cache(object):
                             msg = 'could not add'
                     else:
                         msg = 'already added'
-            logging.debug('%s PV: %s\n' % (msg, pvname))
+            logging.debug('%s PV: %s' % (msg, pvname))
 
         time.sleep(0.01)
         for rid in drop_ids:

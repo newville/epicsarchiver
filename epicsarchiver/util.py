@@ -33,12 +33,14 @@ class Config:
 
         self.mail_server =  'localhost'
         self.mail_from = 'pvarchiver@aps.anl.gov'
-        self.master_db = 'pvarch_master'
+        self.cache_db = 'pvarch_master'
         self.dat_prefix = 'pvdata'
         self.dat_format = '%s_%.5d'
         self.pv_deadtime_double = 5
         self.pv_deadtime_enum = 1
-
+        self.cache_alert_period = 30
+        self.cache_report_period = 300
+        
         for key, val in kws.items():
             setattr(self, key, val)
         
@@ -176,7 +178,7 @@ def timehash():
     cannot happen for 10^12 milliseconds (33 years). """ 
     return hex(int(10000.*time.time()))[2:-1]
 
-def tformat(t=None,format="%Y-%m-%d %H:%M:%S"):
+def tformat(t=None,format="%Y-%b-%d %H:%M:%S"):
     """ time formatting"""
     if t is None: t = time.time()
     return time.strftime(format, time.localtime(t))
