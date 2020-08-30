@@ -7,17 +7,14 @@ import sys
 import logging
 import smtplib
 from decimal import Decimal
+
 import numpy as np
 from sqlalchemy import text
 import epics
 
-from .config import (dbserver, dbuser, dbpass, dbhost, master_db,
-                     mailserver, mailfrom, url_root)
-
-from .util import (clean_bytes, normalize_pvname,
-                   tformat, valid_pvname, clean_mail_message,
-                   DatabaseConnection, None_or_one, MAX_EPOCH)
-
+from .util import (clean_bytes, normalize_pvname, tformat, valid_pvname,
+                   clean_mail_message, DatabaseConnection, None_or_one,
+                   MAX_EPOCH, get_config)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -132,12 +129,14 @@ class Cache(object):
            'le':'__le__', 'lt':'__lt__', 
            'ge':'__ge__', 'gt':'__gt__'}
 
-    def __init__(self, pidfile='/tmp/cache.pid', **kws):
+    def __init__(self, config_envvar='PVARCH_CONFIG'):
+        self.config = get_config(envar=config_envvar)
+        
         self.pidfile = pidfile
         t0 = time.monotonic() 
-        self.db = DatabaseConnection(master_db, server=dbserver,
-                                     user=dbuser, password=dbpass,
-                                     host=dbhost)
+        self.db = DatabaseConnection(self.config.master_db, self.config)
+        self.check_data_types()
+        
         self.tables  = self.db.tables
         self.pid = self.get_pid()
         self.last_update = 0
@@ -148,6 +147,21 @@ class Cache(object):
         self.read_alert_table()
         # logging.info('created %d PVs %.3f sec' % (len(self.pvs), time.monotonic()-t0))
 
+    def check_data_types():
+        """
+        check and maybe repair datatypes or otherwise check and alter tables
+        """
+        eex = self.db.engine.execute
+        cache = self.db.tables['cache']
+        needs_reinit = False
+        for col in (cache.c.value, cache.c.cvalue):
+            if not ('VARCHAR' in repr(col.type) and col.type.length >= 4096):
+                eex("alter table cache modify %s varchar(4096)" % (col.name))
+                needs_reinit = True
+        if needs_reinit:
+            self.db = DatabaseConnection(self.config.master_db, self.config)
+            
+        
     def get_info(self, name='db', process='cache'):
         " get value from info table"
         table = self.tables['info']
@@ -329,7 +343,7 @@ class Cache(object):
             if isinstance(val, np.ndarray):
                 val = val.tolist()
             newdata[pvname] = {'ts': tstamp,
-                               'val': clean_bytes(val, maxlen=254),
+                               'val': clean_bytes(val),
                                'cval': clean_bytes(cval)}
 
         table = self.tables['cache']
@@ -349,33 +363,22 @@ class Cache(object):
             query = query.where(table.c.ts>Decimal(time.time() - time_ago))
         return query.execute().fetchall()
 
-    def set_value(self, pv):
-        table = self.tables['cache']
-        val = pv.value
-        if isinstance(val, np.ndarray):
-            val = val.tolist()
-        vals = {table.c.ts: time.time(),
-                table.c.value: clean_bytes(val, maxlen=254),
-                table.c.cvalue: clean_bytes(pv.char_value)}
-        table.update().where(table.c.pvname==pv.pvname).values(vals).execute()
 
+    def add_pv(self, pvname):
+        """ request that a PV (by name) be added to the cache"""
+        table = self.tables['requests']
+        table.insert().execute(pvname=pv.pvname, action='add', ts=time.time())
 
-    def add_epics_pv(self ,pv):
-        """ add an epics PV to the cache"""
-        if pv.pvname in self.pvs:
-            return
+    def drop_pv(self, pvname):
+        """ request that a PV (by name) be dropped from the cache"""
+        table = self.tables['requests']
+        table.insert().execute(pvname=pv.pvname, action='drop', ts=time.time())
 
-        if not pv.connected:
-            logging.debug('PV %s not connected' % repr(pv))
-            return
-
-        cval = pv.get(as_string=True)
-        table = self.tables['cache']
-        table.insert().execute(pvname=pv.pvname, type=pv.type)
-        self.pvs[pvname] = pv
-        self.data[pvname] = (pv.value, pv.char_value, time.time())
-        pv.add_callback(self.onChanges)
-        self.connect_pvs()
+        if pvname in self.pvs():
+            thispv = self.pvs.pop(pvname)
+            thispv.clear_callbacks()
+        if pvname in self.data:
+            self.data.pop(pvname)
 
     def process_alerts(self, debug=False):
         logging.debug('processing alerts at %s\n' % time.ctime())
@@ -473,11 +476,12 @@ class Cache(object):
                 nmatch = nmatch + 1
             mlines[i] = line
         msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/plot/%s\n" % \
-              (mailfrom, subject,'\n'.join(mlines), url_root, pvname)
+              (self.config.mail_from, subject,'\n'.join(mlines),
+               self.config.baseurl, pvname)
 
         try:
-            s = smtplib.SMTP(mailserver)
-            # s.sendmail(mailfrom, mailto, msg)
+            s = smtplib.SMTP(self.config.mail_server)
+            # s.sendmail(self.config.mail_from, mailto, msg)
             logging.info("Would Send Mail : %s" % msg)
             s.quit()
         except:
@@ -493,6 +497,7 @@ class Cache(object):
         logging.info("processing requests:\n")
         cache = self.tables['cache']
         drop_ids = []
+        needs_connect_pvs = False
         for row in req:
             pvname, action = row.pvname, row.action
             msg = 'could not process request for'
@@ -501,19 +506,28 @@ class Cache(object):
                 if 'suspend' == action:
                     if pvname in self.pvs:
                         self.pvs[pvname].clear_callbacks()
-                        cache.update(cache.c.id==row.id).execute(active='no')
+                        cache.update().where(cache.c.pvname==pvname).values({'active': 'no'})
                         msg = 'suspended'
                 elif 'drop' == action:
                     if pvname in self.pvs:
-                        cache.delete().where(cache.c.id==row.id)
+                        cache.delete().where(cache.c.pvname==pvname)
                         msg = 'dropped'
                 elif 'add' == action:
                     if pvname not in self.pvs:
                         pv = epics.get_pv(pvname)
                         conn = pv.wait_for_connection(timeout=3.0)
                         if conn:
-                            self.add_epics_pv(pv)
-                            self.set_value(pv)
+                            needs_connect_pvs = True
+                            self.pvs[pv.pvname] = pv
+                            cval = pv.get(as_string=True)
+                            val = pv.value
+                            if isinstance(val, np.ndarray):
+                                val = val.tolist()
+                            cache.insert().execute(pvname=pvname, type=pv.type,
+                                                   ts=time.time(),
+                                                   value=clean_bytes(val, maxlen=4096),
+                                                   cvalue=clean_bytes(cval, maxlen=4096),
+                                                   active='yes')
                             msg = 'added'
                         else:
                             msg = 'could not add'
@@ -525,7 +539,10 @@ class Cache(object):
         for rid in drop_ids:
             reqtable.delete().where(reqtable.c.id==rid)
 
-
+        if needs_connect_pvs:
+            self.connect_pvs()
+            
+            
     def read_alert_table(self):
         for alert in self.tables['alerts'].select().execute().fetchall():
             pvname = alert.pvname
