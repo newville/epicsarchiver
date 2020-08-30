@@ -14,11 +14,11 @@ import epics
 
 from .util import (clean_bytes, normalize_pvname, tformat, valid_pvname,
                    clean_mail_message, DatabaseConnection, None_or_one,
-                   MAX_EPOCH, get_config)
+                   MAX_EPOCH, get_config, motor_fields)
 
 logging.basicConfig(level=logging.INFO)
 
-def add_pv(pvname=None,cache=None,**kw):
+def add_pv(pvname=None), cache=None, with_motor_fields=True):
     """ add a PV to the Cache and Archiver
 
     For a PV that is the '.VAL' field for an Epics motor will
@@ -32,19 +32,7 @@ def add_pv(pvname=None,cache=None,**kw):
         return
     if cache is None:
         cache = Cache()
-    cache.add_pv(pvname)
-    time.sleep(0.05)
-    logging.info("Wait for PV %s to get to cache" % (pvname))
-
-    cache.process_requests()
-
-    req_table= cache.db.tables['requests']
-    requests_pending = True
-    while requests_pending:
-        pending_requests  = req_table.select()
-        requests_pending = len(pending_requests) > 2
-        time.sleep(1.0)
-    cache.close()
+    n = cache.add_pv(pvname, with_motor_fields=with_motor_fields)
 
 
 def add_pvfile(fname):
@@ -66,9 +54,8 @@ def add_pvfile(fname):
 
     """
     loggin.debug('Adding PVs listed in file: %s ' % fname)
-    f = open(fname,'r')
-    lines = f.readlines()
-    f.close()
+    with  open(fname,'r') as fh:
+        lines = fh.readlines()
 
     cache  = Cache()
     pairs = []
@@ -135,7 +122,7 @@ class Cache(object):
         self.pidfile = pidfile
         t0 = time.monotonic() 
         self.db = DatabaseConnection(self.config.master_db, self.config)
-        self.check_data_types()
+        self.check_for_updates()
         
         self.tables  = self.db.tables
         self.pid = self.get_pid()
@@ -145,24 +132,40 @@ class Cache(object):
         self.alert_data = {}
         self.get_pvnames()
         self.read_alert_table()
-        # logging.info('created %d PVs %.3f sec' % (len(self.pvs), time.monotonic()-t0))
+        logging.info('created %d PVs %.3f sec' % (len(self.pvs), time.monotonic()-t0))
 
-    def check_data_types():
+    def check_for_updates():
         """
-        check and maybe repair datatypes or otherwise check and alter tables
+        check db version and maybe repair datatypes or otherwise check and alter tables
         """
-        eex = self.db.engine.execute
-        cache = self.db.tables['cache']
-        needs_reinit = False
-        for col in (cache.c.value, cache.c.cvalue):
-            if not ('VARCHAR' in repr(col.type) and col.type.length >= 4096):
-                eex("alter table cache modify %s varchar(4096)" % (col.name))
-                needs_reinit = True
-        if needs_reinit:
+        version_row = self.cache.get_info(process='version')
+        if version_row is None:
+            logging.info("upgrading database to version 1")
+            stmt in  ("alter table info modify process varchar(256);",
+                      "alter table cache modify value varchar(4096);";
+                      "alter table cache modify cvalue varchar(4096);";
+                      "alter table pairs modify pv1 varchar(128);";
+                      "alter table pairs modify pv2 varchar(128);";
+                      "update cache set type='double' where type='time_double';",
+                      "update cache set type='double' where type='time_float';",
+                      "update cache set type='double' where type='float';",
+                      "update cache set type='string' where type='time_string';",
+                      "update cache set type='string' where type='time_char';",
+                      "update cache set type='string' where type='char';",
+                      "update cache set type='enum' where type='time_enum';",
+                      "update cache set type='int' where type='time_int';",
+                      "update cache set type='int' where type='time_long';",
+                      "update cache set type='int' where type='time_short';",
+                      "update cache set type='int' where type='long';",
+                      "update cache set type='int' where type='short';"):
+                self.db.engine.execute(stmt)
+            self.db.tables['info'].insert().execute(process='verion', db='1')
+
+            time.sleep(0.25)            
             self.db = DatabaseConnection(self.config.master_db, self.config)
             
         
-    def get_info(self, name='db', process='cache'):
+    def get_info(self, process='cache'):
         " get value from info table"
         table = self.tables['info']
         where = text("process='%s'" % process)
@@ -183,7 +186,7 @@ class Cache(object):
         self.db.flush()
 
     def get_pid(self):
-        self.pid = self.get_info('pid', process='cache').pid
+        self.pid = self.get_info(process='cache').pid
         return self.pid
 
     def get_pvnames(self):
@@ -364,10 +367,59 @@ class Cache(object):
         return query.execute().fetchall()
 
 
-    def add_pv(self, pvname):
-        """ request that a PV (by name) be added to the cache"""
-        table = self.tables['requests']
-        table.insert().execute(pvname=pv.pvname, action='add', ts=time.time())
+    def add_pv(self, pvname, with_motor_fields=True):
+        """ add a PV or list of PVs to the cache"""
+        if isinstance(pvname, (str, bytes)):
+            pvname = [pvname]
+
+        pvs, nadded = [], 0
+        for name in  pvname:
+            if isinstance(name, bytes):
+                name = name.decode('utf-8')
+            if name not in self.pvs:
+                pvs.append(epics.get_pv(pvname))
+                
+        if len(pvs) == 0:
+            return
+
+        addcmd = self.tables['cache'].insert().execute
+        def add_pv2cache(pv):
+            self.pvs[pv.pvname] = pv
+            pvtype = pv.type.replace('ctrl_', '').replace('time_', '')
+            pvtype = pvtype.replace('short', 'int').replace('long', 'int')
+            pvtype = pvtype.replace('float', 'double')
+            cval = pv.get(as_string=True)
+            val = pv.value
+            if isinstance(val, np.ndarray):
+                val = val.tolist()
+            addcmd(pvname=pvname,
+                   type=pvtype,
+                   ts=time.time(),
+                   value=clean_bytes(val, maxlen=4096),
+                   cvalue=clean_bytes(cval, maxlen=4096),
+                   active='yes')
+            nadded += 1
+                    
+        time.sleep(0.010)
+        for pv in pvs:
+            if pv.wait_for_connection(timeout=3.0):
+                add_pv2cache(pv)
+                extra_pvs = []
+                prefix = pv.pvname
+                if prefix.endswith('.VAL'): prefix = prefix[:-4]
+                if '.' in prefix or pvtype != 'double':
+                    continue
+                rtype = epics.get_pv(prefix+'.RTYP')
+                if 'motor' != rtype.get():
+                    continue
+                extra_pvs = [epics.get_pv("%s%s" % (prefix,i)) for i in motor_fields]
+                namelist = [pv.pvname] + ["%s%s" % (prefix,i)) for i in motor_fields]
+                for epv in extra_pvs:
+                    if pv.wait_for_connection(timeout=1):
+                        add_pv2cache(pv)
+                        self.set_allpairs(epv, namelist, score=10)
+        self.connect_pvs()
+        return nadded
 
     def drop_pv(self, pvname):
         """ request that a PV (by name) be dropped from the cache"""
@@ -497,7 +549,6 @@ class Cache(object):
         logging.info("processing requests:\n")
         cache = self.tables['cache']
         drop_ids = []
-        needs_connect_pvs = False
         for row in req:
             pvname, action = row.pvname, row.action
             msg = 'could not process request for'
@@ -513,6 +564,8 @@ class Cache(object):
                         cache.delete().where(cache.c.pvname==pvname)
                         msg = 'dropped'
                 elif 'add' == action:
+                    self.add_pv(pvname)
+                    
                     if pvname not in self.pvs:
                         pv = epics.get_pv(pvname)
                         conn = pv.wait_for_connection(timeout=3.0)
@@ -539,8 +592,6 @@ class Cache(object):
         for rid in drop_ids:
             reqtable.delete().where(reqtable.c.id==rid)
 
-        if needs_connect_pvs:
-            self.connect_pvs()
             
             
     def read_alert_table(self):
