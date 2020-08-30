@@ -11,14 +11,11 @@ from sqlalchemy import MetaData, create_engine, engine, text
 
 import epics
 
-from .config import (dbuser, dbpass, dbhost, dbserver, master_db,
-                     dat_prefix, dat_format, pv_deadtime_dble,
-                     pv_deadtime_enum)
-
 from .util import (normalize_pvname, get_force_update_time, tformat,
                    clean_bytes, clean_string, SEC_DAY,
                    DatabaseConnection, None_or_one,
-                   MAX_EPOCH, valid_pvname, motor_fields)
+                   MAX_EPOCH, valid_pvname, motor_fields,
+                   get_config)
 
 from .cache import Cache
         
@@ -27,12 +24,12 @@ logging.basicConfig(level=logging.INFO)
 class Archiver:
     MIN_TIME = 100
     sql_insert  = "insert into %s (pv_id,time,value) values (%i,%f,%s)"
-    def __init__(self, dbconn=None, debug=False):
-
-        self.cache = Cache()
+    def __init__(self, config_envvar='PVARCH_CONFIG'):
+        self.config = get_config(envar=config_envvar)
+        
+        self.cache = Cache(config_envvar=config_envvar)
         self.dbname = None
         self.messenger = sys.stdout
-        self.debug  = debug
         self.force_checktime = 0
         self.last_collect = 0
         self.dtime_limbo = {}
@@ -42,10 +39,7 @@ class Archiver:
         if dbname is None:
             dbname = self.cache.get_info(process='archive').db
         self.dbname = dbname
-        self.db = DatabaseConnection(self.dbname, server=dbserver,
-                                     user=dbuser, password=dbpass,
-                                     host=dbhost)
-
+        self.db = DatabaseConnection(self.dbname, self.config)
         self.pvtable = self.db.tables['pv']
         self.pvs    = {k: v for k,v in self.cache.pvs.items()}
         self.pvinfo = {}
@@ -108,9 +102,7 @@ class Archiver:
             logging.warning("pv %s not found" % (pvname))
             
         dbname = self.dbs_for_time(t, t+1)[0]
-        db = DatabaseConnection(dbname, server=dbserver,
-                                user=dbuser, password=dbpass,
-                                host=dbhost)
+        db = DatabaseConnection(dbname, self.config)
         wclause = text("name='%s'" % pvname)
         row = db.tables['pv'].select(whereclause=wclause).execute().fetchall()
         if len(row) < 1:
@@ -147,9 +139,7 @@ class Archiver:
             tmax = time.time()
         data = []
         for dbname in self.dbs_for_time(tmin-SEC_DAY, tmax+5):
-            db = DatabaseConnection(dbname, server=dbserver,
-                                    user=dbuser, password=dbpass,
-                                    host=dbhost)
+            db = DatabaseConnection(dbname, self.config)
             wclause = text("name='%s'" % pvname)
             row = db.tables['pv'].select(whereclause=wclause).execute().fetchall()
             if len(row) < 1:
@@ -267,9 +257,9 @@ class Archiver:
                     gr['type'] = 'log'
         
         if deadtime is None:
-            deadtime = pv_deadtime_dble
+            deadtime = self.config.pv_deadtime_double
             if dtype in ('enum','string'):
-                deadtime = pv_deadtime_enum
+                deadtime = self.config.pv_deadtime_enum
             if gr['type'] == 'log':
                 deadtime = 5.0  # (pressures change very frequently)
 
