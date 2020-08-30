@@ -26,7 +26,6 @@ class Archiver:
     sql_insert  = "insert into %s (pv_id,time,value) values (%i,%f,%s)"
     def __init__(self, config_envvar='PVARCH_CONFIG'):
         self.config = get_config(envar=config_envvar)
-        
         self.cache = Cache(config_envvar=config_envvar)
         self.dbname = None
         self.messenger = sys.stdout
@@ -179,7 +178,7 @@ class Archiver:
 
         
     def add_pv(self, name, description=None, graph={}, deadtime=None, deadband=None):
-        """add PV to the database: expected to take a while"""
+        """add PV to the archive database: expected to take a while"""
         pvname = normalize_pvname(name)
 
         if not valid_pvname(pvname):
@@ -212,11 +211,12 @@ class Archiver:
 
         # determine type
         dtype = 'string'
-        if pv.type in ('int','long','short'):
+        pvtype = pv.type.replace('ctrl_', '').replace('time_', '')
+        if pvtype in ('int', 'long', 'short'):
             dtype = 'int'
-        elif pv.type in ('enum',):
+        elif pvtype in ('enum',):
             dtype = 'enum'
-        elif pv.type in ('double','float'):
+        elif pvtype in ('double', 'float'):
             dtype = 'double'
         
         # determine data table
@@ -258,7 +258,7 @@ class Archiver:
         
         if deadtime is None:
             deadtime = self.config.pv_deadtime_double
-            if dtype in ('enum','string'):
+            if dtype in ('enum', 'string'):
                 deadtime = self.config.pv_deadtime_enum
             if gr['type'] == 'log':
                 deadtime = 5.0  # (pressures change very frequently)
