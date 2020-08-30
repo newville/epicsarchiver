@@ -1,0 +1,62 @@
+#
+# configuration file for Epics Archiver
+#  
+# set configuration values in this file and then
+# set the environmental variable PVARCH_CONFIG
+# to point to this file.
+
+# this file is in "TOML" format, a very simple
+# format for config files.
+
+
+# location of log directories
+logdir = '/var/log/pvarch'
+
+# url for base web app
+baseurl = 'https://localhost/'
+
+
+# mail server and from address for alerts
+mail_server = 'localhost'
+mail_from = 'pvarchiver@aps.anl.gov'
+
+## mysql database setup section
+
+# give user name, password, and host.
+# this account will need to be able to
+# read/write to the main cache database (`cache_db`)
+# and create and write to the data databases
+server   = 'mysql'
+host     = 'localhost'
+user     = 'epics'
+password = 'change_this_password!'
+
+# command used for dumping databases
+# this will be passed the dictionary of values in 
+sql_dump  = 'usr/bin/mysqldump -opt -p%(password)s -u%(user)s'
+
+# name of main `cache' database
+cache_db = 'pvarch_master'
+
+# prefix used for sequentially named data databases:
+# must contain letters and underscores only
+data_prefix = 'pvdata'
+data_format = "%s_%.5d"
+
+# default PV 'deadtimes': how long after archiving a value
+# to wait to record another value.  Changes during the
+# deadtime will be seen, but will not be recorded until the
+# deadtime has elapsed.  If multiple changes happen during
+# the deadtime, only the most recent value will be recorded
+# when the deadtime has elapsed.
+#    pv_deadtime_enum will be used for ENUM and STRING PVs
+#    pv_deadtime_dble will be used for all other PVs
+# The deadtime can be adjusted per PV while archiving.
+pv_deadtime_double =  5
+pv_deadtime_enum  =  1
+
+# how often (time in seconds)
+# for the cache process to check alert values
+# and for the cache process to report progress
+cache_alert_period = 30
+cache_report_period = 300
