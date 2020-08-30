@@ -217,7 +217,7 @@ class Cache(object):
     def connect_pvs(self):
         """connect to unconnected PVs, make sure callback is defined"""
         nnew = 0
-.        t0 = time.time()
+        t0 = time.time()
         for pvname, pv in self.pvs.items():
             if pv.connected:
                 cval = pv.get(as_string=True)
@@ -615,7 +615,7 @@ class Cache(object):
         runs = self.tables['runs']
         if stop_time is None:
             stop_time = MAX_EPOCH
-        q = runs.select().where(runs.c.start_time <= Decimal(stop_time)
+        q = runs.select().where(runs.c.start_time <= Decimal(stop_time))
         q = q.where(runs.c.stop_time >= Decimal(start_time))
         return q.execute().fetchall()
     
@@ -668,15 +668,16 @@ class Cache(object):
                     self.set_pair_score(a, b, score=score)
 
 
-    def sort_pairscores(self):
+    def check_pairscores(self):
+        "return all pair scores, logging duplicates"
         pairscores = {}
-
         ptable = self.tables['pairs']
         for row in ptable.select().execute().fetchall():
             pv1, pv2 = get_pvpair(row.pv1, row.pv2)
-            key = '%s@%s' %(pv1, pv2)
-            if key in pairscores:
-                print('dup ', pv1, pv2)
+            key = '%s@%s' % (pv1, pv2)
+            alt = '%s@%s' % (pv2, pv1)
+            if key in pairscores or ald in pairscores:
+                logging.warn('duplicate score found: ', pv1, pv2)
                 pairscores[key] += row.score
             else:
                 pairscores[key] = row.score
