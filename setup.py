@@ -1,18 +1,10 @@
 #!/usr/bin/env python
 #
-# setup script for PVArchiver.  Use    python setup.py install
-#
-import os
-import sys
-import shutil
-import distutils
-from setuptools import setup, find_packages
+# setup script for EpicsArchiver.
+# Use
+#     python setup.py install
 
-try:
-    from epicsarchiver import config
-except:
-    print("Error: cannot import config: Typo in config.py?")
-    sys.exit(1)
+from setuptools import setup
 
 pkg_data = {'epicsarchiver.templates': ['templates/*'],
             'epicsarchiver.static': ['static/*']}
@@ -32,6 +24,7 @@ setup(name        = 'epicsarchiver',
                         'numpy>=1.14',
                         'sqlalchemy>0.9',
                         'mysqlclient',
+                        'toml',
                         'flask'])
 
 

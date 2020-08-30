@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 #
+import os
+import toml
 import time
 from random import randint
 from MySQLdb import string_literal
@@ -12,7 +14,51 @@ SEC_DAY   = 86400.0
 motor_fields = ('.VAL','.OFF','.FOFF','.SET','.HLS','.LLS',
                 '.DIR','_able.VAL','.SPMG','.DESC')
 
-valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._-{}'
+valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._-+:[]<>;{}'
+
+class Config:
+    logdir =  '/var/log/pvarch'
+    baseurl = 'https://localhost/'
+
+    db_server = 'mysql'
+    db_host = 'localhost'
+    db_user = 'epics'
+    db_password = 'change_this_password!'
+    db_dump = 'usr/bin/mysqldump -opt'
+
+    mail_server =  'localhost'
+    mail_from = 'pvarchiver@aps.anl.gov'
+    master_db = 'pvarch_master'
+    dat_prefix = 'pvdata'
+    dat_format = '%s_%.5d'
+    pv_deadtime_double = 5
+    pv_deadtime_enum = 1
+
+
+def get_config(envvar='PVARCH_CONFIG'):
+    """read config file defined by environmental variable PVARCH_CONFIG"""
+    conf = {'logdir': '/var/log/pvarch',
+            'baseurl': 'https://localhost/',
+            'mail_server':  'localhost',
+            'mail_from': 'pvarchiver@aps.anl.gov',
+            'db_server': 'mysql',
+            'db_host': 'localhost',
+            'db_user': 'epics',
+            'db_password': 'change_this_password!',
+            'db_dump': 'usr/bin/mysqldump -opt',
+            'master_db': 'pvarch_master',
+            'dat_prefix': 'pvdata',
+            'dat_format': '%s_%.5d',
+            'pv_deadtime_double': 5,
+            'pv_deadtime_enum': 1}
+
+    fconf = os.environ.get(envvar, None)
+    if fconf is not None and os.path.exists(fconf):
+        conf.update(toml.load(open(fconf)))
+    config = Config()
+    for k, v in conf.items():
+        settar(config, k, v)
+    return config
 
 def get_dbengine(dbname, server='sqlite', create=False,
                  user='', password='',  host='', port=None):
@@ -31,6 +77,25 @@ def get_dbengine(dbname, server='sqlite', create=False,
             port = 5432
         return create_engine(conn_str % (user, password, host, port, dbname))
 
+
+class DatabaseConnection:
+    def __init__(self, dbname, config, autocommit=True):
+        self.dbname = dbname
+        self.engine = get_dbengine(dbname,
+                                   server=config.db_server,
+                                   user=config.db_user,
+                                   password=config.db_password,
+                                   host=config.db_host)
+        
+        self.metadata = MetaData(self.engine)
+        self.metadata.reflect()
+        self.conn    = self.engine.connect()
+        self.session = sessionmaker(bind=self.engine, autocommit=autocommit)()
+        self.tables  = self.metadata.tables
+
+    def flush(self):
+        self.session.flush()
+
 def None_or_one(result):
     """expect result (as from query.fetchall() to return 
     either None or exactly one result
@@ -42,23 +107,8 @@ def None_or_one(result):
     except:
         return None
 
-class DatabaseConnection:
-    def __init__(self, dbname, user, password, host='localhost',
-                 server='mysql', autocommit=True):
-        self.dbname = dbname
-        self.engine = get_dbengine(dbname, server=server, user=user,
-                                   password=password, host=host)
-        
-        self.metadata = MetaData(self.engine)
-        self.metadata.reflect()
-        self.conn    = self.engine.connect()
-        self.session = sessionmaker(bind=self.engine, autocommit=autocommit)()
-        self.tables  = self.metadata.tables
-
-    def flush(self):
-        self.session.flush()
-    
-def clean_bytes(x, maxlen=1024, encoding='utf-8'):
+   
+def clean_bytes(x, maxlen=4096, encoding='utf-8'):
     """
     clean data as a string with comments stripped,
     guarding against extra sql statements, 
@@ -74,7 +124,7 @@ def clean_bytes(x, maxlen=1024, encoding='utf-8'):
             x = x[:eol]
     return x.strip().encode(encoding)
 
-def clean_string(x, maxlen=2048):
+def clean_string(x, maxlen=4096):
     return clean_bytes(x, maxlen=maxlen).decode('utf-8')
 
 def safe_string(x):
