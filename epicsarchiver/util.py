@@ -4,7 +4,11 @@ import os
 import toml
 import time
 from random import randint
-from MySQLdb import string_literal
+try:
+    from MySQLdb import string_literal
+except:
+    string_literal = str
+    
 from sqlalchemy import MetaData, create_engine, engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -133,11 +137,22 @@ def clean_mail_message(s):
     s = s.replace("\\'","\'").replace("\\","").replace('\\"','\"')
     return s
 
+
+def valid_pvname(pvname):
+    return all([c in valid_pvstr for c in pvname])
+
 def normalize_pvname(p):
     """ normalizes a PV name (so that it ends in .VAL if needed)."""
-    x = clean_string(p.strip())
-    if len(x) > 2 and x.find('.') < 1: return '%s.VAL' % x
-    return x
+    pvname = clean_string(p, maxlen=128).strip()
+    if '.' not in pvname:
+        pvname = "%s.VAL" % pvname
+    return pvname
+
+def get_pvpair(pv1, pv2):
+    "fix and sort 2 pvs for use in the pairs tables"
+    p = [normalize_pvname(pv1), normalize_pvname(pv2)]
+    p.sort()
+    return tuple(p)
 
 def clean_mail_message(s):
     "cleans a stored escaped mail message for real delivery"
@@ -187,10 +202,6 @@ def time_str2sec(s):
 
     return time.mktime((int(yr),int(mon),int(day),int(hr),int(min), int(sec),0,0,tz))
 
-def valid_pvname(pvname):
-    for c in pvname:
-        if c not in valid_pvstr: return False
-    return True
 
 def write_saverestore(pvvals,format='plain',header=None):
     """ generate a save/restore file for a set of PV values

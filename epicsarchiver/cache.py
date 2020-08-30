@@ -9,12 +9,12 @@ import smtplib
 from decimal import Decimal
 
 import numpy as np
-from sqlalchemy import text
+from sqlalchemy import text, and_
 import epics
 
 from .util import (clean_bytes, normalize_pvname, tformat, valid_pvname,
                    clean_mail_message, DatabaseConnection, None_or_one,
-                   MAX_EPOCH, get_config, motor_fields)
+                   MAX_EPOCH, get_config, motor_fields, get_pvpair)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -217,7 +217,7 @@ class Cache(object):
     def connect_pvs(self):
         """connect to unconnected PVs, make sure callback is defined"""
         nnew = 0
-        t0 = time.time()
+.        t0 = time.time()
         for pvname, pv in self.pvs.items():
             if pv.connected:
                 cval = pv.get(as_string=True)
@@ -615,8 +615,70 @@ class Cache(object):
         runs = self.tables['runs']
         if stop_time is None:
             stop_time = MAX_EPOCH
-        q = runs.select().where(runs.c.start_time <= Decimal(stop_time))
+        q = runs.select().where(runs.c.start_time <= Decimal(stop_time)
         q = q.where(runs.c.stop_time >= Decimal(start_time))
         return q.execute().fetchall()
     
-            
+
+    def get_pair_score(self, pv1, pv2):
+        "get pair score for 2 pvs"        
+        pv1, pv2 = get_pvpair(pv1, pv2)
+        if pv1 not in self.pvs or pv2 not in self.pvs:
+            return 0
+        score = 0
+        ptable = self.tables['pairs']
+        for (a, b) in ((pv1, pv2), (pv2, pv1)):
+            q = ptable.select().where(and_(ptable.c.pv1==a, ptable.c.pv2==b))
+            r = None_or_one(q.execute().fetchall())
+            if r is not None:
+                score += r.score
+        return score
+
+    def set_pair_score(self, pv1, pv2, score=None, increment=1):
+        "set pair score for 2 pvs"
+        pv1, pv2 = get_pvpair(pv1, pv2)
+        if pv1 not in self.pvs or pv2 not in self.pvs:
+            logging.warn("Cannot set pair score for unknonwn PVS '%s' and '%s'" % (pv1, pv2))
+
+        current_score = self.get_pair_score(pv1, pv2)
+        if score is None:
+            score = incremenet + current_score
+       
+        ptable = self.tables['pairs']
+        if current_score == 0:
+            ptable.insert().execute(pv1=pv2, pv2=pv2, score=score)
+        else:
+            ptable.update().execute(pv1=pv2, pv2=pv2, score=score)            
+
+        
+    def increment_pair_score(self, pv1, pv2, increment=1):
+        """increase by the pair score for two pvs """
+        self.set_pair_score(pv1, pv2, score=None, increment=increment)
+
+    def set_allpairs(self, pvlist, score=10):
+        """for a list/tuple of pvs, set all pair scores
+        to be at least the provided score"""
+        tmplist = [normalize_pvname(p) for p in pvlist]
+        self.get_pvnames()
+        
+        while tmplist:
+            a = tmplist.pop()
+            for b in tmplist:
+                if self.get_pair_score(a, b) < score:
+                    self.set_pair_score(a, b, score=score)
+
+
+    def sort_pairscores(self):
+        pairscores = {}
+
+        ptable = self.tables['pairs']
+        for row in ptable.select().execute().fetchall():
+            pv1, pv2 = get_pvpair(row.pv1, row.pv2)
+            key = '%s@%s' %(pv1, pv2)
+            if key in pairscores:
+                print('dup ', pv1, pv2)
+                pairscores[key] += row.score
+            else:
+                pairscores[key] = row.score
+        return pairscores
+    
