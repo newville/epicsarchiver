@@ -18,17 +18,15 @@ from .util import (normalize_pvname, get_force_update_time, tformat,
                    get_config)
 
 from .cache import Cache
-        
-logging.basicConfig(level=logging.INFO)
 
 class Archiver:
     MIN_TIME = 100
     sql_insert  = "insert into %s (pv_id,time,value) values (%i,%f,%s)"
     def __init__(self, envvar='PVARCH_CONFIG', **kws):
         self.config = get_config(envar=envvar, **kws)
-        self.cache = Cache(envvar=envvar, **kws)
+        self.cache = Cache(envvar=envvar, pvconnect=False, **kws)
+        self.log  = self.cache.log
         self.dbname = None
-        self.messenger = sys.stdout
         self.force_checktime = 0
         self.last_collect = 0
         self.dtime_limbo = {}
@@ -40,7 +38,7 @@ class Archiver:
         self.dbname = dbname
         self.db = DatabaseConnection(self.dbname, self.config)
         self.pvtable = self.db.tables['pv']
-        self.pvs    = {k: v for k,v in self.cache.pvs.items()}
+        # self.pvs    = {k: v for k,v in self.cache.pvs.items()}
         self.pvinfo = {}
         self.refresh_pvinfo()
 
@@ -59,8 +57,8 @@ class Archiver:
                 dat.update({'last_ts': 0,'last_value':None,
                             'force_time': get_force_update_time()})
                 self.pvinfo[name] = dat
-                if name not in self.pvs:
-                    self.pvs[name] = epics.get_pv(name)
+                # if name not in self.pvs:
+                #    self.pvs[name] = epics.get_pv(name)
 
                 
     def get_pvinfo(self, pvname):
@@ -98,14 +96,14 @@ class Archiver:
         """
         pvname = normalize_pvname(pvname)
         if pvname not in self.pvinfo:
-            logging.warning("pv %s not found" % (pvname))
+            self.log("pv %s not found" % (pvname), level='warn')
             
         dbname = self.dbs_for_time(t, t+1)[0]
         db = DatabaseConnection(dbname, self.config)
         wclause = text("name='%s'" % pvname)
         row = db.tables['pv'].select(whereclause=wclause).execute().fetchall()
         if len(row) < 1:
-            logging.warning("no data table for  %" % (pvname))
+            self.log("no data table for  %" % (pvname), level='warn')
             
         row = row[0]
         dtable = db.tables[row.data_table]
@@ -130,7 +128,7 @@ class Archiver:
         """
         pvname = normalize_pvname(pvname)
         if pvname not in self.pvinfo:
-            logging.warn("pv %s not found" % (pvname))
+            self.log("pv %s not found" % (pvname), level='warn')
 
         if tmin is None:
             tmin = time.time() - SEC_DAY
@@ -142,7 +140,7 @@ class Archiver:
             wclause = text("name='%s'" % pvname)
             row = db.tables['pv'].select(whereclause=wclause).execute().fetchall()
             if len(row) < 1:
-                logging.warn("no data table for  %" % (pvname))
+                self.log("no data table for  %" % (pvname), level='warn')
 
             row = row[0]
             dtable = db.tables[row.data_table]
@@ -182,14 +180,15 @@ class Archiver:
         pvname = normalize_pvname(name)
 
         if not valid_pvname(pvname):
-            logging.warn("## Archiver add_pv invalid pvname = '%s'" % pvname)
+            self.log("## Archiver add_pv invalid pvname = '%s'" % pvname,
+                     level='warn')
             return
 
         if pvname in self.pvinfo:
             if 'yes' == self.pvinfo[pvname]['active']:
-                logging.info("PV %s is already in database." % pvname)
+                self.log("PV %s is already in database." % pvname)
             else:
-                logging.info("PV %s is in database, reactivating." % pvname)
+                self.log("PV %s is in database, reactivating." % pvname)
                 self.pvinfo[pvname]['active'] = 'yes'
             return
 
@@ -206,7 +205,7 @@ class Archiver:
             connected = False
 
         if not pv.connected:
-            logging.warn("cannot connect to PV '%s'" % pvname)
+            self.log("cannot connect to PV '%s'" % pvname, level='warn')
             return
 
         # determine type
@@ -272,7 +271,7 @@ class Archiver:
             if dtype in ('enum','string'):
                 deadband =  0.5
             
-        logging.info('Archiver adding PV: %s, table: %s' % (pvname,table))
+        self.log('Archiver adding PV: %s, table: %s' % (pvname,table))
 
         pvtab = self.pvtable
         pvtab.insert().execute(name=pvname,
@@ -385,19 +384,6 @@ class Archiver:
             self.update_value(name, data[0], data[1])
         return len(newvals), n_forced
 
-    def set_pidstatus(self, pid=None, status='unknown'):
-        vals = {}
-        if pid is not None:  vals['pid'] = pid
-        if status in ('running','offline','stopping','unknown'):
-            vals['status'] = status
-        self.cache.set_info(process='archive', **vals)
-
-    def set_infotime(self,ts):
-        self.cache.set_info(process='archive', ts=ts, datetime=tformat(ts))
-
-    def get_pidstatus(self):
-        row = self.cache.get_info(process='archive')
-        return row.pid, row.status
 
     def get_nchanged(self, minutes=10, limit=None):
         """
@@ -414,20 +400,17 @@ class Archiver:
    
     def mainloop(self,verbose=False):
         t0 = time.time()
-        print('connecting...')
+        self.log('connecting to archive database')
         self.use_archivedb()
         self.last_collect = t0
-        sys.stdout.flush()
-
-        mypid = os.getpid()
-        self.set_pidstatus(pid=mypid, status='running')
+        self.pid = os.getpid()
+        self.cache.set_info(process='archive', pid=self.pid, status='running')
 
         collecting = True
-        n_changed = n_forced = n_loop = 0
-        t_lastlog = 0
-        mlast = -1
-        msg = "%s: %d new values, %d forced entries. (%d loops)"
-        print('collecting to database %s ' % self.dbname)        
+        n_changed = n_forced = n_loop = last_report = 0
+        last_info = 0
+        msg = "%d new values, %d forced entries since last notice. %d loops"
+        self.log('start archiving to %s ' % self.dbname)        
         while collecting:
             try:
                 time.sleep(5e-4)
@@ -437,23 +420,28 @@ class Archiver:
                 n_loop = n_loop + 1
                 
                 tnow = time.time()
-                tmin, tsec = time.localtime()[4:6]
-                if tsec < 2 and tmin != mlast and tmin % 5 == 0:
-                    print(msg % (time.ctime(), n_changed, n_forced, n_loop))
-                    sys.stdout.flush()
+                if tnow > last_report + self.config.archive_report_period:
+                    self.log(msg % (n_changed, n_forced, n_loop))
                     n_changed = n_forced = n_loop = 0
-                    t_lastlog = tnow
-                    mlast = tmin
-                self.set_infotime(tnow)
-
+                    last_report = tnow
+                if tnow > last_info + 2.0:
+                    self.cache.set_info(process='archive', ts=tnow,
+                                        datetime=tformat(tnow))
+                    last_info = tnow
+                
             except KeyboardInterrupt:
-                sys.stderr.write('Interrupted by user.\n')
+                self.log('Interrupted by user.', level='warn')
+                collecting = False
                 break
             
-            masterpid, status = self.get_pidstatus()
-            if (status in ('stopping','offline')) or (masterpid != mypid):
-                self.set_pidstatus(status='offline')
+            pid, status = self.cache.get_pidstatus(process='archive')
+            if status in ('stopping', 'offline') or pid != self.pid:
+                logging.debug('no longer main archiving program, exiting.')
                 collecting = False
 
-        self.set_pidstatus(status='offline')
+        self.cache.set_info(process='archive', status='offline')
         return None
+
+    def shutdown(self):
+        self.cache.set_info(process='archive', status='stopping')
+        
