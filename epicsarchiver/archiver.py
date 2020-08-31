@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 import time
 import sys
 import os
@@ -44,8 +43,8 @@ class Archiver:
 
     def refresh_pvinfo(self):
         """
-        refresh the 'self.pvinfo' dictionary by re-reading the 
-        database settings for pvs in the pv table 
+        refresh the 'self.pvinfo' dictionary by re-reading the
+        database settings for pvs in the pv table
         may also add pvs to the .pvs dict
         """
         for pvdata in self.pvtable.select().execute().fetchall():
@@ -60,9 +59,9 @@ class Archiver:
                 # if name not in self.pvs:
                 #    self.pvs[name] = epics.get_pv(name)
 
-                
+
     def get_pvinfo(self, pvname):
-        """return pvinfo data (a dict) for a pv, and also ensures that it 
+        """return pvinfo data (a dict) for a pv, and also ensures that it
         is in the pvinfo dictionary
         """
         if pvname not in self.pvinfo:
@@ -91,20 +90,20 @@ class Archiver:
         """
         return (time, value) for an archived value of a pv at one time
         time will be a float timestamp, and value will be a string.
-        
-        returns None, None if not found or error 
+
+        returns None, None if not found or error
         """
         pvname = normalize_pvname(pvname)
         if pvname not in self.pvinfo:
             self.log("pv %s not found" % (pvname), level='warn')
-            
+
         dbname = self.dbs_for_time(t, t+1)[0]
         db = DatabaseConnection(dbname, self.config)
         wclause = text("name='%s'" % pvname)
         row = db.tables['pv'].select(whereclause=wclause).execute().fetchall()
         if len(row) < 1:
             self.log("no data table for  %" % (pvname), level='warn')
-            
+
         row = row[0]
         dtable = db.tables[row.data_table]
         query  = dtable.select().where(dtable.c.pv_id==row.id)
@@ -174,7 +173,7 @@ class Archiver:
             data.append((float(cur.ts),  val))
         return data
 
-        
+
     def add_pv(self, name, description=None, graph={}, deadtime=None, deadband=None):
         """add PV to the archive database: expected to take a while"""
         pvname = normalize_pvname(name)
@@ -200,7 +199,7 @@ class Archiver:
             typ = pv.type
             count = pv.count
             prec  = pv.precision
-            connected = pv.connected 
+            connected = pv.connected
         except:
             connected = False
 
@@ -217,20 +216,20 @@ class Archiver:
             dtype = 'enum'
         elif pvtype in ('double', 'float'):
             dtype = 'double'
-        
+
         # determine data table
         table = "pvdat%3.3i" % ((hash(pvname) % 128) + 1)
-        
+
         # determine descrption (don't try too hard!)
         if description is None:
             if pvname.endswith('.VAL'):
-                descpv  = "%s.DESC" % pvname[:-4] 
+                descpv  = "%s.DESC" % pvname[:-4]
             else:
-                descpv  = "%s.DESC" % pvname 
+                descpv  = "%s.DESC" % pvname
                 for f in motor_fields:
                     if pvname.endswith(f):
                         descpv = None
-                        
+
             if descpv is not None:
                 try:
                     dp = epics.get_pv(descpv)
@@ -252,13 +251,13 @@ class Archiver:
             gr['type'] = 'normal'
             dx = description.lower()
             for i in ('cathode','pirani','pressure'):
-                if dx.find(i) >= 0: 
+                if dx.find(i) >= 0:
                     gr['type'] = 'log'
-        
+
         if deadtime is None:
-            deadtime = self.config.pv_deadtime_double
+            deadtime = float(self.config.pv_deadtime_double)
             if dtype in ('enum', 'string'):
-                deadtime = self.config.pv_deadtime_enum
+                deadtime = float(self.config.pv_deadtime_enum)
             if gr['type'] == 'log':
                 deadtime = 5.0  # (pressures change very frequently)
 
@@ -270,7 +269,7 @@ class Archiver:
                 deadband = 10**(-(prec+1))
             if dtype in ('enum','string'):
                 deadband =  0.5
-            
+
         self.log('Archiver adding PV: %s, table: %s' % (pvname,table))
 
         pvtab = self.pvtable
@@ -283,7 +282,7 @@ class Archiver:
                                graph_lo=gr['low'],
                                graph_hi=gr['high'],
                                graph_type=gr['type'])
-        
+
         time.sleep(0.01)
         pvdata = pvtab.select().where(pvtab.c.name==pvname).execute().fetchone()
 
@@ -293,14 +292,14 @@ class Archiver:
         self.pvinfo[name] = dat
         self.update_value(pvname, time.time(), pv.value)
 
-        
+
     def update_value(self, name, ts, val):
-        "insert value into appropriate table " 
+        "insert value into appropriate table "
         if val is None:
             return
         if ts is None or ts < self.MIN_TIME:
             ts = time.time()
-       
+
         self.pvinfo[name]['last_ts'] =  float(ts)
         self.pvinfo[name]['last_value'] =  val
 
@@ -315,7 +314,7 @@ class Archiver:
         newvals, forced = {},{}
         tnow = time.time()
         dt  =  3.0*(tnow - self.last_collect)
-        self.last_collect = tnow 
+        self.last_collect = tnow
         for dat in self.cache.get_values(time_ago=dt):
             name  = dat.pvname
             if name not in self.pvinfo:
@@ -342,7 +341,7 @@ class Archiver:
             elif ts > (0.001 + float(info['last_ts'])):
                 # pv changed, but inside 'deadtime': put it in limbo!
                 self.dtime_limbo[name] = (ts, val)
-                
+
         # now look through the "limbo list" and insert the most recent change
         # iff the last insert was longer ago than the deadtime:
         tnow = time.time()
@@ -357,7 +356,7 @@ class Archiver:
 
         n_new     = len(newvals)
         n_forced  = 0
-        # check for stale values and re-read db settings every 5 minutes 
+        # check for stale values and re-read db settings every 5 minutes
         if tnow > (self.force_checktime + 300):
             # print('looking for stale values %s'  %time.ctime() )
             self.force_checktime = tnow
@@ -368,7 +367,7 @@ class Archiver:
             fullcache = {}
             for row in self.cache.tables['cache'].select().execute().fetchall():
                 fullcache[row.pvname] = row.ts, row.value
-                    
+
             for name, info in self.pvinfo.items():
                 if info['active'] == 'no':
                     continue
@@ -397,7 +396,7 @@ class Archiver:
             q = self.db.tables['pvdat%3.3d' % i].select(whereclause=whereclause)
             n += len(q.execute().fetchall())
         return n
-   
+
     def mainloop(self,verbose=False):
         t0 = time.time()
         self.log('connecting to archive database')
@@ -410,17 +409,17 @@ class Archiver:
         n_changed = n_forced = n_loop = last_report = 0
         last_info = 0
         msg = "%d new values, %d forced entries since last notice. %d loops"
-        self.log('start archiving to %s ' % self.dbname)        
+        self.log('start archiving to %s ' % self.dbname)
         while collecting:
             try:
-                time.sleep(5e-4)
+                epics.poll(evt=0.003, iot=1.0)
                 n1, n2 = self.collect()
                 n_changed = n_changed + n1
                 n_forced  = n_forced  + n2
                 n_loop = n_loop + 1
-                
+
                 tnow = time.time()
-                if tnow > last_report + self.config.archive_report_period:
+                if tnow > last_report + float(self.config.archive_report_period):
                     self.log(msg % (n_changed, n_forced, n_loop))
                     n_changed = n_forced = n_loop = 0
                     last_report = tnow
@@ -428,12 +427,12 @@ class Archiver:
                     self.cache.set_info(process='archive', ts=tnow,
                                         datetime=tformat(tnow))
                     last_info = tnow
-                
+
             except KeyboardInterrupt:
                 self.log('Interrupted by user.', level='warn')
                 collecting = False
                 break
-            
+
             pid, status = self.cache.get_pidstatus(process='archive')
             if status in ('stopping', 'offline') or pid != self.pid:
                 logging.debug('no longer main archiving program, exiting.')
@@ -444,4 +443,3 @@ class Archiver:
 
     def shutdown(self):
         self.cache.set_info(process='archive', status='stopping')
-        
