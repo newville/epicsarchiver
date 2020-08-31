@@ -8,7 +8,7 @@ try:
     from MySQLdb import string_literal
 except:
     string_literal = str
-    
+
 from sqlalchemy import MetaData, create_engine, engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -24,27 +24,27 @@ class Config:
     def __init__(self, **kws):
         self.logdir =  '/var/log/pvarch'
         self.baseurl = 'https://localhost/'
-    
+
         self.server = 'mysql'
         self.host = 'localhost'
         self.user = 'epics'
         self.password = 'change_this_password!'
-        self.sql_dump = 'usr/bin/mysqldump -opt'
+        self.sql_dump = '/usr/bin/mysqldump'
 
         self.mail_server =  'localhost'
         self.mail_from = 'pvarchiver@aps.anl.gov'
         self.cache_db = 'pvarch_master'
         self.dat_prefix = 'pvdata'
         self.dat_format = '%s_%.5d'
-        self.pv_deadtime_double = 5
-        self.pv_deadtime_enum = 1
-        self.cache_alert_period = 30
-        self.cache_report_period = 300
-        self.archive_report_period = 300
-        
+        self.pv_deadtime_double = '5'
+        self.pv_deadtime_enum = '1'
+        self.cache_alert_period = '30'
+        self.cache_report_period = '300'
+        self.archive_report_period = '300'
+
         for key, val in kws.items():
             setattr(self, key, val)
-        
+
     def asdict(self):
         out = {}
         for k in dir(self):
@@ -89,7 +89,7 @@ class DatabaseConnection:
                                    user=config.user,
                                    password=config.password,
                                    host=config.host)
-        
+
         self.metadata = MetaData(self.engine)
         self.metadata.reflect()
         self.conn    = self.engine.connect()
@@ -100,7 +100,7 @@ class DatabaseConnection:
         self.session.flush()
 
 def None_or_one(result):
-    """expect result (as from query.fetchall() to return 
+    """expect result (as from query.fetchall() to return
     either None or exactly one result
     """
     if isinstance(result, engine.result.ResultProxy):
@@ -110,11 +110,11 @@ def None_or_one(result):
     except:
         return None
 
-   
+
 def clean_bytes(x, maxlen=4096, encoding='utf-8'):
     """
     clean data as a string with comments stripped,
-    guarding against extra sql statements, 
+    guarding against extra sql statements,
     and force back to bytes object / utf-8
     """
     if isinstance(x, bytes):
@@ -163,12 +163,12 @@ def clean_mail_message(s):
     s = s.replace("\\r","\r").replace("\\n","\n")
     s = s.replace("\\'","\'").replace("\\","").replace('\\"','\"')
     return s
-    
+
 def get_force_update_time():
     """ inserts will be forced into the Archives for stale values
     between 18 and 22 hours after last insert.
     This will spread out inserts, and means that every PV is
-    recorded at least once in any 24 hour period.  
+    recorded at least once in any 24 hour period.
     """
     return 64800 + (4 * randint(0, 3600))
 
@@ -176,7 +176,7 @@ def timehash():
     """ generate a simple, 10 character hash of the timestamp:
     Number of possibilites = 16^11 >~ 10^13
     the hash is a linear-in-milliseconds timestamp, so collisions
-    cannot happen for 10^12 milliseconds (33 years). """ 
+    cannot happen for 10^12 milliseconds (33 years). """
     return hex(int(10000.*time.time()))[2:-1]
 
 def tformat(t=None,format="%Y-%b-%d %H:%M:%S"):
@@ -186,7 +186,7 @@ def tformat(t=None,format="%Y-%b-%d %H:%M:%S"):
 
 def time_sec2str(sec=None):
     return tformat(t=sec,format="%Y-%m-%d %H:%M:%S")
-        
+
 def time_str2sec(s):
     s = s.replace('_',' ')
     xdat,xtim=s.split(' ')
@@ -196,8 +196,8 @@ def time_str2sec(s):
     (yr,mon,day,hr,min,sec,x,y,tz) = time.localtime()
     if   len(dates)>=3:  yr,mon,day = dates
     elif len(dates)==2:  mon,day = dates
-    elif len(dates)==1:  day = dates[0]        
-    
+    elif len(dates)==1:  day = dates[0]
+
     min,sec = 0,0
     if   len(times)>=3:  hr,min,sec = times
     elif len(times)==2:  hr,min  = times
@@ -213,7 +213,7 @@ def write_saverestore(pvvals,format='plain',header=None):
     format can be
         plain   plain save/restore file
         idl     idl script
-        python  python script       
+        python  python script
     header: list of additional header/comment lines
     """
     out = []
@@ -229,14 +229,14 @@ def write_saverestore(pvvals,format='plain',header=None):
         out.append("#!/usr/bin/env python")
         out.append("#  Python save restore script")
         out.append("from epics import caput")
-        xfmt = "caput('%s', %s)"        
+        xfmt = "caput('%s', %s)"
     else:
         out.append("# Plain Save/Restore script")
 
     if header is not None:
         for h in header: out.append("%s %s" % (cmt,h))
-        
+
     for pv,val in pvvals:
         out.append(xfmt  % (pv,val))
-            
+
     return '\n'.join(out)
