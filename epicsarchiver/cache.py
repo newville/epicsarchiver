@@ -21,6 +21,8 @@ logging.basicConfig(level=logging.INFO,
                     datefmt='%Y-%b-%d %H:%M:%S') 
 
 
+STAT_MSG = "{process:8s}: {status:8s}, pid: {pid:8d}, {n_new:5d} values {action:8s} in past {time:2d} seconds [{datetime:s}]"
+
 def add_pv(pvname, cache=None, with_motor_fields=True):
     """ add a PV to the Cache and Archiver
 
@@ -56,7 +58,7 @@ def add_pvfile(fname):
           on the line a 'pair score' of 10.
 
     """
-    loggin.debug('Adding PVs listed in file: %s ' % fname)
+    logger.debug('Adding PVs listed in file: %s ' % fname)
     with  open(fname,'r') as fh:
         lines = fh.readlines()
 
@@ -119,22 +121,38 @@ class Cache(object):
            'le':'__le__', 'lt':'__lt__', 
            'ge':'__ge__', 'gt':'__gt__'}
 
-    def __init__(self, envvar='PVARCH_CONFIG', **kws):
+    def __init__(self, envvar='PVARCH_CONFIG', pvconnect=True, debug=False, **kws):
+        t0 = time.monotonic()
         self.config = get_config(envar=envvar, **kws)
-        
+        self.pvconnect = pvconnect
+        self.logger = logging.getLogger()
+        if debug:
+            self.logger.setLevel(logging.DEBUG)
+        self.log_writers = {'info': self.logger.info,
+                            'debug': self.logger.debug,
+                            'warn': self.logger.warn,
+                            'warning': self.logger.warn,
+                            'error': self.logger.error,
+                            'critical': self.logger.critical}
         self.pidfile = os.path.join(self.config.logdir,  'pvcache.pid')
-        t0 = time.monotonic() 
         self.db = DatabaseConnection(self.config.cache_db, self.config)
         self.tables  = self.db.tables
+        self.pid, _status = self.get_pidstatus()
+
         self.check_for_updates()
-        self.pid = self.get_pid()
-        self.last_update = 0
         self.pvs   = {}
         self.data  = {}
         self.alert_data = {}
         self.get_pvnames()
         self.read_alert_table()
-        logging.info('created %d PVs %.3f sec' % (len(self.pvs), time.monotonic()-t0))
+        if self.pvconnect:
+            self.log('cache with %d PVs ready, %.3f sec' % (len(self.pvs),
+                                                            time.monotonic()-t0))
+
+    def log(self, message, level='info'):
+        writer = self.log_writers.get(level, self.logger.info)
+        writer(message)
+
 
     def check_for_updates(self):
         """
@@ -142,7 +160,7 @@ class Cache(object):
         """
         version_row = self.get_info(process='version')
         if version_row is None:
-            logging.info("upgrading database to version 1")
+            self.log("upgrading database to version 1")
             for stmt in  ("alter table info modify process varchar(256);",
                           "alter table cache modify value varchar(4096);",
                           "alter table cache modify cvalue varchar(4096);",
@@ -173,52 +191,81 @@ class Cache(object):
         info = self.tables['info']
         return None_or_one(info.select().where(info.c.process==process).execute().fetchall())
 
+    def get_pidstatus(self, process='cache'):
+        row = self.get_info(process=process)
+        return row.pid, row.status
+
     def set_info(self, process='cache', **kws):
         " set value(s) in the info table"
         table = self.tables['info']
-        where = text("process='%s'" % process)
-
-        q = table.update().where(table.c.process==process)
-        vals = {}
-        for key, val in kws.items():
-            k = getattr(table.c, key, None)
-            if k is not None:
-                vals[k] = val
-        q.values(vals).execute()
+        table.update().where(table.c.process==process).execute(**kws)
         self.db.flush()
-
-    def get_pid(self):
-        self.pid = self.get_info(process='cache').pid
-        return self.pid
 
     def get_pvnames(self):
         """ generate self.pvnames: a list of pvnames in the cache"""
+        pvnames = []
         for row in self.tables['cache'].select().execute().fetchall():
-            if row.pvname not in self.pvs:
+            pvnames.append(row.pvname)
+            if row.pvname not in self.pvs and self.pvconnect:
                 self.pvs[row.pvname] = epics.get_pv(row.pvname)
-        return self.pvs.keys()
+        return pvnames
 
-    def status_report(self, brief=False, dt=60):
-        # return self.cache_report(brief=brief,dt=dt)
-        out = []
-        pid = self.get_pid()
-        table = self.tables['cache']
-        where = text("ts>'%d'" % int(time.time()-dt))
-        q = table.select(whereclause=where).order_by(table.c.ts).execute()
-        ret= q.fetchall()
-        fmt = " %s  %.35s   %s"
-        if not brief:
-            for r in ret:
-                out.append(fmt % (tformat(t=float(r.ts),format="%H:%M:%S"),
-                                  r.pvname +' '*35, r.value.decode('utf-8')))
+    def get_narchived(self, time_ago=60):
+        """
+        return the number of values archived by the archive in the past N seconds.
+        if limit is set, return as  soon as this limit is seen to be exceeded
+        this is useful when checking if any values have been cached.
+        """
+        n = 0
+        archdbname = self.get_info(process='archive').db
+        archdb = DatabaseConnection(archdbname, self.config)
+        
+        whereclause = text("time>%d" % (time.time()-time_ago))
+        for i in range(1, 129):
+            q = archdb.tables['pvdat%3.3d' % i].select(whereclause=whereclause)
+            n += len(q.execute().fetchall())
+        return n
 
-        fmt = '%d of %d PVs had values updated in the past %.1f seconds. pid=%d'
-        out.append(fmt % (len(ret), len(self.pvs), dt, pid))
-        return '\n'.join(out)
+    def show_status(self, with_archive=True, cache_time=60, archive_time=60):
+        info = dict(self.get_info(process='cache').items())
+        info.update({'n_new': len(self.get_values(time_ago=cache_time)),
+                     'time': cache_time,
+                     'process': 'Cache', 'action': 'updated'})
+
+        print(STAT_MSG.format(**info))
+        if with_archive:
+            info = dict(self.get_info(process='archive').items())
+            info.update({'n_new': self.get_narchived(time_ago=archive_time),
+                         'time': archive_time,
+                         'process': 'Archiver', 'action': 'archived'})
+            print(STAT_MSG.format(**info))
+            
+    def set_runinfo(self, dbname=None):
+        if dbname is None:
+            dbname = self.get_info(process='archive').db
+        archdb = DatabaseConnection(dbname, self.config)
+        tmin = MAX_EPOCH
+        tmax = 0
+        for i in range(1, 129):
+            tab = archdb.tables['pvdat%3.3d' % i]
+            oldest = tab.select().order_by(tab.c.time)
+            newest = tab.select().order_by(tab.c.time.desc())
+            tmin = min(tmin, float(oldest.limit(1).execute().fetchone().time))
+            tmax = max(tmax, float(newest.limit(1).execute().fetchone().time))
+
+        notes = "%s to %s" % (tformat(tmin), tformat(tmax))
+        runs = self.tables['runs']
+        logging.info(("set run info for %s: %s" %  (dbname, notes)))
+        runs.update().where(runs.c.db==dbname).execute(notes=notes,
+                                                       start_time=tmin,
+                                                       stop_time=tmax)
+
 
     def connect_pvs(self):
         """connect to unconnected PVs, make sure callback is defined"""
         nnew = 0
+        if not self.pvconnect:
+            return 0
         t0 = time.time()
         for pvname, pv in self.pvs.items():
             if pv.connected:
@@ -230,7 +277,7 @@ class Cache(object):
                     if pvname in self.alert_data:
                         self.alert_data[pvname]['last_value'] = pv.value
                         self.alert_data[pvname]['last_notice'] = time.time() - 30.0
-        logging.info("connect to pvs: %.3f sec, %d new entries" % (time.time()-t0, nnew))
+        self.log("connect to pvs: %.3f sec, %d new entries" % (time.time()-t0, nnew))
         return nnew
 
     def onChanges(self, pvname=None, value=None, char_value=None,
@@ -242,17 +289,16 @@ class Cache(object):
             if pvname in self.alert_data:
                 self.alert_data[pvname]['last_value'] = value
 
-    def set_date(self):
-        self.last_update = time.time()
-        self.set_info(datetime=tformat(self.last_update), ts=self.last_update)
-
     def mainloop(self, npvs=None):
-        " "
-        logging.info('Starting Epics PV Archive Caching:')
-        t0 = time.time()
+        "main loop"
+        if not self.pvconnect:
+            raise ValueError('cannot run mainloop with pvconnect=False')
+        
         self.pid = os.getpid()
-        self.set_info(status='running', pid=self.pid)
-        self.set_date()
+        self.log('Starting Epics PV Caching: pid = %d' % self.pid)
+        t0 = time.time()
+        self.set_info(process='cache', status='running', pid=self.pid, ts=t0,
+                      datetime=tformat(t0))
 
         fout = open(self.pidfile, 'w')
         fout.write('%i\n' % self.pid)
@@ -261,7 +307,7 @@ class Cache(object):
         # self.db.get_cursor()
         nconn = self.connect_pvs()
         fmt = '%d/%d pvs connected, ready to run. Cache Process ID= %d'
-        logging.info(fmt % (nconn, len(self.pvs), self.pid))
+        self.log(fmt % (nconn, len(self.pvs), self.pid))
 
         for alert in self.alert_data.values():
             if alert['last_value'] is None and alert['pvname'] in self.pvs:
@@ -270,56 +316,60 @@ class Cache(object):
                     alert['last_value'] = pv.value
 
         for name, alert in self.alert_data.items():
-            logging.debug('Add Alert: %s / %s' % (name,  alert['pvname']))
+            self.log('Add Alert: %s / %s' % (name,  alert['pvname']), level='debug')
         
         status_str = '%d values cached since last notice %d loops'
         ncached, nloop = 0, 0
-        last_report = 0
-        last_request_process = 0
-        while True:
+        last_report = last_info = last_request_process = 0
+        collecting = True
+        while collecting:
             try:
                 epics.poll(evt=0.01, iot=1.0)
                 n = self.update_cache()
             except KeyboardInterrupt:
+                self.log('Interrupted by user.', level='warn')
+                self.set_info(process='info', status='offline')                
+                collecting = False                
                 break
             ncached +=  n
             nloop   +=  1
 
+            tnow = time.time()
+            if tnow > last_info + 2.0:
+                self.set_info(process='cache', ts=tnow,
+                              datetime=tformat(tnow))
+                last_info = tnow
+                pid, status = self.get_pidstatus()
+                if status in ('stopping', 'offline') or  pid != self.pid:
+                    self.log('no longer main cache program, exiting.')
+                    collecting = False
+                    last_report = last_request = time.time() + 1
             # process alerts every 15 seconds:
             if time.time() > last_request_process + self.config.cache_alert_period:
                 self.process_requests()
                 self.process_alerts()
                 last_request_process = time.time()
-                if self.get_pid() != self.pid:
-                    logging.debug('no longer main cache program, exiting.')
-                    self.exit()
-            # report and reconnect once ever 5 minutes
-            if time.time() > last_report + self.config.cache_report_period:
-                logging.info(status_str % (ncached, nloop))
-                last_report = time.time()
+            # report and reconnect once ever 5 minutes               
+            if tnow > last_report + self.config.cache_report_period:
+                self.log(status_str % (ncached, nloop))
+                last_report = tnow
                 self.read_alert_table()
                 self.connect_pvs()
                 ncached = 0
                 nloop = 0
-
-
-    def exit(self):
-        self.close()
-        for i in list(self.pvs.values()):
-            i.disconnect()
-        sys.exit()
+        self.set_info(process='cache', status='offline')
+        time.sleep(1)
 
     def shutdown(self):
-        self.set_cache_pid(0)
-        self.exit()
+        self.set_info(process='cache', status='stopping')
 
     def get_full(self, pvname, add=False):
         " return full information for a cached pv"
         pvname = normalize_pvname(pvname)
         self.get_pvnames()
-        if add and pvname not in self.pvs:
+        if add and self.pvconnect and pvname not in self.pvs:
             self.add_pv(pvname)
-            logging.debug('adding PV  %s ' % pvname)
+            self.log('adding PV  %s ' % pvname, level='debug')
             time.sleep(0.1)
             return self.get_full(pvname, add=False)
 
@@ -358,14 +408,15 @@ class Cache(object):
                 row.values({table.c.ts: dat['ts'],
                             table.c.value: dat['val'],
                             table.c.cvalue: dat['cval']}).execute()
-        self.set_date()
         return len(newdata)
 
-    def get_values(self, all=False, time_ago=60.0):
+    def get_values(self, all=False, time_ago=60.0, time_order=False):
         table = self.tables['cache']
         query = table.select()
         if not all:
             query = query.where(table.c.ts>Decimal(time.time() - time_ago))
+        if time_order:
+            query = query.order_by(table.c.ts)            
         return query.execute().fetchall()
 
 
@@ -436,7 +487,7 @@ class Cache(object):
             self.data.pop(pvname)
 
     def process_alerts(self, debug=False):
-        logging.info('processing alerts')
+        self.log('processing alerts')
         msg = 'Alert sent for PV=%s, Label=%s'
         # self.db.set_autocommit(1)
         table = self.tables['alerts']
@@ -470,16 +521,14 @@ class Cache(object):
                 if notify:
                     self.send_alert_mail(alert, value)
 
-            if debug:
-                logging.debug('Alert: val OK? %r Notified" %r' % (ok, notified))
             if notify:
                 alert['last_notice'] = time.time()
-                logging.debug(msg % (pvname, alert['name']))
+                self.log(msg % (pvname, alert['name']), level='debug')
             if value_ok or notify:
                 alert['last_value']  = None
 
-            if debug:
-                logging.debug('  >>process_alert done %s' %  alert['last_notice'])
+            self.log('  >>process_alert done %s' %  alert['last_notice'],
+                     level='debug')
 
     def send_alert_mail(self, alert, value):
         """ send an alert email from an alert dict holding
@@ -537,10 +586,11 @@ class Cache(object):
         try:
             s = smtplib.SMTP(self.config.mail_server)
             # s.sendmail(self.config.mail_from, mailto, msg)
-            logging.info("Would Send Mail : %s" % msg)
+            self.log("Would Send Mail : %s" % msg)
             s.quit()
         except:
-            logging.warning("Could not send Alert mail:  mail not configured??")
+            self.log("Could not send Alert mail:  mail not configured??",
+                     level='warn')
 
     def process_requests(self):
         " process requests for new PV's to be cached"
@@ -549,7 +599,7 @@ class Cache(object):
         if len(req) == 0:
             return
 
-        logging.info("processing requests:")
+        self.log("processing requests:")
         cache = self.tables['cache']
         drop_ids = []
         for row in req:
@@ -560,7 +610,7 @@ class Cache(object):
                 if 'suspend' == action:
                     if pvname in self.pvs:
                         self.pvs[pvname].clear_callbacks()
-                        cache.update().where(cache.c.pvname==pvname).values({'active': 'no'})
+                        cache.update().where(cache.c.pvname==pvname).values({'active': 'no'}).execute()
                         msg = 'suspended'
                 elif 'drop' == action:
                     if pvname in self.pvs:
@@ -589,7 +639,7 @@ class Cache(object):
                             msg = 'could not add'
                     else:
                         msg = 'already added'
-            logging.debug('%s PV: %s' % (msg, pvname))
+            self.log('%s PV: %s' % (msg, pvname), level='debug')
 
         time.sleep(0.01)
         for rid in drop_ids:
@@ -640,7 +690,8 @@ class Cache(object):
         "set pair score for 2 pvs"
         pv1, pv2 = get_pvpair(pv1, pv2)
         if pv1 not in self.pvs or pv2 not in self.pvs:
-            logging.warn("Cannot set pair score for unknonwn PVS '%s' and '%s'" % (pv1, pv2))
+            self.log("Cannot set pair score for unknonwn PVS '%s' and '%s'" % (pv1, pv2),
+                     level='warn')
 
         current_score = self.get_pair_score(pv1, pv2)
         if score is None:
@@ -679,7 +730,8 @@ class Cache(object):
             key = '%s@%s' % (pv1, pv2)
             alt = '%s@%s' % (pv2, pv1)
             if key in pairscores or ald in pairscores:
-                logging.warn('duplicate score found: ', pv1, pv2)
+                self.log('duplicate score found: %s / %s'%(pv1, pv2),
+                         level='warn')
                 pairscores[key] += row.score
             else:
                 pairscores[key] = row.score
