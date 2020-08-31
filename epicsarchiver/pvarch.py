@@ -13,8 +13,7 @@ except:
     print('cannot import epicsarchiver')
     sys.exit(1)
 
-from epicsarchiver import Cache, Archiver
-
+from epicsarchiver import Cache, Archiver, tformat
 
 def next_archive():
     master  = ArchiveMaster()
@@ -58,7 +57,7 @@ def drop_pv(a, pvname):
 
 def start_archiver(a, force=False):
     if not force:
-        nchanged  = a.get_nchanged(minutes=1)
+        nchanged  = cache.get_narchvived(time_ago=30)
         if nchanged > 5:
             print("Archive appears to be running... try 'restart'?")
             return
@@ -78,9 +77,14 @@ def pvarch_main():
                             add_help=False)
     parser.add_argument('-h', '--help', dest='help', action='store_true',
                         default=False, help='show help')
+    parser.add_argument('-d', '--debug', dest='debug', action='store_true',
+                        default=False, help='turn on debugging')
+    parser.add_argument('-t', '--time_ago', dest='time_ago', type=int, 
+                        default=60, help='time for activity and status ')    
     parser.add_argument('options', nargs='*')
     
     args = parser.parse_args()
+    
     if args.help or len(args.options) == 0:
         print("""pvarch: control EpicsArchiver processes
     pvarch -h            shows this message.
@@ -99,52 +103,55 @@ def pvarch_main():
 
     pvarch list          prints a list of recent data archives
     pvarch save          save a list of recent data archives
-    pvarch clean         clean up temporary data files used for web plotting.
 
     pvarch cache start        start cache process (if it's not already running)
            cache stop         stop  cache process
-           cache restart      restart cache process
-           cache status   t   show # of PVs cached in past t seconds (default=60)
-           cache activity t   show list of PVs cached in past t seconds (default=60)
+           cache status       show cache status
+           cache activity     show detailed cache activitiy
     """)
 
         sys.exit()
           
-    cmd = args.options.pop()
-    t0 = time.time()
     archiver = Archiver()
-    
+    cache = archiver.cache
+
+    cmd = args.options.pop(0)
+
     if 'status' == cmd:
-        print(archiver.show_status())
+        cache.show_status(cache_time=args.time_ago,
+                          archive_time=args.time_ago)
 
     elif 'check' == cmd:
-        print(archiver.get_nchanged(minutes=10))
+        print(cache.get_narchived(time_ago=args.time_ago))
 
     elif cmd == 'start':
-        start_archiver(archiver)
+        if 5 < cache.get_narchived(time_ago=30):
+            print("Archive appears to be running... try 'restart'?")
+            return
+        archiver.mainloop()
 
     elif cmd == 'stop':
-        archiver.cache.set_info(process='archive', status='stopping')
-        time.sleep(1)
-        archiver.cache.set_info(process='archive', status='offline')
+        cache.set_info(process='archive', status='stopping')
 
     elif cmd == 'restart':
-        archiver.cache.set_info(process='archive', status='stopping')
-        time.sleep(1)
-        archiver.cache.set_info(process='archive', status='offline')
-        time.sleep(1)
-        start_archiver(archiver, force=True)
+        cache.set_info(process='archive', status='stopping')
+        time.sleep(2)
+        archiver.mainloop()
 
     elif 'next' == cmd:
-        next_archive()
+        cache.set_info(process='archive', status='stopping')
+        time.sleep(1)
+        cache.next_archive()
+        time.sleep(5)
+        archiver = Archiver()
+        archiver.mainloop()
         print("should now run 'pvarch setinfo'")
-        # set_runinfo()
 
     elif 'save' == cmd:
         save_archives(args)
 
     elif 'list' == cmd:
-        runs = archiver.cache.tables['runs']
+        runs = cache.tables['runs']
         hline = '|----------------|--------------------------------------------|'
         title = '|  database      |                date range                  |'
         out = [hline, title, hline]
@@ -155,20 +162,16 @@ def pvarch_main():
         print('\n'.join(out))
 
     elif 'setinfo' == cmd:
-        runs = archiver.cache.tables['runs']
+        runs = cache.tables['runs']
         recent = runs.select().order_by(runs.c.id.desc()).limit(3)
         for run in recent.execute().fetchall():
-            archiver.cache.set_runinfo(run.db)
+            cache.set_runinfo(run.db)
 
     elif 'add_pv' == cmd:
         for pv in args:
-            a.cache.add_pv(pv)
+            cache.add_pv(pv)
         if len(args)>1:
-            a.cache.set_allpairs(args)
-
-        time.sleep(0.1)
-        print("Wait for PV to get to cache...")
-        a.cache.process_requests()
+            cache.set_allpairs(args)
 
     elif 'add_pvfile' == cmd:
         for pvfile in args:
@@ -176,25 +179,46 @@ def pvarch_main():
 
     elif 'drop_pv' == cmd:
         for pv in args:
-            drop_pv(pv)
+            cache.drop_pv(pv)
 
     elif 'cache' == cmd:
-        action = args.pop(0)
+        action = args.options.pop(0)
 
-        if action not in ('start','stop','restart','status','activity','check'):
-            print("'pvarch cache' needs one of start, stop, restart, status, check, activity")
+        if action not in ('start','stop','restart', 'activity', 'status'):
+            print("'pvarch cache' needs one of start, stop, restart, status, activity")
             print("    Try 'pvarch -h' ")
 
-        if action in ('status','check','activity'):
-            dt = 60
-            if len(args)>0: dt = args.pop(0)
-            cache_status(action=action,dt=float(dt))
-        elif action ==  'restart':
-            run_cache(action='stop')
-            time.sleep(3)
-            run_cache(action='start')
-        else:
-            run_cache(action=action)
+        elif action == 'status':
+            cache.show_status(cache_time=args.time_ago, with_archive=False)
+
+        elif action == 'activity':
+            new_vals =cache.get_values(time_ago=args.time_ago, time_order=True)
+            for row in new_vals:
+                print("%s: %s = %s" % (tformat(row.ts), row.pvname, row.value))
+            print("%3d new values in past %d seconds"%(len(new_vals), args.time_ago))
+        elif action == 'start':
+            if 5 < len(cache.get_values(time_ago=15)):
+                print("Cache appears to be running... try 'restart'?")
+                return
+            cache = Cache(pvconnect=True, debug=args.debug)
+            cache.mainloop()
+            
+        elif action == 'stop':
+            cache.shutdown()
+            time.sleep(1)
+            
+        elif action == 'restart':
+            cache.shutdown()
+            time.sleep(2)
+            cache = Cache(pvconnect=True, debug=args.debug)
+            cache.mainloop()
+
+        elif action == 'restart':
+            cache.get_values(time_ago=time_ago)
+            
+            time.sleep(2)
+            cache = Cache(pvconnect=True, debug=args.debug)
+            cache.mainloop()
 
     else:
         print("pvarch  unknown command '%s'.    Try 'pvarch -h'" % cmd)
