@@ -40,6 +40,7 @@ class Config:
         self.pv_deadtime_enum = 1
         self.cache_alert_period = 30
         self.cache_report_period = 300
+        self.archive_report_period = 300
         
         for key, val in kws.items():
             setattr(self, key, val)
