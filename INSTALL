@@ -1,208 +1,142 @@
-==
-==
-==  General installation instructions for the EpicsArchiver.
-==
+##
+##  Installation instructions for the EpicsArchiver.
+
+To install the epicsarchiver package, use
+
+   pip install epicsarchiver
+
+This fetches and installs all the Python packages needed, and install the
+`pvarch` program (typically to '/usr/local/bin/pvarch') that is used control
+the data collection.
+
+## Mysql setup:
+
+You will need to configure mysql (or mariadb) to be running. For most linux machines,
+this can be done with `systemctl enable mysqld` and `systemctl start mysqld`, though
+some systems may distinguish between `mysql` and `mariadb`.
+
+You will also need to create a mysql account and give that account permission
+to create and write to the databases needed for the archiver.  This will typically
+look like (for mysql account 'archiver' with password 'lets_archive_some_pvs'):
+
+   mysql> create user 'archiver'@'localhost' identified by 'lets_archive_some_pvs';
+   mysql> grant all privileges on *.* to 'archiver'@'localhost';
+   mysql> flush privileges;
+
+You may need to consult with your system administrator for permission to do this.
+
+## Configuration:
+
+You can configure several settings for epicsarchiver with a simple configuration file.
+The current configuration for your system can be viewed with
+
+  ~> pvarch show_config
+
+which will print out something like this:
+
+    #pvarch configuration:
+    #No variable PVARCH_CONFIG found
+    archive_report_period = '300'
+    cache_alert_period = '30'
+    cache_db = 'pvarch_master'
+    cache_report_period = '300'
+    dat_format = '%s_%.5d'
+    dat_prefix = 'pvdata'
+    host = 'localhost'
+    logdir = '/var/log/pvarch'
+    mail_from = 'pvarchiver@aps.anl.gov'
+    mail_server = 'localhost'
+    password = 'change_this_password!'
+    pv_deadtime_double = '5'
+    pv_deadtime_enum = '1'
+    server = 'mysql'
+    sql_dump = '/usr/bin/mysqldump'
+    user = 'epics'
+    web_baseurl = 'https://localhost/'
+    web_url = 'pvarch'
+    web_dir = '/var/web/pvarch'
 
 
-The installation of EpicsArchiver is not as simple as I would like, due the
-fairly large number of packages that it depends on: mysql, Apache, Gnuplot,
-Epics Base, and the python connections to these (MySQLdb, mod_python,
-Gnuplot.py, and PyEpics).  The installation is not especially difficult,
-but there are many small steps.  It also assumes you have a pretty good
-working knowledge of linux and a passing familiarity with Apache.
+You can modify this configuration by creating file (using the same TOML syntax) and pointing
+the environmental variable PVARCH_CONFIG to that file.  For example, you might have
 
-The end result of the installation will be fairly simple and
-straightforward to use:
-   1. pvarch: a command line program for interacting
-             with the data collection / archiving
-   2. mysql databases and tables holding the data.
-   3. a directory of web scripts to access the data for
-      plotting, viewing status, and so on.
-   4. a directory of web-page templates for creating the
-      web status page.
+    ~> export PVARCH_CONFIG='/var/log/pvarch/pvarch_congig.toml'
+    ~> cat /var/log/pvarch/pvarch_config.toml
+    # configuration file for Epics Archiver
+    user = 'archiver'
+    password = 'lets_archive_some_pvs'
+    host = 'beamlineX.aps.anl.gov'
+    baseurl = 'https://beamlineX.aps.anl.gov/pvarch'
+    logdir = '/var/log/pvarch'
+    ##########
 
-== Quick Installation Instructions ===
+so that the `pvarch` command and epicsarchiver library can correctly connect
+to your database.  More information on the rest of the settings in this
+configuration file is described in the documents.
 
- 0. Install Apache, Python, MySQL, and Gnuplot on a linux machine.
-    These are all standard components on modern linux systems, 
-    and may be installed already.  You should not need custom
-    installations. 
+## Create initial databases:
 
- 1. Install Epics base.
+With a configuration to match your mysql setup (which you can verify with
+`pvarch show_config`), you can create SQL commands to create and initialize
+databases need for the archiving, with
 
- 2. Install mod_python.
+    ~> pvarch init pvarch_init.sql
 
- 3. Install python extensions for PyEpics, Gnuplot, MySQL.
+This will generate the file `pvarch_init.sql` which you can then use to create
+the databases with (assuming the mysql user name is `archiver`):
 
- 4. Set up a privileged MySQL account that can grant permissions.
+    ~> mysql -p -uarchiver < pvarch_init.sql
 
- 5. copy config_dist.py to config.py, and edit the settings for 
-    your system.
-
- 6. run 'python setup.py install'
-
- 7. configure Apache to use mod_python for the web programs, by
-    adding the generated text to the Apache configuration file.
-
- 8. initialize the MySQL databases with 'init_pvarch'.  Here,
-    you will be prompted for a MySQL username/password that can 
-    grant permissions.
-
- 9. start data collection with the cache:
-      pvarch cache start
-      pvarch start
-
-10. add some PVs to be collected.
-
-11. view / modify web page templates
-
-12. Set up cron scripts to manage databases
-
-13. Continue to add PVs and/or modify web pages
-
-============================================================
-
-Detailed instructions:
-
-== 0. Install / Check for Apache, Python, MySQL, and Gnuplot.   
-   
-A standard Apache installation can work, though you will need one with
-'APXS' for loading mod_python.
-
-There are many variations among the linux packages for where Apache things
-(configuration files, static web pages, cgi scripts, log files) get placed.
-You will have to learn a little about the Apache configuration on your
-machine, and will probably have to alter config.py accordingly.
-
-For Python, MySQL, and Gnuplot, standard linux packages will work. Some
-systems come with a Gnuplot that uses ugly fonts.  If this drives you
-crazy, reinstalling with simple configuration settings seems to fix this.
-
-== 1. Install Epics base, Apache, Python, MySQL, and Gnuplot.   
-   
-For Epics, only Epics base is needed. Use R3.14.9 or higher if you can.
-Installation can be as simple as:
-
-   mkdir /usr/local/epics
-   cd    /usr/local/epics
-   wget http://www.aps.anl.gov/epics/download/base/baseR3.14.9.tar.gz
-   tar xvzf baseR3.14.9.tar.gz
-   cd base-3.14.9/
-   export EPICS_HOST_ARCH=linux-x86
-   make 
-   cd .. 
-   ln -s base-3.14.9 base
-
-You should also add /usr/local/epics/base/lib/linux-86 to the ld.so.conf
-for the system (you could use LD_LIBRARY_PATH, but the unprivileged web
-user account needs to find EPICS too, so doing this system-wide is
-recommended).
-
-==  2. Install mod_python
-
-A linux package for mod_python ought to work, but you may need to build
-from source too.   It's straightforward, but you'll need to know
-some details about Apache, especially where 'apxs' is.
- 
-== 3. Install python extensions for PyEpics, Gnuplot, MySQL. 
-
-These all install with 'python setup.py install'.  These python
-packages are included in py_install.
-
-The PyEpics installation will need to find EPICS base, so if it is
-somewhere other than /usr/local/epics/base, you may need to set the
-environmental variable EPICS_BASE.
-
-Many linux systems come with a slightly old Gnuplot that will work but 
-make plots with mediocre fonts. Installing the latest gnuplot 4.2 with 
-a simple
-     ./configure --prefix=/usr 
-      make install 
-
-will enable better looking fonts.
- 
-== 4. Set up MySQL permissions for a privileged account that can
-      grant permissions.
-
-That is, set up a mysql super-user account:
-   ~> mysql 
-    mysql> grant all on *.* to bush@localhost identified by 'Barbara' with GRANT OPTION;
-
-You will need to use this username/password to set up the databases
-for the archiver
-
-== 5. edit the settings in config.py
-
-Copy config_dist.py to config.py and edit accordingly.  There are many
-setting in config.py, mostly which has further instructions  
-for what they mean.   You will need to edit these to reflect your set up.
+with this command you will be verifying that this account can create mysql
+databases.
 
 
-== 6. run 'python setup.py install'
+## Epics connections and adding PVs to be archived:
 
-This installs the initial set up of python code, the program 'pvarch', the
-web scripts, and initial web template files.... you're close!!
-
-== 7. Configure Apache to use mod_python for the web programs
-
-Doing 'python setup.py install'  wrote the file httpd_pvarch.conf
-
-This should go into Apache's configuration, and apache should be restarted.
-
-== 8.  Initialize the MySQL databases with 'bin/init_pvarch'
-
-This will create the initial databases for archiving.  You will be prompted 
-for the 'super-user' username/password from Step 3.   
-
-Note that running this will wipe out any previous archiving databases, so
-you really only need to run this once.
-
-== 9. Add some PVs to be collected.
-
-Use the 'pvarch' program to add individual PVs or a file listing PVs:
-   ~>pvarch add_pv      'XXX.VAL'
-   ~>pvarch add_pvfile  'PvList.txt'
-
-PvList.txt lists PVs to be added, one or more (comma separated) per line.
-
-== 10. Start data collection.
-
-Start both the caching and archiving processes:
-   ~>pvarch cache start
-
-   ~>pvarch start
-
-This creates 2 processes:
-   'cacher'  : connects to Epics PVs and caches their current
-               values into a database
-   'archiver': reads the cached values and archives.
+You will want to add some PVs to your archiver.  To do this, use
 
 
-== 11. View / Modify web page templates
+    ~> pvarch add_pv  MYPV1.VAL MYPV2.VAL ...
 
-You can view the PVs with the cgi-bin/show
-web script (the URL being set from config.py), and will probably
-be something like:
-     http://xxx.anl.gov/cgi-bin/pvarch/show/
+or put PV names into a file (perhaps with multiple related PVs on a single
+line, separated by commas and/or spaces) and use:
 
-The PVs shown are determined by the web template files (which are
-copied from the templates/ directory at installation to the final
-destination set in config.py).
+    ~> pvarch add_pvfile mypvlist.txt
 
-Editing these templates will change what is shown on the status pages.
+Of course, the archiving process needs to be able to connect to the PVs
+listed.  Depending on your network environment or, you may need to set
+EPICS_ADDR_LIST to connect to all of the PVs that you wish to archive.
 
-See the README in the template directory for more details.
 
-== 12. Set up cron scripts to manage databases
+## Start the data collection
 
-You may want to check the status of the cache and archiver periodically,
-and rotate archive databases.  The scripts in cron/ give some examples
-of this.
+As described in more detail in the documentation, data collection happens with 2 processes.
 
-== 13. Continue to add PVs and/or modify web pages
+   1. The 'cache' process connects to the epics PVs and keeps the latest value
+      in a "cache" within the database.  This process also periodically checks
+      for alerts, sending email when a value goes past a trip-point.
 
-Note that once the web pages are working, adding PVs to a template file 
-will add it to the cache and archive as soon as the page is accessed.
-When running, this is often the easiest way to add a PV to the archive.
+   2. The 'archive' process reads the latest values in the cache and then archives
+      them with timestamps into data tables.
 
-=======================================================================
+
+To start the cache process, use
+
+    ~> pvarch cache start
+
+and to start the archiving process, use
+
+    ~> pvarch start
+
+Generally speaking, you will want to set these up to run all the time using
+cron, and maybe check that they are running correctly.
+
+The documentation will describe more of the `pvarch` commands and the layout of the data.
+
+## Web setup:
+
+To set up the web pages, you will want to run
+
+    ~> pvarch web_init
+
+which will write the Apache configuration file `pvarch.conf`

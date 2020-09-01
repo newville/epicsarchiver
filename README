@@ -1,49 +1,30 @@
-#
+This is the Epics PV Archiver, a system for archiving Epics PV data to a MySQL
+database and viewing these data using a web interface.  Yes, there are other
+Epics archiver tools available.  This one is pure python and relatively easy
+for a non-Epics expert to set up and use.
 
-This is the Epics PV Archiver, a system for recording Epics PV data to a
-MySQL database and for viewing data from the database using a web
-interface.  
+The system has grown over the years, but designed for the
+Linux/Apache/MySQL/Python set of tools and requires the following components:
 
-The system has been designed for the Linux/Apache/MySQL/Python set of tools
-and requires the following components:
+  - apache webserver:  Apache 2.2, at least.
 
-  - apache webserver:  Apache 2.X at least.
+  - mysql: MySQL or MariaDB, usually a linux installation will include a
+           package for this, though you may need "devel" packages, and
+	   you may need to set up mysql to actually be running on your server.
 
-  - python: version 2.5 or higher.  
+  - Python3: version 3.5 or higher.
 
-  - mysql: MySQL 5.x, with INNOdb support.  For many linux
-           distributions, you will need the 'devel' package.
-  
-  - Gnuplot  4.0 or higher
+  - mod_wsgi for Python3.  Many linux distributions include this as an
+    available package.
 
-  - mod_python.  Many linux distributions include this as an
-    add-on package for Apache.  The source for this is included, 
-    but you will need to install this and configure apache to use it. 
-
-  - Epics Base.  You'll want Epics base 3.14.9 or higher.
-
-  - Gnuplot Python module (py_install/gnuplot-py-1.7.tar.gz)
-
-  - MySQLdb Python module. (py_install/MySQL-python-1.2.2.tar.gz)
-
-      Many systems have a package for this.  If you use such a package, 
-      make sure you also install the 'mysql-devel' package.
-
-  - Epics Python module : (py_install/pyepics3.0.10.tar.gz)
+  - Pyepics: 3.4.0 or higher (you do not need "epics base").
 
 
 See INSTALL for more Installation instructions.
 
-See doc/ApacheConfig.txt for more details on setting up Apache and mod_python.
+see doc/ApacheConfig.txt for more details on setting up Apache and mod_python.
+See doc/Overview.txt for general usage notes
+See doc/Templates.txt for detailed notes on how to build and view web pages of PVs.
 
-See doc/Overview.txt for general usage notes, 
-
-See doc/Templates.txt for detailed notes on how to build and 
-    view web pages of PVs.
-
-See doc/Setup.txt for description of MySQL databases,and command-line 
+See doc/Setup.txt for description of MySQL databases,and command-line
     tools for extracting data.
-
-
-  
-
