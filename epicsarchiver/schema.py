@@ -85,6 +85,14 @@ create table pairs (
   key pair_idx (pv1,pv2)
   ) default charset=latin1;
 
+create table pvextra (
+  id        int(10) unsigned not null auto_increment,
+  pv        varchar(128) default null,
+  notes     varchar(512) default null,
+  data      varchar(4096) default null,
+  primary key(id)
+  ) default charset=latin1;
+
 create table requests (
   id        int(10) unsigned not null auto_increment,
   pvname    varchar(64) default null,

@@ -2,6 +2,7 @@
 
 import os
 import re
+import json
 import time
 import sys
 import logging
@@ -82,6 +83,7 @@ class Cache(object):
             for stmt in  ("alter table info modify process varchar(256);",
                           "alter table cache modify value varchar(4096);",
                           "alter table cache modify cvalue varchar(4096);",
+                          "alter table cache modify pv  varchar(128);",
                           "alter table pairs modify pv1 varchar(128);",
                           "alter table pairs modify pv2 varchar(128);",
                           "update cache set type='double' where type='time_double';",
@@ -95,7 +97,14 @@ class Cache(object):
                           "update cache set type='int' where type='time_long';",
                           "update cache set type='int' where type='time_short';",
                           "update cache set type='int' where type='long';",
-                          "update cache set type='int' where type='short';"):
+                          "update cache set type='int' where type='short';",
+                          """create table pvextra (
+                          id  int(10) unsigned not null auto_increment,
+                          pv        varchar(128) default null,
+                          notes     varchar(512) default null,
+                          data      varchar(4096) default null,
+                          ) default charset=latin1;
+                          """):
                 self.db.engine.execute(stmt)
             now = time.time()
             self.tables['info'].insert().execute(process='version', db='1',
@@ -187,6 +196,35 @@ class Cache(object):
                 self.pvs[row.pvname] = epics.get_pv(row.pvname)
         return pvnames
 
+    def update_pvextra(self):
+        """
+        update extra PV data such as (and currently only) enum strings
+        """
+        if not self.pvconnect:
+            return
+        # update enum strings for enum PVs
+        extras = self.tables['pvextra']
+        all_enumstrs = {}
+        t0 = time.time()
+        for row in extras.select().where(extras.c.notes=='enum_strs').execute().fetchall():
+            all_enumstrs[row.pv] = row.data
+
+        for row in self.tables['cache'].select().execute().fetchall():
+            pvname = row.pvname
+            if row.type == 'enum' and pvname in self.pvs:
+                if not self.pvs[pvname].connected:
+                    continue
+                enumstrs = self.pvs[pvname].enum_strs
+                if enumstrs is not None and len(enumstrs) > 0:
+                    enumstrs = json.dumps(list(enumstrs))
+                    if pvname not all_enumstrs:
+                        extras.insert().execute(pv=pvname,
+                                                notes='enum_strs',
+                                                data=enumstrs)
+                    elif enumstrs != all_enumstrs[pvname]:
+                        extras.update().where(and_(extras.c.pv==pvname,
+                                                   extras.c.notes=='enum_strs')).execute(data=enumstrs)
+
     def get_narchived(self, time_ago=60):
         """
         return the number of values archived by the archive in the past N seconds.
@@ -241,7 +279,6 @@ class Cache(object):
                                                        start_time=tmin,
                                                        stop_time=tmax)
 
-
     def connect_pvs(self):
         """connect to unconnected PVs, make sure callback is defined"""
         nnew = 0
@@ -258,6 +295,8 @@ class Cache(object):
                     if pvname in self.alert_data:
                         self.alert_data[pvname]['last_value'] = pv.value
                         self.alert_data[pvname]['last_notice'] = time.time() - 30.0
+
+        self.update_pvextra()
         self.log("connect to pvs: %.3f sec, %d new entries" % (time.time()-t0, nnew))
         return nnew
 
@@ -399,6 +438,18 @@ class Cache(object):
             query = query.order_by(table.c.ts)
         return query.execute().fetchall()
 
+    def get_values_dict(self, all=False, time_ago=60.0):
+        """return a dict with ids as keys and (pvname, value, cvalue, ts) as value
+        useful for web app, and easy to update previously retrieved dict:
+            vdict = self.get_values_dict(all=True)
+            while True:
+                 vdict.update(self.get_values_dict(time_ago=10)
+                 time.sleep(1)
+        """
+        out = {}
+        for row in self.get_values(all=all, time_ago=time_ago, time_order=False):
+            out[row.id] = (row.pvname, row.value, row.cvalue, row.type, float(row.ts))
+        return out
 
     def add_pv(self, pvname, with_motor_fields=True):
         """ add a PV or list of PVs to the cache"""
@@ -567,6 +618,8 @@ class Cache(object):
                           'TRIP': str(trippoint)}.items()):
             msg = msg.replace("%%%s%%" % k, v)
 
+        pvrow = self.get_full(pvname, add=False)
+
         # do %PV(XX)% replacements
         re_showpv = re.compile(r".*%PV\((.*)\)%.*").match
         mlines = msg.split('\n')
@@ -582,9 +635,10 @@ class Cache(object):
                 match = re_showpv(line)
                 nmatch = nmatch + 1
             mlines[i] = line
-        msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/plot/%s\n" % \
-              (self.config.mail_from, subject,'\n'.join(mlines),
-               self.config.baseurl, pvname)
+        conf = self.config
+        msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/%s/plot/%d\n" % \
+              (conf.mail_from, subject,'\n'.join(mlines),
+               conf.web_baseurl, conf.web_url, pvrow.id)
 
         try:
             s = smtplib.SMTP(self.config.mail_server)
@@ -706,7 +760,7 @@ class Cache(object):
         if current_score == 0:
             ptable.insert().execute(pv1=pv2, pv2=pv2, score=score)
         else:
-            ptable.update().execute(pv1=pv2, pv2=pv2, score=score)
+            ptable.update().where(and_(ptable.c.pv1==pv1, ptable.c.pv2==pv2)).execute(score=score)
 
 
     def increment_pair_score(self, pv1, pv2, increment=1):
