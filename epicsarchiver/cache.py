@@ -217,7 +217,7 @@ class Cache(object):
                 enumstrs = self.pvs[pvname].enum_strs
                 if enumstrs is not None and len(enumstrs) > 0:
                     enumstrs = json.dumps(list(enumstrs))
-                    if pvname not all_enumstrs:
+                    if pvname not in all_enumstrs:
                         extras.insert().execute(pv=pvname,
                                                 notes='enum_strs',
                                                 data=enumstrs)
