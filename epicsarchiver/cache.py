@@ -24,104 +24,21 @@ logging.basicConfig(level=logging.INFO,
 
 STAT_MSG = "{process:8s} {status:8s}, pid={pid:7d}, {n_new:5d} values {action:8s} in past {time:2d} seconds [{datetime:s}]"
 
-def add_pv(pvname, cache=None, with_motor_fields=True):
-    """ add a PV to the Cache and Archiver
 
-    For a PV that is the '.VAL' field for an Epics motor will
-    automatically cause the following motor fields added as well:
-        .OFF .FOFF .SET .HLS .LLS .DIR _able.VAL .SPMG
-
-    Each of these pairs of PVs will also be given an inital
-    'pair score' of 10, which is used to define 'related pvs'
-    """
-    if pvname is None:
-        return
-    if cache is None:
-        cache = Cache()
-    n = cache.add_pv(pvname, with_motor_fields=with_motor_fields)
-
-
-def add_pvfile(fname):
-    """
-    Read a file that lists PVs and add them (if needed) to the PV cache
-    -- they will be automatically added to the running archives asap.
-
-    The PV file generally lists one PV per line, but also has a few features:
-
-       1. Putting a '.VAL' PV for a PV that is from a motor record will
-          automatically have the following motor fields added:
-              .VAL  .OFF .FOFF .SET .HLS .LLS .DIR _able.VAL .SPMG
-          Each of these pairs of PVs will also be given an inital
-          'pair score' of 10, which is used to define 'related pvs'
-
-       2. Putting multiple PVs on a single line (space or comma delimited)
-          will add all PVs on that line and also give all pairs of PVs
-          on the line a 'pair score' of 10.
-
-    """
-    logger.debug('Adding PVs listed in file: %s ' % fname)
-    with  open(fname,'r') as fh:
-        lines = fh.readlines()
-
-    cache  = Cache()
-    pairs = []
-    for line in lines:
-        line[:-1].strip()
-        if len(line)<2 or line.startswith('#'): continue
-        words = line.replace(',',' ').split()
-        t0 = time.time()
-
-        # note that we suppress the setting of pair scores here
-        # until we have enough PVs installed.
-        for pvname in words:
-            fields = cache.add_pv(pvname, set_motor_pairs=False)
-            if len(fields) > 1:
-                pairs.append(fields)
-        cache.process_requests()
-        epics.poll()
-
-        t1 = time.time()-t0
-        if len(words) > 1:
-            pairs.append(tuple(words[:]))
-
-        t2 = time.time()-t0
-        logging.info("Adding PVs: [ %s ] " % (' '.join(words)))
-
-        if len(pairs) > 100:
-            for i in range(20):
-                words = pairs.pop(0)
-                cache.set_allpairs(words, score=10)
-
-    logging.debug('Waiting for all pvs requested to be put in cache....')
-    # now wait for all requests to be fulfilled, and then set the remaining pair scores
-
-    req_table= cache.db.tables['requests']
-    requests_pending = True
-
-    while requests_pending:
-        pending_requests  = req_table.select()
-        requests_pending = len(pending_requests) > 2
-        time.sleep(1)
-
-    logging.debug('Finally, set remaining of pair scores:')
-    while pairs:
-        words = pairs.pop(0)
-        cache.set_allpairs(words,score=10)
-    cache.close()
-
-    time.sleep(0.01)
-    epics.poll(evt=0.01,iot=5.0)
+OPTOKENS = ('ne', 'eq', 'le', 'lt', 'ge', 'gt')
+OPSTRINGS = ('not equal to', 'equal to',
+             'less than or equal to',    'less than',
+             'greater than or equal to', 'greater than')
+OPS = {'eq':'__eq__', 'ne':'__ne__',
+       'le':'__le__', 'lt':'__lt__',
+       'ge':'__ge__', 'gt':'__gt__'}
 
 
 class Cache(object):
-    optokens = ('ne', 'eq', 'le', 'lt', 'ge', 'gt')
-    opstrings= ('not equal to', 'equal to',
-                'less than or equal to',    'less than',
-                'greater than or equal to', 'greater than')
-    ops = {'eq':'__eq__', 'ne':'__ne__',
-           'le':'__le__', 'lt':'__lt__',
-           'ge':'__ge__', 'gt':'__gt__'}
-
+    """interface to main/master pvarch database,
+    used for running the caching process and for
+    maintenance methods
+    """
     def __init__(self, envvar='PVARCH_CONFIG', pvconnect=True, debug=False, **kws):
         t0 = time.monotonic()
         self.config = get_config(envar=envvar, **kws)
@@ -213,6 +130,15 @@ class Cache(object):
             sql.append(schema.pvdat_init_dat.format(idat=idat))
 
         self.log("creating database %s" % dbname)
+
+        # add this new run to the runs table
+        runs = self.tables['runs']
+        tnow = time.time()
+        notes = "%s to %s" % (tformat(tnow), tformat(MAX_EPOCH)),
+        runs.insert().execute(notes=notes,
+                              start_time=tnow,
+                              stop_time=MAX_EPOCH)
+
         self.db.engine.execute('\n'.join(sql))
         self.db.flush()
         time.sleep(0.5)
@@ -530,6 +456,28 @@ class Cache(object):
         self.connect_pvs()
         return
 
+    def add_pvfile(self, fname):
+        """read a file that lists pvnames and add them  to the PV cache
+        PVs listed on the same line will be considered 'pairs'
+        """
+        with  open(fname,'r') as fh:
+            lines = fh.readlines()
+        logger.info('Adding PVs listed in file: %s ' % fname)
+
+        for line in lines:
+            line = line[:-1].strip()
+            if '#' in line:
+                line = line[:line.find('#')].strip()
+            if len(line)<2:
+                continue
+
+            pvnames = line.replace(',',' ').split()
+            for pvname in pvnames:
+                self.add_pv(pvname)
+            if len(pvnames) > 1:
+                self.set_allpairs(pvnames)
+
+
     def drop_pv(self, pvname):
         """ request that a PV (by name) be dropped from the cache"""
         table = self.tables['requests']
@@ -560,7 +508,7 @@ class Cache(object):
 
             value     = convert(value)
             trippoint = convert(alert['trippoint'])
-            cmp       = self.ops[alert['compare']]
+            cmp       = OPS[alert['compare']]
 
             # compute new alarm status: note form  'value.__ne__(trippoint)'
             value_ok = not getattr(value, cmp)(trippoint)
@@ -610,7 +558,7 @@ class Cache(object):
         msg  = clean_mail_message(msg)
 
         opstr = 'not equal to'
-        for tok,desc in zip(self.optokens, self.opstrings):
+        for tok,desc in zip(OPTOKENS, OPSTRINGS):
             if tok == compare: opstr = desc
 
         # fill in 'template' values in mail message

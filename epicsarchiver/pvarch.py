@@ -7,54 +7,9 @@ import os
 import time
 from argparse import ArgumentParser
 
-try:
-    import epicsarchiver
-except:
-    print('cannot import epicsarchiver')
-    sys.exit(1)
+from . import Cache, Archiver, initial_sql, tformat, get_config
 
-from epicsarchiver import Cache, Archiver, initial_sql
-from epicsarchiver.util import tformat, get_config, MAX_EPOCH
-
-def next_archive():
-    master  = ArchiveMaster()
-    old_dbname  = master.arch_db
-    next_db = master.make_nextdb()
-
-    master.stop_archiver()
-    master.set_currentDB(next_db)
-
-    master.close()
-    run_archive(action='start')
-
-def save_archives(args):
-    " save archives to gzipped ascii files"
-    m  = MasterDB()
-    for db in (m.arch_db, master_db):
-        m.save_db(dbname=db)
-        if db in args: args.remove(db)
-
-    for db in args:
-        m.save_db(dbname=db)
-    m.close()
-
-
-def pvarch_main():
-    parser = ArgumentParser(prog='pvarch',
-                            description='control EpicsAarchiver processes',
-                            add_help=False)
-    parser.add_argument('-h', '--help', dest='help', action='store_true',
-                        default=False, help='show help')
-    parser.add_argument('-d', '--debug', dest='debug', action='store_true',
-                        default=False, help='turn on debugging')
-    parser.add_argument('-t', '--time_ago', dest='time_ago', type=int,
-                        default=60, help='time for activity and status ')
-    parser.add_argument('options', nargs='*')
-
-    args = parser.parse_args()
-
-    if args.help or len(args.options) == 0:
-        print("""pvarch: control EpicsArchiver processes
+HELP_MESSAGE = """pvarch: control EpicsArchiver processes
     pvarch -h              shows this message.
     pvarch status [time]   shows cache and archiving status, some recent statistics. [60]
 
@@ -79,24 +34,9 @@ def pvarch_main():
     pvarch cache restart   restart cache process
     pvarch cache status    show cache status
     pvarch cache activity  show most recently updated PVs
-    """)
+"""
 
-        sys.exit()
-
-    cmd = args.options.pop(0)
-
-    ##
-    ## the 'init' and 'show_config' commands may be run without a cache / archive database
-    if cmd == 'init':
-        if len(args.options) > 0:
-            fname = args.options.pop(0)
-        else:
-            fname = 'pvarch_init.sql'
-        config = get_config()
-        sql = initial_sql(config)
-        with open(fname, 'w') as fh:
-            fh.write(sql)
-        msg = """wrote initialization SQL statements to {fname:s}.  Use
+INIT_MESSAGE = """wrote initialization SQL statements to {fname:s}.  Use
    ~> mysql -p -u{user:s}  < {fname:s}"
 
 to create initial databases.  Note that the mysql account '{user:s}'
@@ -107,8 +47,43 @@ will need to be able to create and modify databases. You may need to do
 
 as a mysql administrator.  Also, check that these settings match the
 configuration file named in the environmental variable PVARCH_CONFIG.
-""".format(fname=fname, user=config.user)
-        print(msg)
+"""
+
+DUMP_COMMAND = "{sql_dump:} -p{password:s} -u{user:s} {dbname:s} > {folder:s}/{dbname:s}.sql"
+
+
+def pvarch_main():
+    parser = ArgumentParser(prog='pvarch',
+                            description='control EpicsAarchiver processes',
+                            add_help=False)
+    parser.add_argument('-h', '--help', dest='help', action='store_true',
+                        default=False, help='show help')
+    parser.add_argument('-d', '--debug', dest='debug', action='store_true',
+                        default=False, help='turn on debugging')
+    parser.add_argument('-t', '--time_ago', dest='time_ago', type=int,
+                        default=60, help='time for activity and status ')
+    parser.add_argument('options', nargs='*')
+
+    args = parser.parse_args()
+
+    ## 'help', 'init', and 'show_config' commands may be
+    ## run without a cache / archive database
+    if args.help or len(args.options) == 0:
+        print(HELP_MESSAGE)
+        return
+
+    cmd = args.options.pop(0)
+
+    if cmd == 'init':
+        if len(args.options) > 0:
+            fname = args.options.pop(0)
+        else:
+            fname = 'pvarch_init.sql'
+        config = get_config()
+        sql = initial_sql(config)
+        with open(fname, 'w') as fh:
+            fh.write(sql)
+        print(INIT_MESSAGE.format(fname=fname, user=config.user))
         return
 
     elif cmd == 'show_config':
@@ -124,9 +99,7 @@ configuration file named in the environmental variable PVARCH_CONFIG.
         print('\n'.join(msg))
         return
 
-    ##
     ## the rest of the commands assume that a cache / archive database exist
-    ##
     archiver = Archiver()
     cache = archiver.cache
 
@@ -162,10 +135,6 @@ configuration file named in the environmental variable PVARCH_CONFIG.
         # this requires remaking the Archiver and Cache as
         # the underlying DB engine is now altered.
         archiver = Archiver()
-        runs = archiver.cache.tables['runs']
-        runs.insert().execute(db=new_dbname, start_time=time.time(),
-                              stop_time=MAX_EPOCH)
-        archiver.cache.set_info(process='archive', db=new_dbname)
         time.sleep(1)
         archiver.mainloop()
 
@@ -186,8 +155,7 @@ configuration file named in the environmental variable PVARCH_CONFIG.
             dbnames.append(runs[-2].db)
         for dbname in dbnames:
             conf['dbname'] = dbname
-            cmd = "{sql_dump:} -p{password:s} -u{user:s} {dbname:s} > {folder:s}/{dbname:s}.sql".format(**conf)
-            os.system(cmd)
+            os.system(DUMP_COMMAND.format(**conf))
             print("wrote {folder:s}/{dbname:s}.sql".format(**conf))
 
     elif 'list' == cmd:
@@ -207,44 +175,43 @@ configuration file named in the environmental variable PVARCH_CONFIG.
         for run in recent.execute().fetchall():
             cache.set_runinfo(run.db)
 
-    elif 'add_pv' == cmd:
-        print(args.options)
-        for pv in args.options:
-            print("Add PV ", pv)
-            cache.add_pv(pv)
-        #
-        # if len(args.options)>1:
-        #    cache.set_allpairs(args.options)
+    elif cmd in ('add_pv', 'add_pvfile', 'drop_pv', 'unconnected_pvs'):
+        # these commands need a Cache that has connected to Epics PVs
+        cache = Cache(pvconnect=True, debug=args.debug)
+        if 'add_pv' == cmd:
+            for pv in args.options:
+                cache.add_pv(pv)
+                if len(args.options)>1:
+                    cache.set_allpairs(args.options)
 
-    elif 'add_pvfile' == cmd:
-        for pvfile in args.options:
-            add_pvfile(pvfile)
+        elif 'add_pvfile' == cmd:
+            for pvfile in args.options:
+                cache.add_pvfile(pvfile)
 
-    elif 'drop_pv' == cmd:
-        for pvname in args.options:
-            cache.drop_pv(pvname)
+        elif 'drop_pv' == cmd:
+            for pvname in args.options:
+                cache.drop_pv(pvname)
 
-    elif 'unconnected_pvs' == cmd:
-        print("checking for unconnected PVs in cache (may take several seconds)")
-        c = Cache(pvconnect=True)
-        time.sleep(0.01)
-        unconn1 = []
-        npvs = len(c.pvs)
-        for pvname, pvobj in c.pvs.items():
-            if not pvobj.connected:
-                unconn1.append(pvname)
+        elif 'unconnected_pvs' == cmd:
+            print("checking for unconnected PVs in cache (may take several seconds)")
+            time.sleep(0.01)
+            unconn1 = []
+            npvs = len(cache.pvs)
+            for pvname, pvobj in cache.pvs.items():
+                if not pvobj.connected:
+                    unconn1.append(pvname)
 
-        # try again, waiting for connection:
-        time.sleep(0.01)
-        unconn = []
-        for pvname in unconn1:
-            c.pvs[pvname].connect(timeout=0.1)
-            if not c.pvs[pvname].connected:
-                unconn.append(pvname)
+            # try again, waiting for connection:
+            time.sleep(0.01)
+            unconn = []
+            for pvname in unconn1:
+                cache.pvs[pvname].connect(timeout=0.1)
+                if not cache.pvs[pvname].connected:
+                    unconn.append(pvname)
 
-        print("# PVs in Cache that are currently unconnected:")
-        for pvname in unconn:
-            print('   %s' % pvname)
+            print("# PVs in Cache that are currently unconnected:")
+            for pvname in unconn:
+                print('   %s' % pvname)
 
     elif 'cache' == cmd:
         action = None
