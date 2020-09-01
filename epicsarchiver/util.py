@@ -23,7 +23,6 @@ valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._
 class Config:
     def __init__(self, **kws):
         self.logdir =  '/var/log/pvarch'
-        self.baseurl = 'https://localhost/'
 
         self.server = 'mysql'
         self.host = 'localhost'
@@ -41,6 +40,12 @@ class Config:
         self.cache_alert_period = '30'
         self.cache_report_period = '300'
         self.archive_report_period = '300'
+        self.web_baseurl = 'https://localhost/'
+        self.web_url = 'pvarch'
+        self.web_dir = '/var/web/pvarch'
+        self.web_secret_key = 'please replace with a random string'
+        self.web_admin_user = 'the right honorable foobar'
+        self.web_admin_pass = 'please select a better password'
 
         for key, val in kws.items():
             setattr(self, key, val)
