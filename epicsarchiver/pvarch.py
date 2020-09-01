@@ -113,7 +113,8 @@ def pvarch_main():
     elif cmd == 'start':
         if len(cache.get_values(time_ago=15)) < 5:
                print("Warning: cache appears to not be running")
-        if 5 < cache.get_narchived(time_ago=30):
+        arch_status = cache.get_info(process='archive').status
+        if arch_status == 'running' or cache.get_narchived(time_ago=10) > 2:
             print("Archive appears to be running... try 'restart'?")
             return
         archiver.mainloop()
@@ -227,7 +228,8 @@ def pvarch_main():
             print("%3d new values in past %d seconds"%(len(new_vals), args.time_ago))
 
         elif action == 'start':
-            if 5 < len(cache.get_values(time_ago=15)):
+            cache_status = cache.get_info(process='cache').status
+            if cache_status == 'running' or len(cache.get_values(time_ago=10)) > 2:
                 print("Cache appears to be running... try 'restart'?")
                 return
             cache = Cache(pvconnect=True, debug=args.debug)
