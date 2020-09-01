@@ -41,8 +41,8 @@ INIT_MESSAGE = """wrote initialization SQL statements to {fname:s}.  Use
 
 to create initial databases.  Note that the mysql account '{user:s}'
 will need to be able to create and modify databases. You may need to do
-   mysql> create user '{user:s}'@'localhost' identified by 'a_password';
-   mysql> grant all privileges on *.* to {user:s}@localhost;
+   mysql> create user '{user:s}'@'localhost' identified by 'lets_archive_some_pvs';
+   mysql> grant all privileges on *.* to '{user:s}'@'localhost';
    mysql> flush privileges;
 
 as a mysql administrator.  Also, check that these settings match the
