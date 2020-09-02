@@ -133,7 +133,7 @@ class Archiver:
             tmin = time.time() - SEC_DAY
         if tmax is None:
             tmax = time.time()
-        data = []
+        timevals, datavals = []
         for dbname in self.dbs_for_time(tmin-SEC_DAY, tmax+5):
             db = DatabaseConnection(dbname, self.config)
             wclause = text("name='%s'" % pvname)
@@ -148,14 +148,15 @@ class Archiver:
             query  = query.where(dtable.c.time<=Decimal(tmax+0.5))
             rows   = query.order_by(dtable.c.time).execute().fetchall()
 
-            if len(data) == 0:  # include 1 datapoint before tmin
+            if len(datavals) == 0:  # include 1 datapoint before tmin
                 for row in reversed(rows):
                     rtime = float(row.time)
                     if rtime <= tmin:
                         val = row.value
                         if isinstance(val, bytes):
                             val = val.decode('utf-8')
-                        data = [(rtime, val)]
+                        timevals = [rtime]
+                        datavals = [val]
                         break
 
             for row in rows:
@@ -164,14 +165,20 @@ class Archiver:
                     val = row.value
                     if isinstance(val, bytes):
                         val = val.decode('utf-8')
-                    data.append((float(row.time), val))
+                    timevals.append(float(row.time))
+                    datavals.append(val)
         if with_current:
             cur = self.cache.get_full(pvname)
             val = cur.value
             if isinstance(val, bytes):
                 val = val.decode('utf-8')
-            data.append((float(cur.ts),  val))
-        return data
+            timevals.append(float(cur.ts))
+            datavals.append(val)
+
+        # sort time/data by time values
+        timevals = np.array(timevals)
+        torder   = timevals.argsort()
+        return (timevals[torder].tolist(), np.array(datavals)[torder].tolist())
 
 
     def add_pv(self, name, description=None, graph={}, deadtime=None, deadband=None):
