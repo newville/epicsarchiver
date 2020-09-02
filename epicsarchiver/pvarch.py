@@ -1,42 +1,47 @@
-#!/usr/bin/env python3.8
+#!/usr/bin/env python3
 
 # main pvarch application
 
 import sys
 import os
 import time
+import toml
 from argparse import ArgumentParser
 
-from . import Cache, Archiver, initial_sql, tformat, get_config
+from . import Cache, Archiver, tformat, get_config
+from .schema import initial_sql, apache_config
 
 HELP_MESSAGE = """pvarch: control EpicsArchiver processes
     pvarch -h              shows this message.
     pvarch status [time]   shows cache and archiving status, some recent statistics. [60]
-
-    pvarch start           start the archiving process, if it is not already running.
-    pvarch stop            stop the archiving process
-    pvarch restart         restart the archiving process
-
-    pvarch next            create next archive database and restart archiving
-    pvarch set_runinfo     set the run information for the most recent run
-    pvarch list            prints a list of recent data archives
-    pvarch save [folder]   save sql for cache and 2 most recent data archives [.]
     pvarch show_config     print configuration
-    pvarch init [filename] write sql for initial setup of databases to file [pvarch_init.sql]
 
-    pvarch unconnected_pvs show unconnected PVs in cache
-    pvarch add_pv          add a PV to the cache and archive
-    pvarch add_pvfile      read a file of PVs to add to the Archiver
-    pvarch drop_pv         remove a PV from cahce and archive
+    pvarch arch start      start the archiving process, if it is not already running.
+    pvarch arch stop       stop the archiving process
+    pvarch arch restart    restart the archiving process
+    pvarch arch next       create next archive database and restart archiving
 
     pvarch cache start     start cache process (if it is not already running)
     pvarch cache stop      stop cache process
     pvarch cache restart   restart cache process
     pvarch cache status    show cache status
     pvarch cache activity  show most recently updated PVs
+
+    pvarch list            prints a list of recent data archives
+    pvarch set_runinfo     set the run information for the most recent run
+    pvarch save [folder]   save sql for cache and 2 most recent data archives [.]
+
+    pvarch unconnected_pvs show unconnected PVs in cache
+    pvarch add_pv          add a PV to the cache and archive
+    pvarch add_pvfile      read a file of PVs to add to the Archiver
+    pvarch drop_pv         remove a PV from cahce and archive
+
+    pvarch sql_init [filename] write sql for initial setup of databases to file [pvarch_init.sql]
+    pvarch web_init [filename] write apache config file and stub wsgi app [pvarch.conf/pvarch.wsgi]
+
 """
 
-INIT_MESSAGE = """wrote initialization SQL statements to {fname:s}.  Use
+SQL_INIT_MESSAGE = """wrote initialization SQL statements to '{fname:s}'.  Use
    ~> mysql -p -u{user:s}  < {fname:s}"
 
 to create initial databases.  Note that the mysql account '{user:s}'
@@ -47,6 +52,28 @@ will need to be able to create and modify databases. You may need to do
 
 as a mysql administrator.  Also, check that these settings match the
 configuration file named in the environmental variable PVARCH_CONFIG.
+"""
+
+WEB_INIT_MESSAGE = """
+wrote intial apache config to '{fname:s}', and web configuration
+file to 'wsgi/config.toml'
+
+You will need to install these for your webserver by:
+
+1. copy the full wsgi folder to '{web_dir:s}', as with
+
+   ~> cp -pr wsgi/*  {web_dir:s}/.
+
+2. include '{fname:s}' in your apache config, as with
+
+    ~> cp -pr {fname:s} {server_root:s}/conf.d/.
+
+   then adding
+
+      IncludeOptional {server_root:s}/conf.d/{fname:s}
+
+   to your main apache 'httpd.conf' file and restarting the httpd service.
+
 """
 
 DUMP_COMMAND = "{sql_dump:} -p{password:s} -u{user:s} {dbname:s} > {folder:s}/{dbname:s}.sql"
@@ -74,16 +101,49 @@ def pvarch_main():
 
     cmd = args.options.pop(0)
 
-    if cmd == 'init':
+    if cmd == 'sql_init':
         if len(args.options) > 0:
             fname = args.options.pop(0)
         else:
             fname = 'pvarch_init.sql'
         config = get_config()
         sql = initial_sql(config)
+        if not fname.endswith('.sql'):
+            fname = "%s.sql" % fname
         with open(fname, 'w') as fh:
             fh.write(sql)
-        print(INIT_MESSAGE.format(fname=fname, user=config.user))
+        print(SQL_INIT_MESSAGE.format(fname=fname, user=config.user))
+        return
+
+    elif cmd == 'web_init':
+        if len(args.options) > 0:
+            fname = args.options.pop(0)
+        else:
+            fname = 'pvarch'
+        config = get_config().asdict()
+        if not fname.endswith('.conf'):
+            fname = "%s.conf" % fname
+
+        s_root = '<your httpd root>'
+        try:
+            lines = os.popen('apachectl -S').readlines()
+        except:
+            lines = []
+        for line in lines:
+            if line.startswith('ServerRoot:'):
+                s_root = line[:-1]
+                for x in ('ServerRoot:', '"', "'"):
+                    s_root = s_root.replace(x, '')
+                s_root = s_root.strip()
+        config['server_root'] = s_root
+        with open(fname, 'w') as fh:
+            fh.write(apache_config.format(**config))
+        if os.path.exists('wsgi'):
+            cfile = os.path.join('wsgi', 'config.toml')
+            with open(cfile, 'w') as fh:
+                toml.dump(config, fh)
+
+        print(WEB_INIT_MESSAGE.format(fname=fname, **config))
         return
 
     elif cmd == 'show_config':
@@ -110,34 +170,73 @@ def pvarch_main():
     elif 'check' == cmd:
         print(cache.get_narchived(time_ago=args.time_ago))
 
-    elif cmd == 'start':
-        if len(cache.get_values(time_ago=15)) < 5:
-               print("Warning: cache appears to not be running")
-        arch_status = cache.get_info(process='archive').status
-        if arch_status == 'running' or cache.get_narchived(time_ago=10) > 2:
-            print("Archive appears to be running... try 'restart'?")
-            return
-        archiver.mainloop()
+    elif cmd == 'arch':
+        action = None
+        if len(args.options) > 0:
+            action = args.options.pop(0)
+        if action == 'start':
+            if len(cache.get_values(time_ago=15)) < 5:
+                print("Warning: cache appears to not be running")
+            arch_status = cache.get_info(process='archive').status
+            if arch_status == 'running' or cache.get_narchived(time_ago=10) > 2:
+                print("Archive appears to be running... try 'restart'?")
+                return
+            archiver.mainloop()
 
-    elif cmd == 'stop':
-        cache.set_info(process='archive', status='stopping')
+        elif action == 'stop':
+            cache.set_info(process='archive', status='stopping')
 
-    elif cmd == 'restart':
-        cache.set_info(process='archive', status='stopping')
-        time.sleep(2)
-        archiver.mainloop()
+        elif action == 'restart':
+            cache.set_info(process='archive', status='stopping')
+            time.sleep(2)
+            archiver.mainloop()
 
-    elif 'next' == cmd:
-        cache.set_info(process='archive', status='stopping')
-        time.sleep(1)
-        cache.set_runinfo()
-        new_dbname = cache.create_next_archive()
+        elif action == 'next':
+            cache.set_info(process='archive', status='stopping')
+            time.sleep(1)
+            cache.set_runinfo()
+            new_dbname = cache.create_next_archive()
 
-        # this requires remaking the Archiver and Cache as
-        # the underlying DB engine is now altered.
-        archiver = Archiver()
-        time.sleep(1)
-        archiver.mainloop()
+            # this requires remaking the Archiver and Cache as
+            # the underlying DB engine is now altered.
+            archiver = Archiver()
+            time.sleep(1)
+            archiver.mainloop()
+
+    elif 'cache' == cmd:
+        action = None
+        if len(args.options) > 0:
+            action = args.options.pop(0)
+        if action == 'status':
+            cache.show_status(cache_time=args.time_ago, with_archive=False)
+
+        elif action == 'activity':
+            new_vals =cache.get_values(time_ago=args.time_ago, time_order=True)
+            for row in new_vals:
+                print("%s: %s = %s" % (tformat(row.ts), row.pvname, row.value))
+            print("%3d new values in past %d seconds"%(len(new_vals), args.time_ago))
+
+        elif action == 'start':
+            cache_status = cache.get_info(process='cache').status
+            if cache_status == 'running' or len(cache.get_values(time_ago=10)) > 2:
+                print("Cache appears to be running... try 'restart'?")
+                return
+            cache = Cache(pvconnect=True, debug=args.debug)
+            cache.mainloop()
+
+        elif action == 'stop':
+            cache.shutdown()
+            time.sleep(1)
+
+        elif action == 'restart':
+            cache.shutdown()
+            time.sleep(2)
+            cache = Cache(pvconnect=True, debug=args.debug)
+            cache.mainloop()
+
+        else:
+            print("'pvarch cache' needs one of start, stop, restart, status, activity")
+            print("    Try 'pvarch -h' ")
 
     elif 'save' == cmd:
         if len(args.options) > 0:
@@ -214,40 +313,6 @@ def pvarch_main():
             for pvname in unconn:
                 print('   %s' % pvname)
 
-    elif 'cache' == cmd:
-        action = None
-        if len(args.options) > 0:
-            action = args.options.pop(0)
-        if action == 'status':
-            cache.show_status(cache_time=args.time_ago, with_archive=False)
-
-        elif action == 'activity':
-            new_vals =cache.get_values(time_ago=args.time_ago, time_order=True)
-            for row in new_vals:
-                print("%s: %s = %s" % (tformat(row.ts), row.pvname, row.value))
-            print("%3d new values in past %d seconds"%(len(new_vals), args.time_ago))
-
-        elif action == 'start':
-            cache_status = cache.get_info(process='cache').status
-            if cache_status == 'running' or len(cache.get_values(time_ago=10)) > 2:
-                print("Cache appears to be running... try 'restart'?")
-                return
-            cache = Cache(pvconnect=True, debug=args.debug)
-            cache.mainloop()
-
-        elif action == 'stop':
-            cache.shutdown()
-            time.sleep(1)
-
-        elif action == 'restart':
-            cache.shutdown()
-            time.sleep(2)
-            cache = Cache(pvconnect=True, debug=args.debug)
-            cache.mainloop()
-
-        else:
-            print("'pvarch cache' needs one of start, stop, restart, status, activity")
-            print("    Try 'pvarch -h' ")
 
     else:
         print("pvarch  unknown command '%s'.    Try 'pvarch -h'" % cmd)

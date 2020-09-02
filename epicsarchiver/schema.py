@@ -112,6 +112,20 @@ create table runs (
   )  default charset=latin1;
 """
 
+apache_config = """# apache wsgi configuration
+# this should be added to your Apache configuration, as with
+#   IncludeOptional {server_root:}/conf.d/pvarch.conf
+
+
+WSGIScriptAlias /{web_url:s}  {web_dir:s}/pvarch.wsgi
+
+<Directory {web_dir:s}>
+   Options all
+   Require all granted
+   WSGIApplicationGroup %{{GLOBAL}}
+</Directory>
+"""
+
 
 def initial_sql(config):
     """creates sql to initialize master cache database and
