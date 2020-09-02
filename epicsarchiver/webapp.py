@@ -1,14 +1,20 @@
 #!/usr/bin/env python
-
+import os
 import sys
-import time
+
+import toml
 
 from flask import (Flask, request, session, redirect, url_for,
                    abort, render_template, flash, Response)
 
+from time import time, mktime, strftime
+from datetime import datetime, timedelta
+from dateutil.parser import parse as dateparser
 import numpy as np
 
-from . import get_config, Archiver, tformat
+
+from epicsarchiver import get_config, Archiver, tformat
+
 
 # sys.path.insert(0, config.template_dir)
 
@@ -16,34 +22,109 @@ from . import get_config, Archiver, tformat
 # will be set and accessible by the web server, and we
 # need config at the top-level to set the application secret key.
 
-config = get_config()
+pvarch_config = get_config().asdict()
+web_dirs = [pvarch_config.get('web_url', '.')]
+if '.' not in web_dirs:
+    web_dirs.append('.')
+
+for dirname in web_dirs:
+    conf_file = os.path.abspath(os.path.join(dirname, 'config.toml'))
+    if os.path.exists(conf_file):
+        pvarch_config.update(toml.load(open(conf_file)))
 
 app = Flask(__name__)
 app.config.from_object(__name__)
-app.secret_key = config.web_secret_key
+app.secret_key = pvarch_config['web_secret_key']
 
 archiver = cache = None
-last_refresh_time = 0
+last_refresh = age = 0
 cache_data = {}
+enum_strings = {}
 
 ago_choices = {'1 hour': 1, '8 hour': 8, '1 day': 24,
                '4 days': 96, '1 week': 168, '4 weeks': 672,
                '12 weeks': 2016, '1 year': 8736}
 
 
+
+def parse_times(date1='1 week', date2=None):
+
+    """returns 2 datetimes for date1 and date2 values
+
+    Options
+    --------
+    date1 (string):          string for initial date ['1 week']
+    date2 (string or None):  string for final date [None]
+
+    Notes:
+    ------
+    1.  if date2 is '', None, or 'None' then the meaning "from now", and
+        the date1 string can be like
+               '3.5 hour', '4 days', '3 weeks', '1 year'
+        with 'hour', 'day', 'week', and 'year' (and plurals) all understood
+        in terms of an integer number of hours, and the rest of the string
+        treated as a float.
+
+    2. otherwise the the two date values should be strings of the form
+           "%Y-%m-%d %H:%M:%S"
+       or a related string that can be parsed by dateutil.parser.parse.
+    """
+    date1 = 'day'  if date1 in ('', None) else date1.lower()
+    date2 = 'none' if date2 in ('', None) else date2.lower()
+
+    if date2 in ('', 'none'): # time ago
+        if 'hour' in date1:
+            factor = 1
+            date1 = float(date1.replace('hour', '').replace('hours', ''))
+        elif 'day' in date1:
+            factor = 24
+            date1 = float(date1.replace('day', '').replace('days', ''))
+        elif 'week' in date1:
+            factor = 24*7
+            date1 = float(date1.replace('week', '').replace('weeks', ''))
+        elif 'year' in date1:
+            factor = 24*365
+            date1 = float(date1.replace('year', '').replace('years', ''))
+        now = time.time()
+        dt1 = datetime.fromtimestamp(now - 3600*factor*date1)
+        dt2 = datetime.fromtimestamp(now)
+    else: # provided start/stop times
+        dt1 = dateparser(date1)
+        dt2 = dateparser(date2)
+    return (dt1, dt2)
+
+
+def convert_string_data(val):
+    """convert numpy string arrays for Waveform PVs to strings"""
+    tval = val[:]
+    for c in ('\n', '\r', '[', ']', '(', ')', ','):
+        tval = tval.replace(c, '')
+    try:
+        val = [int(i) for i in tval.split()]
+    except:
+        return val
+    val.append(0)
+    return ''.join([chr(int(i)) for i in val[:val.index(0)]])
+
+
 def session_init(session, force_refresh=False):
-    global archiver, cache, cache_data, last_refresh_time
+    global pvarch_config, archiver, cache
+    global cache_data, enum_strings
+    global last_refresh, age
     if archiver is None:
-        archiver = Archiver()
+        print("initializer archiver: ", pvarch_config)
+        archiver = Archiver(**pvarch_config)
         cache = archiver.cache
 
-    now = time.time()
-    if len(cache_data) < 1 or now > last_refresh_time + 7200:
+    now = time()
+    age = now - last_refresh
+    if len(cache_data) < 1 or age > 3600:
         cache_data = cache.get_values_dict(all=True)
+        enum_strings = cache.get_enum_strings()
+
     else:
-        time_ago = 15 + 2.5*(now - last_refresh_time)
-        cache_data.update(cache.get_values_dict(time_ago=time_ago))
-    last_refresh_time = now
+        cache_data.update(cache.get_values_dict(time_ago=(5 + 2*age)))
+    last_refresh = now
 
 def toNone(val):
     if val in ('', 'None', None):
@@ -52,7 +133,29 @@ def toNone(val):
 
 @app.route('/')
 def index():
-    return redirect(url_for('show', page='General'))
+    session_init(session)
+    return render_template('show_config.html',
+                           config=pvarch_config,
+                           last_refresh=last_refresh, age=age,
+                           cache_data=cache_data, enum_strings=enum_strings)
+
+@app.route('/status')
+def status():
+    session_init(session)
+    return render_template('status.html',
+                           status=archiver.status_report(),
+                           admin=session['is_admin'])
+
+
+@app.route('/pagex')
+def pagex():
+    session_init(session)
+    return render_template('page1.html',
+                           config=pvarch_config,
+                           last_refresh=last_refresh, age=age,
+                           cache_data=cache_data, enum_strings=enum_strings)
+
+
 
 @app.route('/help')
 def help():
@@ -61,28 +164,20 @@ def help():
     config.pvdat128 = config.dat_format % (config.dat_prefix, 128)
     return render_template('help.html', version=__version__, config=config)
 
-@app.route('/status')
-def status():
-    session_init(session)
-    return render_template('status.html',
-                           status=arch.status_report(),
-                           admin=session['is_admin'])
 
 @app.route('/alerts')
 def alerts():
     session_init(session)
     return render_template('alerts.html',
-                           alerts=arch.get_alerts(),
+                           alerts=cache.get_alerts(),
                            admin=session['is_admin'],
                            alert_choices=alert_ops)
-
-
 
 
 @app.route('/editalert/<int:alertid>')
 def editalert(alertid=None):
     session_init(session)
-    alerts=arch.get_alerts()
+    alerts = cache.get_alerts()
     thisalert = None
     for a in alerts:
         if a.id == alertid:
@@ -116,7 +211,7 @@ def submit_alertedits(options=None):
         mailmsg  = request.form['mailmsg']
         timeout  = request.form['timeout']
 
-        alerts = arch.get_alerts()
+        alerts = cache.get_alerts()
         for a in alerts:
             if a.id == alertid:
                 thisalert = a
@@ -125,13 +220,13 @@ def submit_alertedits(options=None):
 
 
         if makecopy:
-            arch.add_alert(pvname=pvname, name="%s (copy)" % name,
-                           mailto=mailto, mailmsg=mailmsg, timeout=timeout,
-                           compare=compare, trippoint=trippoint)
+            cache.add_alert(pvname=pvname, name="%s (copy)" % name,
+                            mailto=mailto, mailmsg=mailmsg, timeout=timeout,
+                            compare=compare, trippoint=trippoint)
         else:
-            arch.update_alert(alertid=alertid, pvname=pvname, name=name,
-                              mailto=mailto, mailmsg=mailmsg, timeout=timeout,
-                              compare=compare, trippoint=trippoint)
+            cache.update_alert(alertid=alertid, pvname=pvname, name=name,
+                               mailto=mailto, mailmsg=mailmsg, timeout=timeout,
+                               compare=compare, trippoint=trippoint)
 
 
 
@@ -205,19 +300,22 @@ def show(page=None):
 @app.route('/data/<pv>/<timevar>/<date1>/<date2>/<extra>')
 def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
     session_init(session)
-    admin = session['is_admin']
+    # admin = session['is_admin']
 
-    if date1 is not None and date1.endswith('.dat'): date1 = None
-    if date2 is not None and date2.endswith('.dat'): date2 = None
+    if date1 is not None and date1.endswith('.dat'):
+        date1 = None
+    if date2 is not None and date2.endswith('.dat'):
+        date2 = None
 
     tmin, tmax, date1, date2, time_ago = parse_times(timevar, date1, date2)
-    ts, dat = arch.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
+    ts, dat = archiver.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
 
+    print("Got Data ",  tmin, tmax, time_ago, len(ts), len(dat))
 
     stmin = strftime("%Y-%m-%d %H:%M:%S", localtime(tmin))
     stmax = strftime("%Y-%m-%d %H:%M:%S", localtime(tmax))
 
-    pvinfo  = arch.get_pvinfo(pv)
+    pvinfo  = archiver.get_pvinfo(pv)
 
     buff = ['# Data for %s [%s] '      % (pv, pvinfo['desc']),
             '# Time Range: %s , %s'   % (stmin, stmax),
@@ -226,11 +324,8 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
 
     fmt = '%13.7g'
     if pvinfo['type'] == 'enum':
-        thispv = PV(pv)
-        thispv.get()
-        fmt = '%13i'
         buff.append('# Value Meanings:')
-        for _i, _enum in enumerate(thispv.enum_strs):
+        for _i, _enum in enumerate(enum_strings.get(pv, ['Unknown'])):
             buff.append('#   %i: %s' % (_i, _enum))
 
     if dat.dtype.type == np.string_:
@@ -249,119 +344,58 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
         buff.append(' %.1f  %s  %s  %s' % (_t, val, ddate, dtime))
     return Response("\n".join(buff), mimetype='text/plain')
 
-@app.route('/plot/<pv>')
-@app.route('/plot/<pv>/<pv2>')
-@app.route('/plot/<pv>/<pv2>/<timevar>')
-@app.route('/plot/<pv>/<pv2>/<timevar>/<date1>')
-@app.route('/plot/<pv>/<pv2>/<timevar>/<date1>/<date2>')
-def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None,
-         pvmin=None, pvmax=None, pv2min=None, pv2max=None, fdat=None):
+@app.route('/plot/<date1>/<date2>/<pv1>')
+@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>')
+@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>')
+@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>')
+@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>/<pv5>')
+def plot(date1='day', date2='none', pv1=None, pv2=None,
+         pv3=None, pv4=None, pv5=None):
 
-    if pv2  in ('', None, 'None'):
-        pv2 = None
+    session_init(session)
 
-    if timevar is None:
-        timevar = 'time_ago'
-    sdate1 = date1
-    tmin, tmax, date1, date2, time_ago = parse_times(timevar, date1, date2)
+    date1, date2 = parse_times(date1, date2)
+    tmin = date1.timestamp()
+    tmax = date2.timestamp()
 
-    timestr = 'time_ago/%s' % time_ago
-    if timevar.startswith('date'):
-        timestr = 'date_range/%s/%s' % (date1, date2)
+    print("Plot: ",  tmin, tmax, time_ago)
 
-    messages = []
-    pvcurrent, pv2current = None, None
-    ts, dat, enums, ylabel, ylog = None, None, None, None, False
-    try:
-        related = arch.related_pvs(pv)
-        if len(related) > 25:
-            related = related[:25]
-        pvinfo  = arch.get_pvinfo(pv)
-        desc    = pvinfo['desc']
-        dtype   = pvinfo['type']
-        if dtype == 'enum':
-            thispv = PV(pv)
-            thispv.get()
-            enums = thispv.enum_strs
+    pvdata = []
+    related = []
+    if pv1 is not None:
+        related = cache.get_related(pv, limit=20)
 
-        ylog    = pvinfo['graph_type'].startswith('log')
-        ts, dat = arch.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
-        ylabel  = "%s\n[%s]" % (desc, pv)
-        pvcurrent = "%g" % dat[-1]
-    except:
-        messages.append("data for '%s' not found" % pv)
+    for pv in (pv1, pv2, pv3, pv4, pv5):
+        pvinfo = archiver.get_pvinfo(pv)
+        label  = "%s [%s]" % (pvinfo['description'], pv)
+        dtype  = pvinfo['type'].lower()
+        enums  = enum_strings.get(pv, ['Unknown'])
 
-    ts2, dat2, enums2, y2label, y2log = None, None, None, None, False
-    if pv2 is not None:
-        try:
-            pvinfo2  = arch.get_pvinfo(pv2)
-            desc2    = pvinfo2['desc']
-            dtype2   = pvinfo2['type']
-            if dtype2 == 'enum':
-                thispv = PV(pv2)
-                thispv.get()
-                enums2 = thispv.enum_strs
-            y2log    = pvinfo2['graph_type'].startswith('log')
-            ts2, dat2 = arch.get_data(pv2, tmin=tmin, tmax=tmax, with_current=True)
-            y2label="%s\n[%s]" % (desc2, pv2)
-            pv2current = "%g" % dat2[-1]
-        except:
-            messages.append("data for '%s' not found" % pv2)
+        ylog   = pvinfo['graph_type'].startswith('log')
+        t, y   = archiver.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
+        if dtype == 'string':
+            y = [convert_string_data(i) for i in y]
+        pvdata.append((t, y, label, ylog, dtype, enums))
 
+    if len(pvdata) == 1 and pvdata[0][4] == 'string':
 
-        try:
-            arch.set_pair_score(pv, pv2)
-        except:
-            messages.append(" could not increment pair score ")
 
     fig, pvdata, pv2data = None, None, None
+    print(" getting data ")
     if ts is not None:
-        if dat.dtype.type == np.string_:
-            dat = convert_string_data(dat)
-            pvdata = []
-            for _t, _d in zip(ts, dat):
-                pvdata.append({'ts': strftime("%Y-%m-%d %H:%M:%S", localtime(_t)),
-                               'val': _d})
-            last_pt = pvdata.pop()
-            pvdata.append({'ts': "Now", 'val': last_pt['val']})
+        current_ts = ts.pop()
+        current_val =  dat.pop()
 
-
-        if dat2 is not None and dat2.dtype.type == np.string_:
-            dat2 = convert_string_data(dat2)
-            pv2data = []
-            for _t, _d in zip(ts2, dat2):
-                pv2data.append({'ts': strftime("%Y-%m-%d %H:%M:%S", localtime(_t)),
-                                'val': _d})
-            last_pt = pv2data.pop()
-            pv2data.append({'ts': "Now", 'val': last_pt['val']})
-
-        if pvdata is None and pv2data is None:
-
-            fig = make_plot(ts, dat, ylabel=ylabel,
-                            enums=enums,  ylog=ylog,
-                            ts2=ts2, dat2=dat2, y2label=y2label,
-                            enums2=enums2, y2log=y2log,
-                            tmin=tmin, tmax=tmax,
-                            ymin=pvmin, ymax=pvmax,
-                            y2min=pv2min, y2max=pv2max)
-
-    if len(messages) > 0:
-        messages = ', '.join(messages)
-    else:
-        messages = None
-
-    # if pv2   is None: pv2 = ''
-    if date1 is None: date1 = ''
-    if date2 is None: date2 = ''
-    if pvmin is None: pvmin = ''
-    if pvmax is None: pvmax = ''
-    if pv2min is None: pv2min = ''
-    if pv2max is None: pv2max = ''
-
-    if fdat is None: fdat = {}
+        fig = make_plot(ts, dat, ylabel=ylabel,
+                        enums=enums,  ylog=ylog,
+                        ts2=ts2, dat2=dat2, y2label=y2label,
+                        enums2=enums2, y2log=y2log,
+                        tmin=tmin, tmax=tmax,
+                        ymin=pvmin, ymax=pvmax,
+                        y2min=pv2min, y2max=pv2max)
 
     opts = {'pv': pv,
-            'pv2': pv2,
+            'fig' : fig,
             'pvcurrent': pvcurrent,
             'pv2current': pv2current,
             'pvdata': pvdata,
@@ -378,11 +412,16 @@ def plot(pv=None, pv2=None, timevar=None, date1=None, date2=None,
             'timevar': timevar,
             'time_ago': time_ago,
             'messages': messages,
-            'figure' : fig,
             'related': related,
             'ago_choices':  ago_choices}
 
-    return render_template('plot.html', **opts)
+
+    return render_template('plot.html',
+                           config=pvarch_config,
+                           last_refresh=last_refresh, age=age,
+                           cache_data=cache_data,
+                           enum_strings=enum_strings,
+                           **opts)
 
 
 @app.route('/formplot', methods=['GET', 'POST'])
