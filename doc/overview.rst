@@ -1,6 +1,7 @@
-##== Overview ==##
+
 
 Epics PV Archiver Overview
+===========================
 
 The Epics PV Archiver saves Epics PVs into a MySQL database and provides a web
 interface for looking up, plotting, and managing the archiving process.  The Archiver
@@ -11,7 +12,8 @@ particular PV goes out of an acceptable range.  It also provides a concept of an
 Instrument, which is a group of PVs for which you may want to save and look
 up positions.
 
-== Caching and Archiving Processes ==
+Caching and Archiving Processes
+---------------------------------
 
 The Epics PV Archiver uses two running processes:
 
@@ -32,7 +34,8 @@ PVs updated in the cache and the number archived recently. For both of
 these, there should be a substantial amount of activity.  See <<Setup
 Help>> for more information on managing these processes.
 
-== Adding PVs to the Archive ==
+Adding PVs to the Archive
+-----------------------------
 
 There are a few ways to add PVs to the archive, all of them very easy.
 
@@ -67,7 +70,8 @@ valid Epics PV that can be accessed from the server.  In some cases, you
 may wish to record remote PVs -- you'll want to set EPICS_ADDR_LIST
 accordingly.
 
-== Adding Motor PVs ==
+Adding Motor PVs
+~~~~~~~~~~~~~~~~~~~~~
 
 When adding a PV for a Motor (that is, one that has a record type of
 'motor' from the Epics Motor Record), all of the following fields will
@@ -88,7 +92,8 @@ This subset of all the fields of the motor record are thought to be enough
 to reconstruct "where a motor was" and/or "what happened to the alignment
 questions".
 
-== Related PVs ==
+Related PVs
+~~~~~~~~~~~~~
 
 As alluded to above, there is a concept that some PVs can be "related" to
 others.  The Archiver uses a simple scoring method for pairs of PVs, and
@@ -108,7 +113,10 @@ of 10 under the following conditions:
 The list of related PVs for any PV can also be managed through the Settings
 / Admin page, where you can adjust the score for any pair of PVs.
 
-== Web Pages ==
+Web Pages
+-------------
 
 Controlling the layout and details of the main Web Status Pages is discussed on the
 <<Web Page Template>> Page.
+
+

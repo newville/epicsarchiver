@@ -1,6 +1,6 @@
-##== Plotting ==##
 
-Epics PV Archiver Plotting and Viewing
+Using the Epics PV Archiver Plotting and Viewing
+-------------------------------------------------
 
 Plotting and Viewing of PV Data is fairly straightforward using the
 <<Archive Viewing Page>>.  From this page, you can choose one or two PVs to

@@ -1,6 +1,6 @@
-##== Setup ==##
 
 Epics PV Archiver Setup and Management
+========================================
 
 This page gives a few details for setting up and managing the Epics PV
 Archiver system.   Installation instructions are in the source kit.
@@ -26,7 +26,8 @@ changes recorded.
 
 Both processes will write log files to the log directory.
 
-== The command-line pvarch process ==
+The command-line pvarch process
+-----------------------------------
 
 The main administrative interface to the PV Archiver is the command line
 program pvarch.  Typical usages of this program are:
@@ -59,7 +60,8 @@ pvarch add_pv         add a PV to the cache and archive
 pvarch add_pvfile     read a file of PVs to add to the Archiver 
 pvarch drop_pv        remove a PV from cache and archive 
 
-== Deadtime and Deadbands: setting how often a PV is recorded ==
+Deadtime and Deadbands: setting how often a PV is recorded
+-----------------------------------------------------------
 
 While the caching process saves current values for all PVs as fast as it
 can, it is not necessary to store all changes to PVs.  Two parameters set
@@ -93,7 +95,8 @@ type 'double' or 'float' is 5 seconds, while the default
 deadtime for all other PVs is 1 seconds.  Typical
 deadbands are set small enough to be not actually effective.
 
-== Rotating databases, cron jobs ==
+Rotating databases, cron jobs
+------------------------------
 
 The archiving process writes data to a single database (more details on
 database layout is below).  It is expected and encouraged to have several
@@ -135,7 +138,8 @@ pvarch save pvdata_00001
 
 Example crontab files for these tasks are included in the source distribution.
 
-== Database layout ==
+Database layout
+-------------------
 
 This Epics PV Archiver has two main databases that it uses.  The main or
 master database, named pvarch_master, holds the cache of values, status

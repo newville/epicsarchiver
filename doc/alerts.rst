@@ -1,6 +1,6 @@
-##== Alerts ==##
 
 Epics PV Archiver Alerts
+==========================
 
 Alerts are used to send an email when a PV goes into an 'Alert' condition.
 The alert condition is set by the user, and does not need to be related to
@@ -15,7 +15,8 @@ Use the main <<Alert Page>> for a list of currently defined alerts.  From
 this page you can select a "View/Change" link to modify any of the settings
 for a particular alert.
 
-== Setting an Alerts ==
+Setting an Alerts
+-------------------
 
 Alerts are set for a single PV.  In addition to the PV name, each alert
 also has a label which can be used to describe the alert, and so that
@@ -88,7 +89,8 @@ The mail message will always have a Subject line that starts with
 [Epics Alert], so you can set up auto-forwarding and mail sorting
 rules, and will always include a web link to the PV plot page.
 
-== Managing Alerts ==
+Managing Alerts
+-------------------
 
 From the web page for Alerts, each can be set to be inactive and then be
 re-activated later.  This can be useful to temporarily suppress messages for
