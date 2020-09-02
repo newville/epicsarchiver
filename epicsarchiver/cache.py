@@ -10,7 +10,7 @@ import smtplib
 from decimal import Decimal
 
 import numpy as np
-from sqlalchemy import text, and_
+from sqlalchemy import text, and_, or_
 import epics
 
 from .util import (clean_bytes, normalize_pvname, tformat, valid_pvname,
@@ -195,6 +195,16 @@ class Cache(object):
             if row.pvname not in self.pvs and self.pvconnect:
                 self.pvs[row.pvname] = epics.get_pv(row.pvname)
         return pvnames
+
+    def get_enum_strings(self):
+        """
+        return dict of PVs and enum_strings for enum PVs
+        """
+        extras = self.tables['pvextra']
+        out = {}
+        for row in extras.select().where(extras.c.notes=='enum_strs').execute().fetchall():
+            out[row.pv] = json.loads(row.data)
+        return out
 
     def update_pvextra(self):
         """
@@ -448,7 +458,11 @@ class Cache(object):
         """
         out = {}
         for row in self.get_values(all=all, time_ago=time_ago, time_order=False):
-            out[row.id] = (row.pvname, row.value, row.cvalue, row.type, float(row.ts))
+            out[row.pvname] = dict(id=row.id,
+                                   value=row.value,
+                                   cvalue=row.cvalue,
+                                   dtype=row.type,
+                                   ts=float(row.ts))
         return out
 
     def add_pv(self, pvname, with_motor_fields=True):
@@ -730,6 +744,22 @@ class Cache(object):
         q = q.where(runs.c.stop_time >= Decimal(start_time))
         return q.execute().fetchall()
 
+    def get_related(self, pvname, limit=None):
+        """get related PVs for the supplied pvname, a dictionary ordered by score"""
+
+        ptable = self.tables['pairs']
+        out = {}
+        q = ptable.select().where(or_(ptable.c.pv1==pvname, ptable.c.pv2==pvname))
+        i = 0
+        if limit is None: limit = -9.27
+        for row in q.order_by(ptable.c.score.desc()).execute().fetchall():
+            other = row.pv1 if row.pv2 == pvname else row.pv2
+            out[other] = row.score
+            i += 1
+            if i == limit:
+                break
+        return out
+
 
     def get_pair_score(self, pv1, pv2):
         "get pair score for 2 pvs"
@@ -760,7 +790,8 @@ class Cache(object):
         if current_score == 0:
             ptable.insert().execute(pv1=pv2, pv2=pv2, score=score)
         else:
-            ptable.update().where(and_(ptable.c.pv1==pv1, ptable.c.pv2==pv2)).execute(score=score)
+            ptable.update().where(and_(ptable.c.pv1==pv1,
+                                       ptable.c.pv2==pv2)).execute(score=score)
 
 
     def increment_pair_score(self, pv1, pv2, increment=1):
@@ -778,7 +809,6 @@ class Cache(object):
             for b in tmplist:
                 if self.get_pair_score(a, b) < score:
                     self.set_pair_score(a, b, score=score)
-
 
     def check_pairscores(self):
         "return all pair scores, logging duplicates"
