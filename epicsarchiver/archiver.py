@@ -3,10 +3,10 @@ import time
 import sys
 import os
 import logging
-
 from decimal import Decimal
 
 from sqlalchemy import MetaData, create_engine, engine, text
+import numpy as np
 
 import epics
 
@@ -17,6 +17,16 @@ from .util import (normalize_pvname, get_force_update_time, tformat,
                    get_config)
 
 from .cache import Cache
+
+
+def clean_value(val):
+    if isinstance(val, bytes):
+        val = val.decode('utf-8')
+    try:
+        val = float(val)
+    except:
+        pass
+    return val
 
 class Archiver:
     MIN_TIME = 100
@@ -118,7 +128,7 @@ class Archiver:
                 out = rtime, row.value
                 break
         if isinstance(out[1], bytes):
-            out = (out[0], out[1].decode('utf-8'))
+            out = (out[0], clean_value(out[1]))
         return out
 
     def get_data(self, pvname, tmin=None, tmax=None, with_current=None):
@@ -133,7 +143,7 @@ class Archiver:
             tmin = time.time() - SEC_DAY
         if tmax is None:
             tmax = time.time()
-        timevals, datavals = []
+        timevals, datavals = [], []
         for dbname in self.dbs_for_time(tmin-SEC_DAY, tmax+5):
             db = DatabaseConnection(dbname, self.config)
             wclause = text("name='%s'" % pvname)
@@ -152,28 +162,19 @@ class Archiver:
                 for row in reversed(rows):
                     rtime = float(row.time)
                     if rtime <= tmin:
-                        val = row.value
-                        if isinstance(val, bytes):
-                            val = val.decode('utf-8')
                         timevals = [rtime]
-                        datavals = [val]
+                        datavals = [clean_value(row.value)]
                         break
 
             for row in rows:
                 rtime = float(row.time)
                 if rtime >= tmin and rtime <= tmax:
-                    val = row.value
-                    if isinstance(val, bytes):
-                        val = val.decode('utf-8')
                     timevals.append(float(row.time))
-                    datavals.append(val)
+                    datavals.append(clean_value(row.value))
         if with_current:
             cur = self.cache.get_full(pvname)
-            val = cur.value
-            if isinstance(val, bytes):
-                val = val.decode('utf-8')
             timevals.append(float(cur.ts))
-            datavals.append(val)
+            datavals.append(clean_value(cur.value))
 
         # sort time/data by time values
         timevals = np.array(timevals)
