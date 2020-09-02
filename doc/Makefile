@@ -19,6 +19,4 @@ install: html
 	cp -pr  $(BUILDDIR)/html/* $(INSTALLDIR)/.
 
 tarball: html
-	cd $(BUILDDIR)/html
-	tar cvzf ../../../_doc.tgz *
-	cd ../..
+	cd $(BUILDDIR)/html  && tar cvzf ../../../_doc.tgz *
