@@ -80,7 +80,7 @@ With a configuration to match your mysql setup (which you can verify with
 `pvarch show_config`), you can create SQL commands to create and initialize
 databases need for the archiving, with
 
-    ~> pvarch init pvarch_init.sql
+    ~> pvarch sql_init pvarch_init.sql
 
 This will generate the file `pvarch_init.sql` which you can then use to create
 the databases with (assuming the mysql user name is `archiver`):
