@@ -27,8 +27,8 @@ HELP_MESSAGE = """pvarch: control EpicsArchiver processes
     pvarch cache status    show cache status
     pvarch cache activity  show most recently updated PVs
 
-    pvarch list            prints a list of recent data archives
-    pvarch set_runinfo     set the run information for the most recent run
+    pvarch list    [n]     prints a list of recent data archives  [10]
+    pvarch set_runinfo [n] set the run information for the most recent run [10]
     pvarch save [folder]   save sql for cache and 2 most recent data archives [.]
 
     pvarch unconnected_pvs show unconnected PVs in cache
@@ -89,6 +89,8 @@ def pvarch_main():
                         default=False, help='turn on debugging')
     parser.add_argument('-t', '--time_ago', dest='time_ago', type=int,
                         default=60, help='time for activity and status ')
+    parser.add_argument('-n', '--nruns', dest='nruns', type=int,
+                        default=10, help='number of runs for list and set_runinfo')
     parser.add_argument('options', nargs='*')
 
     args = parser.parse_args()
@@ -263,15 +265,15 @@ def pvarch_main():
         hline = '+-----------------+-----------------------------------------------+'
         title = '|     database    |                date range                     |'
         out = [hline, title, hline]
-        recent = runs.select().order_by(runs.c.id.desc()).limit(10)
-        for run in recent.execute().fetchall():
+        recent = runs.select().order_by(runs.c.id.desc()).limit(args.nruns)
+        for run in reversed(recent.execute().fetchall()):
             out.append('|  %13s  | %45s |' % (run.db, run.notes))
         out.append(hline)
         print('\n'.join(out))
 
     elif 'set_runinfo' == cmd:
         runs = cache.tables['runs']
-        recent = runs.select().order_by(runs.c.id.desc()).limit(3)
+        recent = runs.select().order_by(runs.c.id.desc()).limit(args.nruns)
         for run in recent.execute().fetchall():
             cache.set_runinfo(run.db)
 
