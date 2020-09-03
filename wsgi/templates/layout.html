@@ -1,7 +1,7 @@
 <!doctype html>
 <head>
   <title>Epics PV Archiver</title>
-  
+
   <link rel=stylesheet type=text/css
 	href="{{ url_for('static', filename='style.css') }}"/>
 
@@ -36,20 +36,29 @@
 
     {% if admin %}
     <li><a href="{{ url_for('alerts') }}">Alerts</a></li>
-    <li><a href="{{ url_for('logout') }}">Logout</a></li>    
+    <li><a href="{{ url_for('logout') }}">Logout</a></li>
     {% else %}
-    <li><a href="{{ url_for('login') }}">Login</a></li>    
+    <li><a href="{{ url_for('login') }}">Login</a></li>
     {% endif %}
 </ul>
 
 </div>
 
-{% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+{% if error %}
+  <p class=error><strong>Error:</strong> {{ error }} </p>
+  {% endif %}
 {% for message in get_flashed_messages() %}
-    <div class=flash>{{ message }}</div>
+  <div class=flash>{{ message }}</div>
 {% endfor %}
+
+{% macro showpv(name) %}
+    <a id={{cache_data[name].id}} href="plot/time_ago/day/None/{{name}}/"> {{ cache_data[name].cvalue }} </a>
+{% endmacro %}
+
 
     {% block body %}
 
+
     {% endblock %}
+
 </div>

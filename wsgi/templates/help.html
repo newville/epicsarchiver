@@ -123,7 +123,7 @@ deadbands are set small enough to be not actually effective.
 The archiving process writes data to a single database (more details on
 database layout is below).  It is expected and encouraged to have several
 of these archive databases, each one representing a 'run' for a fixed time
-duration, typically around a weeks to a month.  
+duration, typically around a weeks to a month.
 
 <p> That is, you will want to periodically start archiving into a new
 database.  Using <tt>pvarch next</tt> will tell the Archiver to make the
@@ -207,7 +207,7 @@ joins them is fairly simple.  The tables are:
 
 <tr> <td>runs</td><td> holds info about archiving 'runs'.</td><td> <tt>id, db,notes, start_time,stop_time</tt>
 <tr><td></td><td></td><td> <tt>db </tt> is the name of the current archive databases.</td></tr>
-                  
+
 <tr> <td>info</td><td> status information about running 'cache' and 'archive' processes</td>
 <td> <tt>id, process, status, db, datetime, ts, pid</tt></td></tr>
 <tr><td></td><td></td><td> <tt>process</tt> is either 'cache' or 'archive'.</td></tr>
@@ -274,7 +274,7 @@ to be read, eliminating more than 99%% of the data in the archive.
 <tt>pv_id</tt> (that is the <tt>id</tt> from the PV table), <tt>time</tt>, and
 <tt>value</tt>
 
-<p>For further details, simply explore the MySQL databases. 
+<p>For further details, simply explore the MySQL databases.
 
 
 <font size=+1>Epics PV Archiver Overview</font></p>
@@ -440,9 +440,9 @@ the Alert is said to be in the 'Alarm' state.  The possible test conditions
 are:
 
 <ul>
-   <li> not equal to 
-   <li> equal to     
-   <li> less than or equal to 
+   <li> not equal to
+   <li> equal to
+   <li> less than or equal to
    <li> less than
    <li> greater than or equal to
    <li> greater than
@@ -576,7 +576,7 @@ mostly repeats the instructions here), a unix <tt>makefile</tt>, a file
 named <tt>pages.py</tt>, a file named <tt>FileList</tt>, and possible
 several other files, each containing the template for an individual
 'Notebook Tab' web page.
- 
+
 <p> Each template file can list many PVs, typically grouped logically, and
 will be shown as a separate tab in the status page, with the pages
 title. The template format for each of these template files is detailed
@@ -584,8 +584,8 @@ below.
 
 <h3>Ordering of Pages / Overall Structure</h3>
 
-The master file <tt>FileList</tt> in the template directory contains the 
-list of Title, Template File pairs: 
+The master file <tt>FileList</tt> in the template directory contains the
+list of Title, Template File pairs:
 <p><pre>
 
 Storage Ring | storage_ring.txt
@@ -594,13 +594,13 @@ Vacuum System | vacuum.txt
 </pre>
 <p>
 
-and so on, with Title and File name separated by '|'.  This will 
-be used to make the 'Notebook Tabs' in the status page.  For this 
+and so on, with Title and File name separated by '|'.  This will
+be used to make the 'Notebook Tabs' in the status page.  For this
 example, there will be two tabs; 'Storage Ring' and 'Vacuum System'.
 
 <p>
-To add or change the Tab titles or template files, alter FileList 
-and run 'make'.  This will generate pages.py which will be loaded 
+To add or change the Tab titles or template files, alter FileList
+and run 'make'.  This will generate pages.py which will be loaded
 by the web scripts.
 
 <p>
@@ -628,9 +628,9 @@ This will generally get mapped to a table row that has
 
 </pre>
 
-The description shown can be found automatically from the PVs own 
+The description shown can be found automatically from the PVs own
 description field, if available.  If it is not available, the PV
-name will be used.  In either case, it can be set explicitly set 
+name will be used.  In either case, it can be set explicitly set
 by separating with a '|':
 <pre>
 
@@ -645,15 +645,15 @@ In addition, the formatting can be explicitly set as well:
 </pre>
 <p>
 
-For ENUM PVs, the ENUM string will be shown as the Current_Value, 
-but it's not uncommon for integer PVs to hold a 'status' field with 
-values '0' and '1' (for example, the 'Stations Searched' PVs at the 
+For ENUM PVs, the ENUM string will be shown as the Current_Value,
+but it's not uncommon for integer PVs to hold a 'status' field with
+values '0' and '1' (for example, the 'Stations Searched' PVs at the
 APS!)  For these, there a special 'yes/no' format can be used to
 map 0 to No, 1 to Yes, and any other value to Unknown.
 
 <p>
 To specify the formatting but use the default description, use
-<pre>  
+<pre>
 
  S:SRCurrentAI.VAL | | %%.2f
 
@@ -661,16 +661,16 @@ To specify the formatting but use the default description, use
 <p>
 
 You can put multiple PVs on a single line, separated by commas:
-<pre>  
+<pre>
 
 XXX:m1.VAL, XXX:m2.VAL
 
 </pre>
 <p>
 
-Which will list many PVs on a single line.  You'll probably want to 
+Which will list many PVs on a single line.  You'll probably want to
 set the description explicitly:
-<pre>  
+<pre>
 
 XXX:m1.VAL, XXX:m2.VAL | Sample Motors (chi, theta)
 
@@ -680,7 +680,7 @@ XXX:m1.VAL, XXX:m2.VAL | Sample Motors (chi, theta)
 Other formatting options: a section heading line in red can be
 given with <tt>[Title]</tt>, a horizontal rule with <tt>----</tt>,
 and an empty row with <tt><></tt>
- 
+
 Several examples are provided in the files 'GSE_pageN.txt'
 
 And, again, the template files can be edited 'on-the-fly'.

@@ -89,7 +89,20 @@
     {% endif %}
     </tr>
 
-    <tr><td colspan=4> <img width=650 src="data:image/png;base64,{{ figure|safe }}"></td></tr>
+  <tr><td colspan=4>
+   <script src="https://cdn.plot.ly/plotly-latest.min.js"
+	   charset="utf-8"></script>
+   <div id='pv_plot'>
+     <script  type="text/javascript">
+       var graph = {{fig | safe}};
+       Plotly.plot('pv_plot',   graph.data,   graph.layout || {}, config=graph.config);
+     </script>
+   </div>
+    </td> <td>
+
+
+
+  </td></tr>
 
     <tr><td>Replot from </td><td colspan=3>
 	{% for c in ago_choices %}
