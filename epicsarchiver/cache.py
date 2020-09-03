@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO,
                     format='%(levelname)s [%(asctime)s]  %(message)s',
                     datefmt='%Y-%b-%d %H:%M:%S')
 
-STAT_MSG = "{process:8s} {status:8s}, pid={pid:7d}, {n_new:5d} values {action:8s} in past {time:2d} seconds [{datetime:s}]"
+STAT_MSG = "{process:8s}: {status:8s}, db={db:14s}, pid={pid:7d}, {n_new:5d} {action:15s} in past {time:2d} seconds [{datetime:s}]"
 
 
 OPTOKENS = ('ne', 'eq', 'le', 'lt', 'ge', 'gt')
@@ -254,15 +254,15 @@ class Cache(object):
     def show_status(self, with_archive=True, cache_time=60, archive_time=60):
         info = dict(self.get_info(process='cache').items())
         info.update({'n_new': len(self.get_values(time_ago=cache_time)),
-                     'time': cache_time,
-                     'process': 'Cache', 'action': 'updated'})
+                     'time': cache_time, 'db': self.db.dbname,
+                     'process': 'Cache', 'action': 'PVs updated   '})
 
         print(STAT_MSG.format(**info))
         if with_archive:
             info = dict(self.get_info(process='archive').items())
             info.update({'n_new': self.get_narchived(time_ago=archive_time),
                          'time': archive_time,
-                         'process': 'Archiver', 'action': 'archived'})
+                         'process': 'Archiver', 'action': 'values archived'})
             print(STAT_MSG.format(**info))
 
     def set_runinfo(self, dbname=None):
@@ -282,7 +282,11 @@ class Cache(object):
             tmin = min(tmin, float(oldest.limit(1).execute().fetchone().time))
             tmax = max(tmax, float(newest.limit(1).execute().fetchone().time))
 
-        notes = "%s to %s" % (tformat(tmin), tformat(tmax))
+        if dbname == current_dbname:
+            notes = "%s to %s" % (tformat(tmin), '<currently running> ')
+        else:
+            notes = "%s to %s" % (tformat(tmin), tformat(tmax))
+
         runs = self.tables['runs']
         logging.info(("set run info for %s: %s" %  (dbname, notes)))
         runs.update().where(runs.c.db==dbname).execute(notes=notes,
