@@ -140,20 +140,23 @@ class Archiver:
             self.log("pv %s not found" % (pvname), level='warn')
 
         if tmin is None:
-            tmin = time.time() - SEC_DAY
+            tmin = time.time() - 7*SEC_DAY
         if tmax is None:
             tmax = time.time()
+            if with_current is None:
+                with_current = True
+        if with_current is None:
+            with_current = False
         timevals, datavals = [], []
         for dbname in self.dbs_for_time(tmin-SEC_DAY, tmax+5):
             db = DatabaseConnection(dbname, self.config)
             wclause = text("name='%s'" % pvname)
-            row = db.tables['pv'].select(whereclause=wclause).execute().fetchall()
-            if len(row) < 1:
+            pvrow = db.tables['pv'].select(whereclause=wclause).execute().fetchall()
+            if len(pvrow) < 1:
                 self.log("no data table for  %" % (pvname), level='warn')
 
-            row = row[0]
-            dtable = db.tables[row.data_table]
-            query  = dtable.select().where(dtable.c.pv_id==row.id)
+            dtable = db.tables[pvrow[0].data_table]
+            query  = dtable.select().where(dtable.c.pv_id==pvrow[0].id)
             query  = query.where(dtable.c.time>=Decimal(tmin-SEC_DAY))
             query  = query.where(dtable.c.time<=Decimal(tmax+0.5))
             rows   = query.order_by(dtable.c.time).execute().fetchall()
@@ -165,7 +168,8 @@ class Archiver:
                         timevals = [rtime]
                         datavals = [clean_value(row.value)]
                         break
-
+                if len(timevals) == 0:
+                    logging.warn("could not get 'early value' for %s" % pvname)
             for row in rows:
                 rtime = float(row.time)
                 if rtime >= tmin and rtime <= tmax:
