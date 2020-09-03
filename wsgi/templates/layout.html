@@ -2,18 +2,11 @@
 <head>
   <title>Epics PV Archiver</title>
 
-  <link rel=stylesheet type=text/css
-	href="{{ url_for('static', filename='style.css') }}"/>
+  <link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}"/>
 
-  <link rel='stylesheet' type='text/css' media='all'
-         href='http://millenia.cars.aps.anl.gov/cgi-data/jscal/calendar-system.css'/>
-  <script type='text/javascript'
-	  src='http://millenia.cars.aps.anl.gov/cgi-data/jscal/calendar.js'></script>
-  <script type='text/javascript'
-	  src='http://millenia.cars.aps.anl.gov/cgi-data/jscal/lang/calendar-en.js'></script>
-  <script type='text/javascript'
-	  src='http://millenia.cars.aps.anl.gov/cgi-data/jscal/calendar-setup.js'></script>
-
+  <script type='text/javascript' src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+  <script type='text/javascript' src="{{url_for('static', filename='datepicker.js')}}"></script>
+  <link rel='stylesheet' type='text/css' href="{{url_for('static', filename='datepicker.css')}}"/>
 </head>
 
 <div class=page>
