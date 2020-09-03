@@ -3,8 +3,6 @@ from datetime import datetime, date, timedelta
 from dateutil.parser import parse as dateparser
 import numpy as np
 import json
-from plotly.io import to_json
-
 
 def parse_times(date1='1 week', date2=None):
 
@@ -17,7 +15,7 @@ def parse_times(date1='1 week', date2=None):
 
     Notes:
     ------
-    1.  if date2 is '', None, or 'None' then the meaning "from now", and
+    1.  if date2 is '', None, or 'None' then the meaning is "from now", and
         the date1 string can be like
                '3.5 hour', '4 days', '3 weeks', '1 year'
         with 'hour', 'day', 'week', and 'year' (and plurals) all understood
@@ -28,29 +26,29 @@ def parse_times(date1='1 week', date2=None):
            "%Y-%m-%d %H:%M:%S"
        or a related string that can be parsed by dateutil.parser.parse.
     """
-    date1 = 'day'  if date1 in ('', None) else date1.lower()
-    date2 = 'none' if date2 in ('', None) else date2.lower()
+    date1 = '1week' if date1 in ('', None) else date1.lower()
+    date2 = 'none'  if date2 in ('', None) else date2.lower()
 
     if date2 in ('', 'none'): # time ago
+        date1 = date1.lower()
+        h_ago = 168
         if 'hour' in date1:
-            factor = 1
-            date1 = float(date1.replace('hour', '').replace('hours', ''))
+            h_ago =    1 * float(date1.replace('hours', '').replace('hour', ''))
         elif 'day' in date1:
-            factor = 24
-            date1 = float(date1.replace('day', '').replace('days', ''))
+            h_ago =   24 * float(date1.replace('days', '').replace('day', ''))
         elif 'week' in date1:
-            factor = 24*7
-            date1 = float(date1.replace('week', '').replace('weeks', ''))
+            h_ago =  168 * float(date1.replace('weeks', '').replace('week', ''))
         elif 'year' in date1:
-            factor = 24*365
-            date1 = float(date1.replace('year', '').replace('years', ''))
+            h_ago = 8760 * float(date1.replace('years', '').replace('year', ''))
+
         now = time()
-        dt1 = datetime.fromtimestamp(now - 3600*factor*date1)
+        dt1 = datetime.fromtimestamp(now - 3600.0*h_ago)
         dt2 = datetime.fromtimestamp(now)
     else: # provided start/stop times
         dt1 = dateparser(date1)
         dt2 = dateparser(date2)
     return (dt1, dt2)
+
 
 
 def chararray_as_string(val):
@@ -83,9 +81,7 @@ def auto_ylog(vals):
     return (x99 > 200*x01)
 
 
-
-#
-#     if ylog_scale:
+## if ylog_scale:
 #         ytype = 'log'
 #         ymax = np.log10(y).max()
 #         ymin = max(np.log10(y).min(), -9)
@@ -94,44 +90,42 @@ def auto_ylog(vals):
 #             ymax = max(np.log10(y2).max(), ymax)
 #         if yrange is None:
 #             yrange = (ymin-0.5, ymax+0.5)
+    # if yrange is not None:
+    #     layout['yaxis']['range'] = yrange
 
-def make_plot(pvdata, ignore_last_point=True):
+# plotly modeBarButtons:
+## - '2D': zoom2d, pan2d, select2d, lasso2d, zoomIn2d, zoomOut2d, autoScale2d, resetScale2d
+## -'3D': zoom3d, pan3d, rbitRotation, tableRotation, handleDrag3d, resetCameraDefault3d, resetCameraLastSave3d, hoverClosest3d
+## -'Cartesian': hoverClosestCartesian, hoverCompareCartesian
+## -'Geo': zoomInGeo, zoomOutGeo, resetGeo, hoverClosestGeo
+## -'Other': hoverClosestGl2d, hoverClosestPie, toggleHover, resetViews, toImage: sendDataToCloud, toggleSpikelines, resetViewMapbox
+
+
+def make_plot(pvdata):
     """make plotly plot from pvdata:
     (ts, y, label, ylog, dtype, enums, current_t, current_y)
     """
     data = []
     title = None
     for pv, t, y, label, ylog, dtype, enums, ct, cy in pvdata:
-
-        data.append({'x':[datetime.fromtimestamp(t_) for t_ in t],
+        data.append({'x':[datetime.fromtimestamp(t_).isoformat() for t_ in t],
                      'y': y,
                      'name': label,
                      'mode': 'lines+markers',
                      'line': {'width': 3, 'shape': 'hv'}})
-
         if title is None:
             title = pv
 
-    layout = {'title': title,
-              'height': 475,
-              'width': 600,
+    layout = {'title': title,  'height': 575,  'width': 750,
               'showlegend': len(data) > 1,
               'hovermode': 'closest',
               'xaxis': {'title': {'text': 'Date'}, 'type': 'date'},
               'yaxis': {'title': {'text': label},
-                        'zeroline': False,'type': 'linear'},
-              }
+                        'zeroline': False,'type': 'linear'}  }
 
-
-    # if yrange is not None:
-    #     layout['yaxis']['range'] = yrange
 
     config = {'displaylogo': False,
-              'modeBarButtonsToRemove': [ 'hoverClosestCartesian',
-                                          'hoverCompareCartesian',
-                                          'toggleSpikelines']}
+              'modeBarButtonsToRemove': ['hoverClosestCartesian','hoverCompareCartesian',
+                                         'toggleSpikelines', 'pan2d', 'select2d', 'lasso2d']}
 
-
-    return to_json({'data': data,
-                    'layout': layout,
-                    'config': config})
+    return json.dumps({'data': data, 'layout': layout, 'config': config})
