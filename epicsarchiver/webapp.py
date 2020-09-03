@@ -1,22 +1,19 @@
 #!/usr/bin/env python
 import os
 import sys
-
 import toml
-
+import json
 from flask import (Flask, request, session, redirect, url_for,
                    abort, render_template, flash, Response)
 
-from time import time, mktime, strftime
-from datetime import datetime, timedelta
-from dateutil.parser import parse as dateparser
+from time import time, mktime, strftime, localtime
+from datetime import datetime
+
 import numpy as np
 
-
 from epicsarchiver import get_config, Archiver, tformat
-
-
-# sys.path.insert(0, config.template_dir)
+from epicsarchiver.web_utils import (parse_times, chararray_as_string,
+                                     auto_ylog, make_plot)
 
 # note: this expects that the environmental variable
 # will be set and accessible by the web server, and we
@@ -41,70 +38,7 @@ last_refresh = age = 0
 cache_data = {}
 enum_strings = {}
 
-ago_choices = {'1 hour': 1, '8 hour': 8, '1 day': 24,
-               '4 days': 96, '1 week': 168, '4 weeks': 672,
-               '12 weeks': 2016, '1 year': 8736}
-
-
-
-def parse_times(date1='1 week', date2=None):
-
-    """returns 2 datetimes for date1 and date2 values
-
-    Options
-    --------
-    date1 (string):          string for initial date ['1 week']
-    date2 (string or None):  string for final date [None]
-
-    Notes:
-    ------
-    1.  if date2 is '', None, or 'None' then the meaning "from now", and
-        the date1 string can be like
-               '3.5 hour', '4 days', '3 weeks', '1 year'
-        with 'hour', 'day', 'week', and 'year' (and plurals) all understood
-        in terms of an integer number of hours, and the rest of the string
-        treated as a float.
-
-    2. otherwise the the two date values should be strings of the form
-           "%Y-%m-%d %H:%M:%S"
-       or a related string that can be parsed by dateutil.parser.parse.
-    """
-    date1 = 'day'  if date1 in ('', None) else date1.lower()
-    date2 = 'none' if date2 in ('', None) else date2.lower()
-
-    if date2 in ('', 'none'): # time ago
-        if 'hour' in date1:
-            factor = 1
-            date1 = float(date1.replace('hour', '').replace('hours', ''))
-        elif 'day' in date1:
-            factor = 24
-            date1 = float(date1.replace('day', '').replace('days', ''))
-        elif 'week' in date1:
-            factor = 24*7
-            date1 = float(date1.replace('week', '').replace('weeks', ''))
-        elif 'year' in date1:
-            factor = 24*365
-            date1 = float(date1.replace('year', '').replace('years', ''))
-        now = time.time()
-        dt1 = datetime.fromtimestamp(now - 3600*factor*date1)
-        dt2 = datetime.fromtimestamp(now)
-    else: # provided start/stop times
-        dt1 = dateparser(date1)
-        dt2 = dateparser(date2)
-    return (dt1, dt2)
-
-
-def convert_string_data(val):
-    """convert numpy string arrays for Waveform PVs to strings"""
-    tval = val[:]
-    for c in ('\n', '\r', '[', ']', '(', ')', ','):
-        tval = tval.replace(c, '')
-    try:
-        val = [int(i) for i in tval.split()]
-    except:
-        return val
-    val.append(0)
-    return ''.join([chr(int(i)) for i in val[:val.index(0)]])
+ago_choices = ['1 day', '1 week', '4 weeks', '12 weeks', '1 year']
 
 
 def session_init(session, force_refresh=False):
@@ -112,7 +46,6 @@ def session_init(session, force_refresh=False):
     global cache_data, enum_strings
     global last_refresh, age
     if archiver is None:
-        print("initializer archiver: ", pvarch_config)
         archiver = Archiver(**pvarch_config)
         cache = archiver.cache
 
@@ -328,8 +261,8 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
         for _i, _enum in enumerate(enum_strings.get(pv, ['Unknown'])):
             buff.append('#   %i: %s' % (_i, _enum))
 
-    if dat.dtype.type == np.string_:
-        dat = convert_string_data(dat)
+    if dat.dtype.type == np.string:
+        dat = chararray_as_string(dat)
         fmt = '%s'
 
     buff.append('#---------------------------------------------------')
@@ -344,28 +277,60 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
         buff.append(' %.1f  %s  %s  %s' % (_t, val, ddate, dtime))
     return Response("\n".join(buff), mimetype='text/plain')
 
+
+
+
+
+@app.route('/plot/<date1>')
+@app.route('/plot/<date1>/<date2>')
 @app.route('/plot/<date1>/<date2>/<pv1>')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>/<pv5>')
-def plot(date1='day', date2='none', pv1=None, pv2=None,
-         pv3=None, pv4=None, pv5=None):
-
+@app.route('/plot/<date1>/')
+@app.route('/plot/<date1>/<date2>/')
+@app.route('/plot/<date1>/<date2>/<pv1>/')
+@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/')
+@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/')
+@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>/')
+@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>/<pv5>/')
+def plot(date1='1week', date2=None, pv1=None, pv2=None, pv3=None, pv4=None, pv5=None):
+    """plot with plain link, only command line args: see also formplot()
+    """
     session_init(session)
+    if pv1 is None:
+        if date2 is None:
+            pv1 = date1
+            date1 = '1week'
+            date2 = 'none'
+        else:
+            pv1 = date2
+            date2 = 'none'
+
+    if date1 is None: date1 = 'none'
+    if date2 is None: date2 = 'none'
+
+    if date1 == 'none' or len(date1) < 2:
+        date1 = '1week'
+    if date2 == 'none' or len(date2) < 2:
+        date2 = 'none'
 
     date1, date2 = parse_times(date1, date2)
     tmin = date1.timestamp()
     tmax = date2.timestamp()
 
-    print("Plot: ",  tmin, tmax, time_ago)
+    print("Plot: ",  tmin, tmax, date1, date2, pv1)
 
+    fig = ''
     pvdata = []
     related = []
     if pv1 is not None:
-        related = cache.get_related(pv, limit=20)
+        related = cache.get_related(pv1, limit=20)
 
     for pv in (pv1, pv2, pv3, pv4, pv5):
+        if pv in ('', 'None', None):
+            continue
         pvinfo = archiver.get_pvinfo(pv)
         label  = "%s [%s]" % (pvinfo['description'], pv)
         dtype  = pvinfo['type'].lower()
@@ -373,59 +338,30 @@ def plot(date1='day', date2='none', pv1=None, pv2=None,
 
         ylog   = pvinfo['graph_type'].startswith('log')
         t, y   = archiver.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
+
         if dtype == 'string':
-            y = [convert_string_data(i) for i in y]
-        pvdata.append((t, y, label, ylog, dtype, enums))
+            y = [chararray_as_string(i) for i in y]
 
-    if len(pvdata) == 1 and pvdata[0][4] == 'string':
-
-
-    fig, pvdata, pv2data = None, None, None
-    print(" getting data ")
-    if ts is not None:
-        current_ts = ts.pop()
-        current_val =  dat.pop()
-
-        fig = make_plot(ts, dat, ylabel=ylabel,
-                        enums=enums,  ylog=ylog,
-                        ts2=ts2, dat2=dat2, y2label=y2label,
-                        enums2=enums2, y2log=y2log,
-                        tmin=tmin, tmax=tmax,
-                        ymin=pvmin, ymax=pvmax,
-                        y2min=pv2min, y2max=pv2max)
-
-    opts = {'pv': pv,
-            'fig' : fig,
-            'pvcurrent': pvcurrent,
-            'pv2current': pv2current,
-            'pvdata': pvdata,
-            'pv2data': pv2data,
-            'pvmin': pvmin,
-            'pvmax': pvmax,
-            'pv2min': pv2min,
-            'pv2max': pv2max,
-            'fdat': fdat,
-            'date1': date1,
-            'date2': date2,
-            'sdate1': date1,
-            'timestr':  timestr,
-            'timevar': timevar,
-            'time_ago': time_ago,
-            'messages': messages,
-            'related': related,
-            'ago_choices':  ago_choices}
-
+        current_t = t.pop()
+        current_y = y.pop()
+        pvdata.append((pv, t, y, label, ylog, dtype, enums, current_t, current_y))
+    if len(pvdata) > 0:
+        fig = make_plot(pvdata)
 
     return render_template('plot.html',
-                           config=pvarch_config,
+                           related=related, time_ago=ago_choices[2],
+                           ago_choices=ago_choices,
+                           config=pvarch_config, fig=fig,
                            last_refresh=last_refresh, age=age,
                            cache_data=cache_data,
-                           enum_strings=enum_strings,
-                           **opts)
+                           enum_strings=enum_strings)
 
 
 @app.route('/formplot', methods=['GET', 'POST'])
 def formplot():
+    session_init(session)
+    print("Form Plot ", request.form)
+
     if request.method == 'POST':
         form = request.form
         pv = toNone(form.get('pv', ''))
