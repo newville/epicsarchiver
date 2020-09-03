@@ -1,86 +1,53 @@
 {% extends "layout.html" %}
 {% block body %}
 
-<table><tr>
+<table>
+  <tr>
    <td valign=top>
 
   <form action="{{ url_for('formplot') }}" method=post>
-  <table border=0>
-    <tr><td>PV 1:</td><td><input size=30 type=text name=pv value='{{pv|safe}}'></td>
-      <td>PV 2:
-	{% if pv2 is not none %}
-	   </td><td><input size=30 type=text name=pv2 value='{{pv2|safe}}'></td></tr>
-	{% else %}
-	   </td><td><input size=30 type=text name=pv2 value=''></td></tr>
-	{% endif %}
+  <table border=2>
+    <tr> <th colspan=2>Time Range:</th><th colspan=2> PV Names</th><tr>
+    <tr><td>Start Date:</td>
+      <td>
+	<input type='text' id="date1" name="date1" style="width: 150px;">
+	<script type="text/javascript">	$(function(){ $('*[name=date1]').appendDtpicker(); });</script>
+    </td>
+      </td>
+      <td>PV 1:</td> <td><input style="width: 250px;" type=text name='pv1' value='{{pv1|safe}}'></td>
+    </tr>
+    <tr>
+      <td>End Date:</td>
+      <td>
+	<input type='text' id="date2" name="date2" style="width: 150px;">
+	<script type="text/javascript">	$(function(){$('*[name=date2]').appendDtpicker(); });</script>
+      </td>
+      <td>PV 2:</td> <td><input style="width: 250px;" type=text name='pv2' value='{{pv2|safe}}'></td>
+    </tr>
 
     <tr>
-      <td>Range:</td>
-    <td><input size=12 type=text name=pvmin value='{{pvmin|safe}}'>:
-	<input size=12 type=text name=pvmax value='{{pvmax|safe}}'>
-    <td></td>
-    <td><input size=12 type=text name=pv2min value='{{pv2min|safe}}'>:
-	<input size=12 type=text name=pv2max value='{{pv2max|safe}}'>
-    </td></tr>
-    <tr><td><input type=submit name=submit value='From Present' ></td><td colspan=3>
-	<select name='time_ago' style="width: 100px;">
-	  {% for c in ago_choices %}
-	  <option value={{c.val}}  {% if c.val == time_ago  %} selected=1 {% endif %}> {{c.label}}</option>
-	  {% endfor %}
-	  </select>
-	</td></tr>
-    <tr><td><input type=submit name=submit value='Date Range'></td>
-      <td colspan=4>
-	<input type='text' id="date1" name="date1" > <button id="date1_trig">...</button>
-	<input type='text' id="date2" name="date2" > <button id="date2_trig">...</button>
-	<script type='text/javascript'>
-
-	 function setdate2(cal) {
-	     var date  = cal.date;
-	     var time  = date.getTime()
-	     var f1    = document.getElementById("date1");
-	     var f2    = document.getElementById("date2");
-	     var tago  = document.getElementById("timevar");
-	     var tarr  = new Array();
-	     tarr      = tago.value.split(' ');
-	     if (f1 == cal.params.inputField) {
-		 var tunit = Date.MINUTE;
-		 var tstr = tarr[1].substring(0,2);
-		 if      (tstr == 'ho'){ tunit= Date.HOUR;   }
-		 else if (tstr == 'we'){ tunit= Date.WEEK;   }
-		 else if (tstr == 'da'){ tunit= Date.DAY;   }
-		 else if (tstr == 'mo'){ tunit= Date.DAY*31; }
-		 time     += tarr[0] * tunit;
-		 var date2 = new Date(time);
-		 f2.value  = date2.print("%Y-%m-%d %H:%M:%S");
-	       }
-	 }
-	 Calendar.setup({inputField: "date1",
-			button: "date1_trig",
-			onUpdate: setdate2,
-			ifFormat: "%Y-%m-%d %H:%M:%S",
-			showsTime: true,
-			timeFormat: 24,
-			showOthers: true,
-			singleClick: false,
-			weekNumbers: false });
-	 Calendar.setup({inputField: "date2",
-			button: "date2_trig",
-			ifFormat: "%Y-%m-%d %H:%M:%S",
-			showsTime: true,
-			timeFormat: 24,
-			showOthers: true,
-			singleClick: false,
-			weekNumbers: false });
-     </script>
-     </td></tr>
-      {% if messages is not none %}
-	<tr><td>Warnings:</td><td colspan=3> <b>{{ messages }}</b></td></tr>
-     {% endif %}
+      <td></td><td>
+      <input type=submit name=submit value='Use Date Range'></td>
+      <td>PV 3:</td><td><input style="width: 250px;" type=text name='pv3' value='{{pv3|safe}}'></td>
+    </tr>
+    <tr>
+      <td> past 1 week </td><td> past 6 weeks</td>
+      <td>PV 4:</td><td><input style="width: 250px;" type=text name='pv4' value='{{pv4|safe}}'></td>
+    </tr>
+    <tr>
+      <td> past 26 weeks </td><td> past 52 weeks</td>
+      <td>PV 5:</td><td><input style="width: 250px;" type=text name='pv45 value='{{pv|safe}}'></td>
+    </tr>
+  </table>
+</td>
+<td> S2</td></tr>
+{% if messages is not none %}
+<tr><td>Warnings:</td><td colspan=3> <b>{{ messages }}</b></td></tr>
+{% endif %}
 
 
     <tr><td colspan=2>
-	<a href="/pvarch/data/{{pv}}/{{timestr}}/pv1.dat"> {{pv|safe}}</a> = {{pvcurrent}}
+	<a href="/pvarch/data/{{pv1}}/{{timestr}}/pv1.dat"> {{pv1|safe}}</a> = {{pvcurrent}}
 	</td>
     {% if pv2 is not none %}
 	<td colspan=2>
@@ -90,7 +57,7 @@
     </tr>
 
   <tr><td colspan=4>
-   <script src="https://cdn.plot.ly/plotly-latest.min.js"
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"
 	   charset="utf-8"></script>
    <div id='pv_plot'>
      <script  type="text/javascript">
@@ -99,8 +66,6 @@
      </script>
    </div>
     </td> <td>
-
-
 
   </td></tr>
 
