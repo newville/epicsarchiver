@@ -2,7 +2,7 @@
 {% block body %}
 
 <a href="{{ url_for('static', filename='style.css') }}"/>stylesheet </a>
-
+<p>
 <form action="{{ url_for('formplot') }}" method=post>
 
   <table padding=5>
@@ -34,6 +34,11 @@
     </tr>
 
     <tr>
+      <td>  </td><td>or </td>
+      <td>PV 3:</td><td><input style="width: 275px;" type=text name='pv3' value='{{pv3|safe}}'></td>
+    </tr>
+
+     <tr>
       <td> <input type=submit name=submit value='Time From Present:'></td>
       <td>
 	<select name='time_ago' style="width: 125px;">
@@ -42,20 +47,16 @@
 	  {% endfor %}
 	</select>
       </td>
-      <td>PV 3:</td><td><input style="width: 275px;" type=text name='pv3' value='{{pv3|safe}}'></td>
-    </tr>
-
-     <tr>
-      <td>  </td><td> </td>
       <td>PV 4:</td><td><input style="width: 275px;" type=text name='pv4' value='{{pv4|safe}}'></td>
     </tr>
   <tr>
     <td>Replot for Times:</td>
     <td colspan=3>
-      &nbsp; <a href="/pvarch/plot/1week/none/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past week </a>
-      &nbsp; <a href="/pvarch/plot/3weeks/none/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 3 weeks </a>
-      &nbsp; <a href="/pvarch/plot/12weeks/none/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 12 weeks </a>
-      &nbsp; <a href="/pvarch/plot/52weeks/none/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 52 weeks </a>
+      &nbsp; <a href="/pvarch/plot/8hours/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 12 hours </a>
+      &nbsp; <a href="/pvarch/plot/2days/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 2 days </a>
+      &nbsp; <a href="/pvarch/plot/1week/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past week </a>
+      &nbsp; <a href="/pvarch/plot/12weeks/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 4 weeks </a>
+      &nbsp; <a href="/pvarch/plot/52weeks/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 52 weeks </a>
     </tr>
 
   <tr><td colspan=4><hr></td></tr>
