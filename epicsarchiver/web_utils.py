@@ -1,4 +1,5 @@
-from time import time, mktime, strftime
+from time import time, strftime, localtime
+from collections import namedtuple
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse as dateparser
 import numpy as np
@@ -16,6 +17,10 @@ def null2blank(val):
     if isnull(val):
         return ''
     return val
+
+def ts2iso(ts):
+    "timestamp to iso format"
+    return strftime("%Y-%m-%dT%H:%M:%S", localtime(ts))
 
 def parse_times(date1, date2):
     """returns 2 datetimes for date1 and date2 values
@@ -43,9 +48,9 @@ def parse_times(date1, date2):
     4. time is truncated to the nearest second
    """
     if isinstance(date1, (float, int)):
-        date1 = datetime.fromtimestamp(int(date1)).isoformat()
+        date1 = ts2iso(date1)
     if isinstance(date2, (float, int)):
-        date2 = datetime.fromtimestamp(int(date2)).isoformat()
+        date2 = ts2iso(date2)
 
     date1 = '1week' if isnull(date1) else date1.lower()
     date2 = 'now'   if isnull(date2) else date2.lower()
@@ -53,7 +58,7 @@ def parse_times(date1, date2):
     if date2 == 'now':
         date1 = date1.lower()
         hago = 168
-        if 'hour' in d1:
+        if 'hour' in date1:
             hago =    1 * float(date1.replace('hours', '').replace('hour', ''))
         elif 'day' in date1:
             hago =   24 * float(date1.replace('days', '').replace('day', ''))
@@ -63,8 +68,8 @@ def parse_times(date1, date2):
             hago = 8760 * float(date1.replace('years', '').replace('year', ''))
 
         now = time()
-        dt1 = datetime.fromtimestamp(int(now - 3600.0*hago))
-        dt2 = datetime.fromtimestamp(int(now))
+        dt1 = datetime.fromtimestamp(now - 3600.0*hago)
+        dt2 = datetime.fromtimestamp(now)
     else:
         if '.' in date1:
             date1 = date1[:date1.index('.')]
@@ -72,6 +77,7 @@ def parse_times(date1, date2):
             date2 = date2[:date2.index('.')]
         dt1 = dateparser(date1)
         dt2 = dateparser(date2)
+
     return (dt1, dt2)
 
 
@@ -124,32 +130,69 @@ def auto_ylog(vals):
 ## -'Geo': zoomInGeo, zoomOutGeo, resetGeo, hoverClosestGeo
 ## -'Other': hoverClosestGl2d, hoverClosestPie, toggleHover, resetViews, toImage: sendDataToCloud, toggleSpikelines, resetViewMapbox
 
+PlotData = namedtuple('PlotData', ('t', 'y', 'pvname', 'label',
+                                   'force_ylog', 'enum_labels'))
 
-def make_plot(pvdata, size=(725, 575)):
-    """make plotly plot from pvdata:
-    (ts, y, label, ylog, dtype, enums, current_t, current_y)
+pcolors = ('#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+           '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf')
+
+def make_plot(plotdata, size=(725, 625)):
+    """make plotly plot from a list of PlotData tuples
     """
     data = []
     title = None
-    for pv, t, y, label, ylog, dtype, enums, ct, cy in pvdata:
-        data.append({'x':[datetime.fromtimestamp(t_).isoformat() for t_ in t],
-                     'y': y,
-                     'name': label,
-                     'mode': 'lines+markers',
-                     'line': {'width': 3, 'shape': 'hv'}})
-        if title is None:
-            title = pv
-
-    layout = {'title': title, 'width': size[0], 'height': size[1],
-              'showlegend': len(data) > 1,
+    ntraces = len(plotdata)
+    domwid = 1.07 - 0.09*(ntraces-1)
+    layout = {'width': size[0], 'height': size[1],
               'hovermode': 'closest',
-              'xaxis': {'title': {'text': 'Date'}, 'type': 'date'},
-              'yaxis': {'title': {'text': label},
-                        'zeroline': False,'type': 'linear'}  }
+              'showlegend': True,
+              'bgcolor':'#FAFAFA',
+              'legend': {'borderwidth': 0.5, 'bgcolor':'#F0F0F0',
+                         'orientation': 'h',
+                         'x': 0.05, 'y': 1.10, 'yanchor': 'top',
+                         },
+              'xaxis': {'title': {'text': 'Date'},
+                        'domain': [0.02, domwid]}}
+    for trace, this in enumerate(plotdata):
+        ykey = 'y%d' % (trace+1) if trace>0 else 'y'
+        data.append({'x':[ts2iso(ts) for ts in this.t],
+                     'y': this.y,
+                     'name': this.pvname,
+                     'mode': 'lines+markers',
+                     'yaxis': ykey,
+                     'line': {'width': 3, 'shape': 'hv'}})
 
+
+
+        yax = {'title': {'text': this.label, 'color': pcolors[trace]},
+               'zeroline': False,  'type': 'linear',
+               'titlefont': {'color': pcolors[trace]},
+               'tickfont':  {'color': pcolors[trace]}}
+
+        if this.force_ylog or auto_ylog(this.y):
+            yax.update({'type':  'log', 'tickformat': '.3g'})
+
+
+        if this.enum_labels is not None:
+            yax.update({'ticktext': this.enum_labels,
+                        'tickvals': list(range(len(this.enum_labels)))})
+
+        if trace > 0:
+            print("trace,  ", domwid, domwid+0.09*(trace-1))
+            yax.update({'anchor': 'free',
+                        'title': this.label,
+                        'showgrid': False,
+                        'overlaying': 'y',
+                        'side': 'right',
+                        'position': domwid+0.09*(trace-1)})
+
+        yl = ykey.replace('y', 'yaxis')
+        layout[yl] = yax
 
     config = {'displaylogo': False,
-              'modeBarButtonsToRemove': ['hoverClosestCartesian','hoverCompareCartesian',
-                                         'toggleSpikelines', 'pan2d', 'select2d', 'lasso2d']}
+              'modeBarButtonsToRemove': ['hoverClosestCartesian',
+                                         'hoverCompareCartesian',
+                                         'toggleSpikelines', 'pan2d',
+                                         'select2d', 'lasso2d']}
 
     return json.dumps({'data': data, 'layout': layout, 'config': config})
