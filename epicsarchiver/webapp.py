@@ -12,8 +12,9 @@ from datetime import datetime
 import numpy as np
 
 from epicsarchiver import get_config, Archiver, tformat
+
 from epicsarchiver.web_utils import (parse_times, chararray_as_string,
-                                     auto_ylog, make_plot)
+                                     auto_ylog, make_plot, isnull, toNone)
 
 # note: this expects that the environmental variable
 # will be set and accessible by the web server, and we
@@ -38,7 +39,8 @@ last_refresh = age = 0
 cache_data = {}
 enum_strings = {}
 
-ago_choices = ['1 day', '1 week', '4 weeks', '12 weeks', '1 year']
+ago_choices = ['2 hours', '8 hours', '1 day', '3 days', '1 week', '3 weeks',
+               '6 weeks', '12 weeks', '26 weeks', '1 year']
 
 
 def session_init(session, force_refresh=False):
@@ -59,10 +61,6 @@ def session_init(session, force_refresh=False):
         cache_data.update(cache.get_values_dict(time_ago=(5 + 2*age)))
     last_refresh = now
 
-def toNone(val):
-    if val in ('', 'None', None):
-        val = None
-    return val
 
 @app.route('/')
 def index():
@@ -287,19 +285,17 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>')
-@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>/<pv5>')
 @app.route('/plot/<date1>/')
 @app.route('/plot/<date1>/<date2>/')
 @app.route('/plot/<date1>/<date2>/<pv1>/')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>/')
-@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>/<pv5>/')
-def plot(date1='1week', date2=None, pv1=None, pv2=None, pv3=None, pv4=None, pv5=None):
+def plot(date1='1week', date2=None, pv1='', pv2='', pv3='', pv4=''):
     """plot with plain link, only command line args: see also formplot()
     """
     session_init(session)
-    if pv1 is None:
+    if isnull(pv1):
         if date2 is None:
             pv1 = date1
             date1 = '1week'
@@ -308,36 +304,35 @@ def plot(date1='1week', date2=None, pv1=None, pv2=None, pv3=None, pv4=None, pv5=
             pv1 = date2
             date2 = 'none'
 
-    if date1 is None: date1 = 'none'
-    if date2 is None: date2 = 'none'
-
-    if date1 == 'none' or len(date1) < 2:
-        date1 = '1week'
-    if date2 == 'none' or len(date2) < 2:
-        date2 = 'none'
-
     date1, date2 = parse_times(date1, date2)
-    tmin = date1.timestamp()
-    tmax = date2.timestamp()
 
-    print("Plot: ",  tmin, tmax, date1, date2, pv1)
+    if isnull(pv1): pv1 = ''
+    if isnull(pv2): pv2 = ''
+    if isnull(pv3): pv3 = ''
+    if isnull(pv4): pv4 = ''
+
 
     fig = ''
     pvdata = []
     related = []
-    if pv1 is not None:
-        related = cache.get_related(pv1, limit=20)
-
-    for pv in (pv1, pv2, pv3, pv4, pv5):
-        if pv in ('', 'None', None):
+    selected_pvs=[]
+    for pv in (pv1, pv2, pv3, pv4):
+        if isnull(pv):
             continue
+        this = cache_data.get(pv, None)
+        if this is None:
+            continue
+        selected_pvs.append(pv)
+        pvid = cache_data.get(pv, {id:-1})['id']
+        related.append((pv, pvid))
         pvinfo = archiver.get_pvinfo(pv)
         label  = "%s [%s]" % (pvinfo['description'], pv)
         dtype  = pvinfo['type'].lower()
         enums  = enum_strings.get(pv, ['Unknown'])
 
         ylog   = pvinfo['graph_type'].startswith('log')
-        t, y   = archiver.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
+        t, y   = archiver.get_data(pv, with_current=True,
+                                   tmin=date1.timestamp(), tmax=date2.timestamp())
 
         if dtype == 'string':
             y = [chararray_as_string(i) for i in y]
@@ -346,13 +341,41 @@ def plot(date1='1week', date2=None, pv1=None, pv2=None, pv3=None, pv4=None, pv5=
         current_y = y.pop()
         pvdata.append((pv, t, y, label, ylog, dtype, enums, current_t, current_y))
     if len(pvdata) > 0:
-        fig = make_plot(pvdata)
+        fig = make_plot(pvdata, size=(600, 450))
+
+    # now fix related to be list of (pvname, pvid) and so that we have the top 3
+    # scores for each PV and then order by total scores, up to 20:
+    related_work = {}
+    for pv1 in selected_pvs:
+        rel = list(cache.get_related(pv1, limit=20).items())
+        for i in range(min(len(rel), 5)):
+            pvname, score = rel.pop(0)
+            pvid = cache_data.get(pvname, {id:-1})['id']
+            if (pvname, pvid) not in related:
+                related.append((pvname, pvid))
+        for pvname, score in rel:
+            if pvname in related_work:
+                related_work[pvname] += score
+            else:
+                related_work[pvname] = score
+
+    for pvname, score in sorted(related_work.items(), key=lambda a: -a[1]):
+        pvid = cache_data.get(pvname, {id:-1})['id']
+        if (pvname, pvid) not in related:
+            related.append((pvname, pvid))
 
     return render_template('plot.html',
-                           related=related, time_ago=ago_choices[2],
+                           pv1=pv1, pv2=pv2, pv3=pv3, pv4=pv4,
+                           date1=date1.isoformat(),
+                           date2=date2.isoformat(),
+                           selected_pvs=selected_pvs,
+                           related=related,
+                           time_ago='1 week',
                            ago_choices=ago_choices,
-                           config=pvarch_config, fig=fig,
-                           last_refresh=last_refresh, age=age,
+                           config=pvarch_config,
+                           fig=fig,
+                           last_refresh=last_refresh,
+                           age=age,
                            cache_data=cache_data,
                            enum_strings=enum_strings)
 
@@ -373,8 +396,7 @@ def formplot():
         fdat =  form.items()
         # return render_template('showvars.html', **opts)
 
-        if pv2 in ('', None, 'None'):
-            pv2 = None
+        pv2 = toNone(pv2)
         if form.get('submit', 'From Present').lower().startswith('from'):
             date1 = form.get('time_ago', '1_days')
             return plot(pv, pv2=pv2, timevar='time_ago', date1=date1,

@@ -4,6 +4,19 @@ from dateutil.parser import parse as dateparser
 import numpy as np
 import json
 
+def isnull(x):
+    if x is None:
+        x = 'none'
+    if isinstance(x, bytes):
+        x = x.decode('utf-8')
+    x = x.strip().lower()
+    return x in ('', 'none')
+
+def toNone(val):
+    if isnull(val):
+        return None
+    return val
+
 def parse_times(date1='1 week', date2=None):
 
     """returns 2 datetimes for date1 and date2 values
@@ -26,10 +39,10 @@ def parse_times(date1='1 week', date2=None):
            "%Y-%m-%d %H:%M:%S"
        or a related string that can be parsed by dateutil.parser.parse.
     """
-    date1 = '1week' if date1 in ('', None) else date1.lower()
-    date2 = 'none'  if date2 in ('', None) else date2.lower()
+    date1 = '1week' if isnull(date1) else date1.lower()
+    date2 = 'none'  if isnull(date2) else date2.lower()
 
-    if date2 in ('', 'none'): # time ago
+    if isnull(date2):
         date1 = date1.lower()
         h_ago = 168
         if 'hour' in date1:
@@ -42,13 +55,17 @@ def parse_times(date1='1 week', date2=None):
             h_ago = 8760 * float(date1.replace('years', '').replace('year', ''))
 
         now = time()
-        dt1 = datetime.fromtimestamp(now - 3600.0*h_ago)
-        dt2 = datetime.fromtimestamp(now)
+        dt1 = datetime.fromtimestamp(int(now - 3600.0*h_ago))
+        dt2 = datetime.fromtimestamp(int(now))
     else: # provided start/stop times
+        if '.' in date1:
+            date1 = date1[:date1.index('.')]
+        if '.' in date2:
+            date2 = date2[:date2.index('.')]
+
         dt1 = dateparser(date1)
         dt2 = dateparser(date2)
     return (dt1, dt2)
-
 
 
 def chararray_as_string(val):
@@ -101,7 +118,7 @@ def auto_ylog(vals):
 ## -'Other': hoverClosestGl2d, hoverClosestPie, toggleHover, resetViews, toImage: sendDataToCloud, toggleSpikelines, resetViewMapbox
 
 
-def make_plot(pvdata):
+def make_plot(pvdata, size=(700, 500)):
     """make plotly plot from pvdata:
     (ts, y, label, ylog, dtype, enums, current_t, current_y)
     """
@@ -116,7 +133,7 @@ def make_plot(pvdata):
         if title is None:
             title = pv
 
-    layout = {'title': title,  'height': 575,  'width': 750,
+    layout = {'title': title, 'width': size[0], 'height': size[1],
               'showlegend': len(data) > 1,
               'hovermode': 'closest',
               'xaxis': {'title': {'text': 'Date'}, 'type': 'date'},
