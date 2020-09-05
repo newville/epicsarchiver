@@ -1,13 +1,15 @@
 {% extends "layout.html" %}
 {% block body %}
 
+<a href="{{ url_for('static', filename='style.css') }}"/>stylesheet </a>
+
 <form action="{{ url_for('formplot') }}" method=post>
 
-  <table>
+  <table padding=5>
   <tr>
    <td valign=top>
 
-  <table border=2>
+  <table border=0.5 padding=1>
     <tr> <th colspan=2>Time Range:</th><th colspan=2> PV Names</th><tr>
     <tr>
       <td> <input type=submit name=submit value='Use Date Range:'></td>
@@ -36,7 +38,7 @@
       <td>
 	<select name='time_ago' style="width: 125px;">
 	  {% for c in ago_choices %}
-	  <option value={{c}}  {% if c==time_ago %} selected=1 {% endif %}> {{c}}</option>
+	  <option value='{{c}}' {% if c==time_ago %} selected=1 {% endif %}> {{c}}</option>
 	  {% endfor %}
 	</select>
       </td>
@@ -50,10 +52,10 @@
   <tr>
     <td>Replot for Times:</td>
     <td colspan=3>
-      &nbsp; <a href="/pvarch/plot/1week//{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past week </a>
-      &nbsp; <a href="/pvarch/plot/3weeks//{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 3 weeks </a>
-      &nbsp; <a href="/pvarch/plot/12weeks//{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 12 weeks </a>
-      &nbsp; <a href="/pvarch/plot/52weeks//{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 52 weeks </a>
+      &nbsp; <a href="/pvarch/plot/1week/none/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past week </a>
+      &nbsp; <a href="/pvarch/plot/3weeks/none/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 3 weeks </a>
+      &nbsp; <a href="/pvarch/plot/12weeks/none/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 12 weeks </a>
+      &nbsp; <a href="/pvarch/plot/52weeks/none/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 52 weeks </a>
     </tr>
 
   <tr><td colspan=4><hr></td></tr>
@@ -92,9 +94,9 @@
 </td>
 <td valign='top'>
 
-  <p><b>Related PVs:</b> click PV name to plot alone,<br>
-  or select up to 4 to plot together:
-  <input type=submit name=submit value='Plot Selected:'></p>
+  <p><b>Related PVs:</b></p>
+  Click PV name to plot alone, or<br>
+  select up to 4 to <input type=submit name=submit value='plot selected:'></p>
 
   <table>
     <tr><th>PV Name</th><th>Plot?</th></tr>
