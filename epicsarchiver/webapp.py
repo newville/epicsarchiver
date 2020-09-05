@@ -14,7 +14,7 @@ import numpy as np
 from epicsarchiver import get_config, Archiver, tformat
 
 from epicsarchiver.web_utils import (parse_times, chararray_as_string,
-                                     auto_ylog, make_plot, isnull, toNone)
+                                     auto_ylog, make_plot, isnull, null2blank)
 
 # note: this expects that the environmental variable
 # will be set and accessible by the web server, and we
@@ -291,27 +291,31 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>/')
-def plot(date1='1week', date2=None, pv1='', pv2='', pv3='', pv4=''):
+def plot(date1='1 week', date2=None, pv1='', pv2='', pv3='', pv4='', time_ago=None):
     """plot with plain link, only command line args: see also formplot()
     """
     session_init(session)
+    if time_ago is None:
+        time_ago = '1 week'
+    print("Plot top ", date1, date2, pv1, pv2, pv3, pv4, time_ago)
+
     if isnull(pv1):
         if date2 is None:
             pv1 = date1
-            date1 = '1week'
+            date1 = time_ago = '1 week'
             date2 = 'none'
         else:
+            time_ago = date1
             pv1 = date2
             date2 = 'none'
 
+    print("Plot to parse_time date1= ", date1, "date2= ", date2)
     date1, date2 = parse_times(date1, date2)
 
-    if isnull(pv1): pv1 = ''
-    if isnull(pv2): pv2 = ''
-    if isnull(pv3): pv3 = ''
-    if isnull(pv4): pv4 = ''
-
-
+    pv1 = null2blank(pv1)
+    pv2 = null2blank(pv2)
+    pv3 = null2blank(pv3)
+    pv4 = null2blank(pv4)
     fig = ''
     pvdata = []
     related = []
@@ -327,6 +331,7 @@ def plot(date1='1week', date2=None, pv1='', pv2='', pv3='', pv4=''):
         related.append((pv, pvid))
         pvinfo = archiver.get_pvinfo(pv)
         label  = "%s [%s]" % (pvinfo['description'], pv)
+        label  = pvinfo['description']
         dtype  = pvinfo['type'].lower()
         enums  = enum_strings.get(pv, ['Unknown'])
 
@@ -341,13 +346,13 @@ def plot(date1='1week', date2=None, pv1='', pv2='', pv3='', pv4=''):
         current_y = y.pop()
         pvdata.append((pv, t, y, label, ylog, dtype, enums, current_t, current_y))
     if len(pvdata) > 0:
-        fig = make_plot(pvdata, size=(600, 450))
+        fig = make_plot(pvdata, size=(725, 575))
 
     # now fix related to be list of (pvname, pvid) and so that we have the top 3
     # scores for each PV and then order by total scores, up to 20:
     related_work = {}
-    for pv1 in selected_pvs:
-        rel = list(cache.get_related(pv1, limit=20).items())
+    for apv in selected_pvs:
+        rel = list(cache.get_related(apv, limit=20).items())
         for i in range(min(len(rel), 5)):
             pvname, score = rel.pop(0)
             pvid = cache_data.get(pvname, {id:-1})['id']
@@ -364,13 +369,14 @@ def plot(date1='1week', date2=None, pv1='', pv2='', pv3='', pv4=''):
         if (pvname, pvid) not in related:
             related.append((pvname, pvid))
 
+    print("-> plot.html ", date1, date2, time_ago, pv1, pv2, pv3,  pv4)
     return render_template('plot.html',
                            pv1=pv1, pv2=pv2, pv3=pv3, pv4=pv4,
                            date1=date1.isoformat(),
                            date2=date2.isoformat(),
                            selected_pvs=selected_pvs,
                            related=related,
-                           time_ago='1 week',
+                           time_ago=time_ago,
                            ago_choices=ago_choices,
                            config=pvarch_config,
                            fig=fig,
@@ -383,28 +389,38 @@ def plot(date1='1week', date2=None, pv1='', pv2='', pv3='', pv4=''):
 @app.route('/formplot', methods=['GET', 'POST'])
 def formplot():
     session_init(session)
-    print("Form Plot ", request.form)
 
     if request.method == 'POST':
         form = request.form
-        pv = toNone(form.get('pv', ''))
-        pv2 = toNone(form.get('pv2', ''))
-        pvmin = toNone(form.get('pvmin', ''))
-        pvmax = toNone(form.get('pvmax', ''))
-        pv2min = toNone(form.get('pv2min', ''))
-        pv2max = toNone(form.get('pv2max', ''))
-        fdat =  form.items()
-        # return render_template('showvars.html', **opts)
+        print("FORM " , form.items())
+        date1  = form.get('date1', '')
+        date2  = form.get('date2', '')
 
-        pv2 = toNone(pv2)
-        if form.get('submit', 'From Present').lower().startswith('from'):
-            date1 = form.get('time_ago', '1_days')
-            return plot(pv, pv2=pv2, timevar='time_ago', date1=date1,
-                        pvmin=pvmin, pvmax=pvmax, pv2min=pv2min, pv2max=pv2max, fdat=fdat)
+        submit = form.get('submit', 'Time From Present').lower()
+
+        if 'plot selected' in submit:
+            pvs = dict(pv1=None, pv2=None, pv3=None, pv4=None)
+            i = 0
+            pv1 = pv2 = pv3 = pv4 = None
+            for key, val in form.items():
+                if key.startswith('sel_'):
+                    pvid = int(key[4:])
+                    for pvname, pvdata in cache_data.items():
+                        if int(pvdata['id']) == int(pvid):
+                            i = i+1
+                            pvs['pv%d' % i] = pvname
+                            break
+                    if i == 4:
+                        break
         else:
-            date1 = form.get('date1', None)
-            date2 = form.get('date2', None)
-            return plot(pv, pv2=pv2, timevar='date_range', date1=date1, date2=date2,
-                        pvmin=pvmin, pvmax=pvmax, pv2min=pv2min, pv2max=pv2max, fdat=fdat)
-
+            pvs = dict(pv1=null2blank(form.get('pv1', '')),
+                       pv2=null2blank(form.get('pv2', '')),
+                       pv3=null2blank(form.get('pv3', '')),
+                       pv4=null2blank(form.get('pv4', '')))
+            if 'from present' in submit:
+                date1 = form.get('time_ago', '1 week')
+                pvs['time_ago'] = date1
+                date2 = None
+        print(" -> PLOT ", date1, date2, pvs)
+        return plot(date1=date1, date2=date2, **pvs)
     return Response(" Create Plot based on Form Submission(Date Range) %s" %  form.items())

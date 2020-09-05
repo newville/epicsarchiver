@@ -12,9 +12,9 @@ def isnull(x):
     x = x.strip().lower()
     return x in ('', 'none')
 
-def toNone(val):
+def null2blank(val):
     if isnull(val):
-        return None
+        return ''
     return val
 
 def parse_times(date1='1 week', date2=None):
