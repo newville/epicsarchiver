@@ -17,52 +17,59 @@ def null2blank(val):
         return ''
     return val
 
-def parse_times(date1='1 week', date2=None):
-
+def parse_times(date1, date2):
     """returns 2 datetimes for date1 and date2 values
 
     Options
     --------
-    date1 (string):          string for initial date ['1 week']
-    date2 (string or None):  string for final date [None]
+    date1 (string, int, float):  initial date
+    date2 (string, int, float):  final date
 
     Notes:
     ------
-    1.  if date2 is '', None, or 'None' then the meaning is "from now", and
-        the date1 string can be like
+    1.  int/float values will be treated as timestamps
+    2.  if date2 is 'now', then date1 will be interpreted as
+        'time ago', and assumed to be like
                '3.5 hour', '4 days', '3 weeks', '1 year'
-        with 'hour', 'day', 'week', and 'year' (and plurals) all understood
-        in terms of an integer number of hours, and the rest of the string
-        treated as a float.
+        with 'hour', 'day', 'week', and 'year' (and plurals) all
+        converted to an integer number of hours, and the rest of
+        the string treated as a float.
 
-    2. otherwise the the two date values should be strings of the form
+        with date2='now', an unrecognized value for date1 with give '1week'
+
+    3. otherwise the the two date values should be strings of the form
            "%Y-%m-%d %H:%M:%S"
        or a related string that can be parsed by dateutil.parser.parse.
-    """
-    date1 = '1week' if isnull(date1) else date1.lower()
-    date2 = 'none'  if isnull(date2) else date2.lower()
+    4. time is truncated to the nearest second
+   """
+    if isinstance(date1, (float, int)):
+        date1 = datetime.fromtimestamp(int(date1)).isoformat()
+    if isinstance(date2, (float, int)):
+        date2 = datetime.fromtimestamp(int(date2)).isoformat()
 
-    if isnull(date2):
+    date1 = '1week' if isnull(date1) else date1.lower()
+    date2 = 'now'   if isnull(date2) else date2.lower()
+
+    if date2 == 'now':
         date1 = date1.lower()
-        h_ago = 168
-        if 'hour' in date1:
-            h_ago =    1 * float(date1.replace('hours', '').replace('hour', ''))
+        hago = 168
+        if 'hour' in d1:
+            hago =    1 * float(date1.replace('hours', '').replace('hour', ''))
         elif 'day' in date1:
-            h_ago =   24 * float(date1.replace('days', '').replace('day', ''))
+            hago =   24 * float(date1.replace('days', '').replace('day', ''))
         elif 'week' in date1:
-            h_ago =  168 * float(date1.replace('weeks', '').replace('week', ''))
+            hago =  168 * float(date1.replace('weeks', '').replace('week', ''))
         elif 'year' in date1:
-            h_ago = 8760 * float(date1.replace('years', '').replace('year', ''))
+            hago = 8760 * float(date1.replace('years', '').replace('year', ''))
 
         now = time()
-        dt1 = datetime.fromtimestamp(int(now - 3600.0*h_ago))
+        dt1 = datetime.fromtimestamp(int(now - 3600.0*hago))
         dt2 = datetime.fromtimestamp(int(now))
-    else: # provided start/stop times
+    else:
         if '.' in date1:
             date1 = date1[:date1.index('.')]
         if '.' in date2:
             date2 = date2[:date2.index('.')]
-
         dt1 = dateparser(date1)
         dt2 = dateparser(date2)
     return (dt1, dt2)
@@ -118,7 +125,7 @@ def auto_ylog(vals):
 ## -'Other': hoverClosestGl2d, hoverClosestPie, toggleHover, resetViews, toImage: sendDataToCloud, toggleSpikelines, resetViewMapbox
 
 
-def make_plot(pvdata, size=(700, 500)):
+def make_plot(pvdata, size=(725, 575)):
     """make plotly plot from pvdata:
     (ts, y, label, ylog, dtype, enums, current_t, current_y)
     """
