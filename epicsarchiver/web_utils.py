@@ -3,8 +3,8 @@ from datetime import datetime, date, timedelta
 from dateutil.parser import parse as dateparser
 import numpy as np
 import json
-from plotly.io import to_json
 
+from .util import normalize_pvname
 
 def parse_times(date1='1 week', date2=None):
 
@@ -135,3 +135,72 @@ def make_plot(pvdata, ignore_last_point=True):
     return to_json({'data': data,
                     'layout': layout,
                     'config': config})
+
+
+
+###
+###
+html_top = """{% extends "layout.html" %}
+{% block body %}
+
+<table>
+"""
+
+html_bottom = """</table>
+{% endblock %}
+"""
+
+html_label  = " <tr><td class='section'>  %s </td><td></td></tr> "
+html_hr     = " <tr><td colspan=2><hr></td></tr> "
+html_space  = " <tr><td colspan=2>&nbsp;</td></tr> "
+html_pvrow  = """
+  <tr><td class='pvlabel'> %s </td>
+      <td class='pvlink'> %s </td>
+  </tr>"""
+
+showpv = " {{ showpv('%s') }} "
+def tmpl2jinja(file):
+    with open(file, "r") as fh:
+        lines = fh.readlines()
+        
+    buff = [html_top]
+    for line in lines:
+        line = line[:-1].strip()
+        if line.startswith('#') or len(line) < 2:
+            continue
+        elif line.startswith('['):
+            i = line.find(']')
+            if i == -1:
+                i= len(line)
+            buff.append(html_label % (line[1:i]))
+
+            
+        elif line.startswith('--'):
+            buff.append(html_hr)
+        elif line.startswith('<>'):
+            buff.append(html_space)
+        else:
+            words = [w.strip() for w in line.split('|')]
+ 
+            pvnames = words.pop(0)
+            pvnames = [normalize_pvname(w.strip()) for w in pvnames.split(',')]
+            desc, format, outtype = None, None, None
+
+            if len(words) > 0:
+                desc = words.pop(0).strip()
+                if len(desc) == 0:
+                    desc = None
+                if len(words) > 0:
+                    format = words.pop(0).strip()
+            if format == 'yes/no':
+                format = None
+                outtype = 'yes/no'
+
+            pvlinks = ', '.join([showpv % n for n in pvnames])
+            buff.append(html_pvrow % (desc, pvlinks))
+
+    buff.append(html_bottom)
+    return '\n'.join(buff)
+
+
+
