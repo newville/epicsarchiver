@@ -1,22 +1,21 @@
 #!/usr/bin/env python
 import os
 import sys
-
 import toml
-
+import json
 from flask import (Flask, request, session, redirect, url_for,
                    abort, render_template, flash, Response)
 
-from time import time, mktime, strftime
-from datetime import datetime, timedelta
-from dateutil.parser import parse as dateparser
-import numpy as np
+from time import time, strftime, localtime
+from datetime import datetime
 
+import numpy as np
 
 from epicsarchiver import get_config, Archiver, tformat
 
-
-# sys.path.insert(0, config.template_dir)
+from epicsarchiver.web_utils import (parse_times, chararray_as_string,
+                                     auto_ylog, make_plot, PlotData,
+                                     isnull, null2blank)
 
 # note: this expects that the environmental variable
 # will be set and accessible by the web server, and we
@@ -39,80 +38,18 @@ app.secret_key = pvarch_config['web_secret_key']
 archiver = cache = None
 last_refresh = age = 0
 cache_data = {}
+saved_arrays = {}
 enum_strings = {}
 
-ago_choices = {'1 hour': 1, '8 hour': 8, '1 day': 24,
-               '4 days': 96, '1 week': 168, '4 weeks': 672,
-               '12 weeks': 2016, '1 year': 8736}
+ago_choices = ['2 hours', '8 hours', '1 day', '3 days', '1 week', '3 weeks',
+               '6 weeks', '12 weeks', '26 weeks', '1 year']
 
 
-
-def parse_times(date1='1 week', date2=None):
-
-    """returns 2 datetimes for date1 and date2 values
-
-    Options
-    --------
-    date1 (string):          string for initial date ['1 week']
-    date2 (string or None):  string for final date [None]
-
-    Notes:
-    ------
-    1.  if date2 is '', None, or 'None' then the meaning "from now", and
-        the date1 string can be like
-               '3.5 hour', '4 days', '3 weeks', '1 year'
-        with 'hour', 'day', 'week', and 'year' (and plurals) all understood
-        in terms of an integer number of hours, and the rest of the string
-        treated as a float.
-
-    2. otherwise the the two date values should be strings of the form
-           "%Y-%m-%d %H:%M:%S"
-       or a related string that can be parsed by dateutil.parser.parse.
-    """
-    date1 = 'day'  if date1 in ('', None) else date1.lower()
-    date2 = 'none' if date2 in ('', None) else date2.lower()
-
-    if date2 in ('', 'none'): # time ago
-        if 'hour' in date1:
-            factor = 1
-            date1 = float(date1.replace('hour', '').replace('hours', ''))
-        elif 'day' in date1:
-            factor = 24
-            date1 = float(date1.replace('day', '').replace('days', ''))
-        elif 'week' in date1:
-            factor = 24*7
-            date1 = float(date1.replace('week', '').replace('weeks', ''))
-        elif 'year' in date1:
-            factor = 24*365
-            date1 = float(date1.replace('year', '').replace('years', ''))
-        now = time.time()
-        dt1 = datetime.fromtimestamp(now - 3600*factor*date1)
-        dt2 = datetime.fromtimestamp(now)
-    else: # provided start/stop times
-        dt1 = dateparser(date1)
-        dt2 = dateparser(date2)
-    return (dt1, dt2)
-
-
-def convert_string_data(val):
-    """convert numpy string arrays for Waveform PVs to strings"""
-    tval = val[:]
-    for c in ('\n', '\r', '[', ']', '(', ')', ','):
-        tval = tval.replace(c, '')
-    try:
-        val = [int(i) for i in tval.split()]
-    except:
-        return val
-    val.append(0)
-    return ''.join([chr(int(i)) for i in val[:val.index(0)]])
-
-
-def session_init(session, force_refresh=False):
+def update_data(session, force_refresh=False):
     global pvarch_config, archiver, cache
     global cache_data, enum_strings
     global last_refresh, age
     if archiver is None:
-        print("initializer archiver: ", pvarch_config)
         archiver = Archiver(**pvarch_config)
         cache = archiver.cache
 
@@ -126,14 +63,20 @@ def session_init(session, force_refresh=False):
         cache_data.update(cache.get_values_dict(time_ago=(5 + 2*age)))
     last_refresh = now
 
-def toNone(val):
-    if val in ('', 'None', None):
-        val = None
-    return val
+    # drop stale saved arrays
+    to_drop = []
+    for key, val in saved_arrays.items():
+        insert_time = val[0]
+        if time() > (val[0] + 600.0):
+            to_drop.append(key)
+    for k in to_drop:
+        saved_arrays.pop(k)
+
+
 
 @app.route('/')
 def index():
-    session_init(session)
+    update_data(session)
     return render_template('show_config.html',
                            config=pvarch_config,
                            last_refresh=last_refresh, age=age,
@@ -141,7 +84,7 @@ def index():
 
 @app.route('/status')
 def status():
-    session_init(session)
+    update_data(session)
     return render_template('status.html',
                            status=archiver.status_report(),
                            admin=session['is_admin'])
@@ -149,7 +92,7 @@ def status():
 
 @app.route('/pagex')
 def pagex():
-    session_init(session)
+    update_data(session)
     return render_template('page1.html',
                            config=pvarch_config,
                            last_refresh=last_refresh, age=age,
@@ -167,7 +110,7 @@ def help():
 
 @app.route('/alerts')
 def alerts():
-    session_init(session)
+    update_data(session)
     return render_template('alerts.html',
                            alerts=cache.get_alerts(),
                            admin=session['is_admin'],
@@ -176,7 +119,7 @@ def alerts():
 
 @app.route('/editalert/<int:alertid>')
 def editalert(alertid=None):
-    session_init(session)
+    update_data(session)
     alerts = cache.get_alerts()
     thisalert = None
     for a in alerts:
@@ -196,7 +139,7 @@ def editalert(alertid=None):
 
 @app.route('/submit_alertedits', methods=['GET', 'POST'])
 def submit_alertedits(options=None):
-    session_init(session)
+    update_data(session)
 
     if request.method == 'POST':
         alertid  = int(request.form['alertid'])
@@ -242,13 +185,13 @@ def submit_alertedits(options=None):
 @app.route('/admin')
 @app.route('/admin/<option>')
 def admin(option=None):
-    session_init(session)
+    update_data(session)
     return render_template('admin.html',
                            admin=session['is_admin'])
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    session_init(session)
+    update_data(session)
     session['username'] = None
     session['is_admin'] = False
     if request.method == 'POST':
@@ -266,7 +209,7 @@ def login():
 
 @app.route('/logout')
 def logout():
-    session_init(session)
+    update_data(session)
     session['is_admin'] = False
     return redirect(url_for('show', page='General'))
 
@@ -275,7 +218,7 @@ def show(page=None):
     """
     Could be translated to static pages ?
     """
-    session_init(session)
+    update_data(session)
     admin = session['is_admin']
     p = WebStatus(cache=None, dbconn=dbconn, admin=admin)
     page = str(page)
@@ -299,7 +242,7 @@ def show(page=None):
 @app.route('/data/<pv>/<timevar>/<date1>/<date2>')
 @app.route('/data/<pv>/<timevar>/<date1>/<date2>/<extra>')
 def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
-    session_init(session)
+    update_data(session)
     # admin = session['is_admin']
 
     if date1 is not None and date1.endswith('.dat'):
@@ -328,8 +271,8 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
         for _i, _enum in enumerate(enum_strings.get(pv, ['Unknown'])):
             buff.append('#   %i: %s' % (_i, _enum))
 
-    if dat.dtype.type == np.string_:
-        dat = convert_string_data(dat)
+    if dat.dtype.type == np.string:
+        dat = chararray_as_string(dat)
         fmt = '%s'
 
     buff.append('#---------------------------------------------------')
@@ -344,109 +287,139 @@ def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
         buff.append(' %.1f  %s  %s  %s' % (_t, val, ddate, dtime))
     return Response("\n".join(buff), mimetype='text/plain')
 
-@app.route('/plot/<date1>/<date2>/<pv1>')
-@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>')
-@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>')
-@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>')
-@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>/<pv5>')
-def plot(date1='day', date2='none', pv1=None, pv2=None,
-         pv3=None, pv4=None, pv5=None):
 
-    session_init(session)
 
-    date1, date2 = parse_times(date1, date2)
-    tmin = date1.timestamp()
-    tmax = date2.timestamp()
 
-    print("Plot: ",  tmin, tmax, time_ago)
 
-    pvdata = []
+@app.route('/plot/<date1>/<date2>/<pv1>/')
+@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/')
+@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/')
+@app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>/')
+def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
+    """plot with plain link, only command line args: see also formplot()
+    """
+    update_data(session)
+    if time_ago is None:
+        time_ago = '1 week'
+
+    dt1, dt2 = parse_times(date1, date2)
+    # is_current = is_current or abs(date2.timestamp() - time()) < 60.0
+
+    pv1 = null2blank(pv1)
+    pv2 = null2blank(pv2)
+    pv3 = null2blank(pv3)
+    pv4 = null2blank(pv4)
+    fig = ''
+    plotdata = []
     related = []
-    if pv1 is not None:
-        related = cache.get_related(pv, limit=20)
-
-    for pv in (pv1, pv2, pv3, pv4, pv5):
+    selected_pvs=[]
+    for pv in (pv1, pv2, pv3, pv4):
+        if isnull(pv):
+            continue
+        this = cache_data.get(pv, None)
+        if this is None:
+            continue
+        selected_pvs.append(pv)
+        pvid = cache_data.get(pv, {id:-1})['id']
+        related.append((pv, pvid))
         pvinfo = archiver.get_pvinfo(pv)
         label  = "%s [%s]" % (pvinfo['description'], pv)
+        label  = pvinfo['description']
         dtype  = pvinfo['type'].lower()
-        enums  = enum_strings.get(pv, ['Unknown'])
+        if dtype == 'enum':
+            enum_labels = enum_strings.get(pv, ['Unknown'])
+        else:
+            enum_labels = None
 
-        ylog   = pvinfo['graph_type'].startswith('log')
-        t, y   = archiver.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
+        force_ylog   = pvinfo['graph_type'].startswith('log')
+        t, y =  archiver.get_data(pv, with_current=True,
+                                   tmin=dt1.timestamp(), tmax=dt2.timestamp())
+
         if dtype == 'string':
-            y = [convert_string_data(i) for i in y]
-        pvdata.append((t, y, label, ylog, dtype, enums))
+            y = [chararray_as_string(i) for i in y]
 
-    if len(pvdata) == 1 and pvdata[0][4] == 'string':
+        thisplot = PlotData(t=t, y=y, pvname=pv, label=label,
+                            force_ylog=force_ylog,
+                            enum_labels=enum_labels)
+        saved_arrays[pv] = (time(), thisplot)
+        plotdata.append(thisplot)
 
+    if len(plotdata) > 0:
+        fig = make_plot(plotdata)
 
-    fig, pvdata, pv2data = None, None, None
-    print(" getting data ")
-    if ts is not None:
-        current_ts = ts.pop()
-        current_val =  dat.pop()
+    # now fix related to be list of (pvname, pvid) and so that we have the top 3
+    # scores for each PV and then order by total scores, up to 20:
+    related_work = {}
+    for apv in selected_pvs:
+        rel = list(cache.get_related(apv, limit=20).items())
+        for i in range(min(len(rel), 5)):
+            pvname, score = rel.pop(0)
+            pvid = cache_data.get(pvname, {id:-1})['id']
+            if (pvname, pvid) not in related:
+                related.append((pvname, pvid))
+        for pvname, score in rel:
+            if pvname in related_work:
+                related_work[pvname] += score
+            else:
+                related_work[pvname] = score
 
-        fig = make_plot(ts, dat, ylabel=ylabel,
-                        enums=enums,  ylog=ylog,
-                        ts2=ts2, dat2=dat2, y2label=y2label,
-                        enums2=enums2, y2log=y2log,
-                        tmin=tmin, tmax=tmax,
-                        ymin=pvmin, ymax=pvmax,
-                        y2min=pv2min, y2max=pv2max)
-
-    opts = {'pv': pv,
-            'fig' : fig,
-            'pvcurrent': pvcurrent,
-            'pv2current': pv2current,
-            'pvdata': pvdata,
-            'pv2data': pv2data,
-            'pvmin': pvmin,
-            'pvmax': pvmax,
-            'pv2min': pv2min,
-            'pv2max': pv2max,
-            'fdat': fdat,
-            'date1': date1,
-            'date2': date2,
-            'sdate1': date1,
-            'timestr':  timestr,
-            'timevar': timevar,
-            'time_ago': time_ago,
-            'messages': messages,
-            'related': related,
-            'ago_choices':  ago_choices}
-
+    for pvname, score in sorted(related_work.items(), key=lambda a: -a[1]):
+        try:
+            other = cache_data[pvname]['id']
+        except:
+            pvid  = -1
+            print("error finding pv id for ", pvname)
+        if pvid>-1 and (pvname, pvid) not in related:
+            related.append((pvname, pvid))
 
     return render_template('plot.html',
+                           pv1=pv1, pv2=pv2, pv3=pv3, pv4=pv4,
+                           date1=dt1.isoformat(),
+                           date2=dt2.isoformat(),
+                           selected_pvs=selected_pvs,
+                           related=related,
+                           time_ago=time_ago,
+                           ago_choices=ago_choices,
                            config=pvarch_config,
-                           last_refresh=last_refresh, age=age,
+                           fig=fig,
+                           last_refresh=last_refresh,
+                           age=age,
                            cache_data=cache_data,
-                           enum_strings=enum_strings,
-                           **opts)
+                           enum_strings=enum_strings)
 
 
 @app.route('/formplot', methods=['GET', 'POST'])
 def formplot():
-    if request.method == 'POST':
-        form = request.form
-        pv = toNone(form.get('pv', ''))
-        pv2 = toNone(form.get('pv2', ''))
-        pvmin = toNone(form.get('pvmin', ''))
-        pvmax = toNone(form.get('pvmax', ''))
-        pv2min = toNone(form.get('pv2min', ''))
-        pv2max = toNone(form.get('pv2max', ''))
-        fdat =  form.items()
-        # return render_template('showvars.html', **opts)
+    if request.method != 'POST':
+        return Response(" Create Plot based on Form Submission(Date Range) %s" %  form.items())
 
-        if pv2 in ('', None, 'None'):
-            pv2 = None
-        if form.get('submit', 'From Present').lower().startswith('from'):
-            date1 = form.get('time_ago', '1_days')
-            return plot(pv, pv2=pv2, timevar='time_ago', date1=date1,
-                        pvmin=pvmin, pvmax=pvmax, pv2min=pv2min, pv2max=pv2max, fdat=fdat)
-        else:
-            date1 = form.get('date1', None)
-            date2 = form.get('date2', None)
-            return plot(pv, pv2=pv2, timevar='date_range', date1=date1, date2=date2,
-                        pvmin=pvmin, pvmax=pvmax, pv2min=pv2min, pv2max=pv2max, fdat=fdat)
+    update_data(session)
+    form = request.form
+    date1  = form.get('date1', '1 week')
+    date2  = form.get('date2', 'now')
+    submit = form.get('submit', 'Time From Present').lower()
 
-    return Response(" Create Plot based on Form Submission(Date Range) %s" %  form.items())
+    if 'plot selected' in submit:
+        pvs = dict(pv1=None, pv2=None, pv3=None, pv4=None)
+        i = 0
+        pv1 = pv2 = pv3 = pv4 = None
+        for key, val in form.items():
+            if key.startswith('sel_'):
+                pvid = int(key[4:])
+                for pvname, pvdata in cache_data.items():
+                    if int(pvdata['id']) == int(pvid):
+                        i = i+1
+                        pvs['pv%d' % i] = pvname
+                        break
+                if i == 4:
+                    break
+    else:
+        pvs = dict(pv1=null2blank(form.get('pv1', '')),
+                   pv2=null2blank(form.get('pv2', '')),
+                   pv3=null2blank(form.get('pv3', '')),
+                   pv4=null2blank(form.get('pv4', '')))
+        if 'from present' in submit:
+            date1 = form.get('time_ago', '1 week')
+            pvs['time_ago'] = date1
+            date2 = None
+    return plot(date1=date1, date2=date2, **pvs)

@@ -1,140 +1,120 @@
 {% extends "layout.html" %}
 {% block body %}
 
-<table><tr>
+<a href="{{ url_for('static', filename='style.css') }}"/>stylesheet </a>
+<p>
+<form action="{{ url_for('formplot') }}" method=post>
+
+  <table padding=5>
+  <tr>
    <td valign=top>
 
-  <form action="{{ url_for('formplot') }}" method=post>
-  <table border=0>
-    <tr><td>PV 1:</td><td><input size=30 type=text name=pv value='{{pv|safe}}'></td>
-      <td>PV 2:
-	{% if pv2 is not none %}
-	   </td><td><input size=30 type=text name=pv2 value='{{pv2|safe}}'></td></tr>
-	{% else %}
-	   </td><td><input size=30 type=text name=pv2 value=''></td></tr>
-	{% endif %}
-
+  <table border=0.5 padding=1>
+    <tr> <th colspan=2>Time Range:</th><th colspan=2> PV Names</th><tr>
     <tr>
-      <td>Range:</td>
-    <td><input size=12 type=text name=pvmin value='{{pvmin|safe}}'>:
-	<input size=12 type=text name=pvmax value='{{pvmax|safe}}'>
-    <td></td>
-    <td><input size=12 type=text name=pv2min value='{{pv2min|safe}}'>:
-	<input size=12 type=text name=pv2max value='{{pv2max|safe}}'>
-    </td></tr>
-    <tr><td><input type=submit name=submit value='From Present' ></td><td colspan=3>
-	<select name='time_ago' style="width: 100px;">
-	  {% for c in ago_choices %}
-	  <option value={{c.val}}  {% if c.val == time_ago  %} selected=1 {% endif %}> {{c.label}}</option>
-	  {% endfor %}
-	  </select>
-	</td></tr>
-    <tr><td><input type=submit name=submit value='Date Range'></td>
-      <td colspan=4>
-	<input type='text' id="date1" name="date1" > <button id="date1_trig">...</button>
-	<input type='text' id="date2" name="date2" > <button id="date2_trig">...</button>
-	<script type='text/javascript'>
-
-	 function setdate2(cal) {
-	     var date  = cal.date;
-	     var time  = date.getTime()
-	     var f1    = document.getElementById("date1");
-	     var f2    = document.getElementById("date2");
-	     var tago  = document.getElementById("timevar");
-	     var tarr  = new Array();
-	     tarr      = tago.value.split(' ');
-	     if (f1 == cal.params.inputField) {
-		 var tunit = Date.MINUTE;
-		 var tstr = tarr[1].substring(0,2);
-		 if      (tstr == 'ho'){ tunit= Date.HOUR;   }
-		 else if (tstr == 'we'){ tunit= Date.WEEK;   }
-		 else if (tstr == 'da'){ tunit= Date.DAY;   }
-		 else if (tstr == 'mo'){ tunit= Date.DAY*31; }
-		 time     += tarr[0] * tunit;
-		 var date2 = new Date(time);
-		 f2.value  = date2.print("%Y-%m-%d %H:%M:%S");
-	       }
-	 }
-	 Calendar.setup({inputField: "date1",
-			button: "date1_trig",
-			onUpdate: setdate2,
-			ifFormat: "%Y-%m-%d %H:%M:%S",
-			showsTime: true,
-			timeFormat: 24,
-			showOthers: true,
-			singleClick: false,
-			weekNumbers: false });
-	 Calendar.setup({inputField: "date2",
-			button: "date2_trig",
-			ifFormat: "%Y-%m-%d %H:%M:%S",
-			showsTime: true,
-			timeFormat: 24,
-			showOthers: true,
-			singleClick: false,
-			weekNumbers: false });
-     </script>
-     </td></tr>
-      {% if messages is not none %}
-	<tr><td>Warnings:</td><td colspan=3> <b>{{ messages }}</b></td></tr>
-     {% endif %}
-
-
-    <tr><td colspan=2>
-	<a href="/pvarch/data/{{pv}}/{{timestr}}/pv1.dat"> {{pv|safe}}</a> = {{pvcurrent}}
-	</td>
-    {% if pv2 is not none %}
-	<td colspan=2>
-	<a href="/pvarch/data/{{pv2}}/{{timestr}}/pv2.dat"> {{pv2|safe}}</a> = {{pv2current}}
-	</td>
-    {% endif %}
+      <td> <input type=submit name=submit value='Use Date Range:'></td>
+      <td>
+	<input type='text' id="date1" name="date1" style="width: 125px;" value={{date1}}>
+	<script type="text/javascript">
+	  $(function(){ $('*[name=date1]').appendDtpicker(); });
+	</script>
+    </td>
+      </td>
+      <td>PV 1:</td> <td><input style="width: 275px;" type=text name='pv1' value='{{pv1|safe}}'></td>
+    </tr>
+    <tr>
+      <td>End Date:</td>
+      <td>
+	<input type='text' id="date2" name="date2" style="width: 125px;" value={{date2}}>
+	<script type="text/javascript">
+	  $(function(){$('*[name=date2]').appendDtpicker(); });
+	</script>
+      </td>
+      <td>PV 2:</td> <td><input style="width: 275px;" type=text name='pv2' value='{{pv2|safe}}'></td>
     </tr>
 
-  <tr><td colspan=4>
-   <script src="https://cdn.plot.ly/plotly-latest.min.js"
-	   charset="utf-8"></script>
-   <div id='pv_plot'>
-     <script  type="text/javascript">
-       var graph = {{fig | safe}};
-       Plotly.plot('pv_plot',   graph.data,   graph.layout || {}, config=graph.config);
-     </script>
-   </div>
-    </td> <td>
+    <tr>
+      <td>  </td><td>or </td>
+      <td>PV 3:</td><td><input style="width: 275px;" type=text name='pv3' value='{{pv3|safe}}'></td>
+    </tr>
 
+     <tr>
+      <td> <input type=submit name=submit value='Time From Present:'></td>
+      <td>
+	<select name='time_ago' style="width: 125px;">
+	  {% for c in ago_choices %}
+	  <option value='{{c}}' {% if c==time_ago %} selected=1 {% endif %}> {{c}}</option>
+	  {% endfor %}
+	</select>
+      </td>
+      <td>PV 4:</td><td><input style="width: 275px;" type=text name='pv4' value='{{pv4|safe}}'></td>
+    </tr>
+  <tr>
+    <td>Replot for Times:</td>
+    <td colspan=3>
+      &nbsp; <a href="/pvarch/plot/8hours/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 12 hours </a>
+      &nbsp; <a href="/pvarch/plot/2days/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 2 days </a>
+      &nbsp; <a href="/pvarch/plot/1week/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past week </a>
+      &nbsp; <a href="/pvarch/plot/12weeks/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 4 weeks </a>
+      &nbsp; <a href="/pvarch/plot/52weeks/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 52 weeks </a>
+    </tr>
 
+  <tr><td colspan=4><hr></td></tr>
 
-  </td></tr>
+  <tr><td> Data Files: </td>
+    <td colspan=3>
+      {% if pv1 is not none %} &nbsp; <a href="/pvarch/data/{{date1}}/{{date2}}/{{pv1}}/{{pv1}}.dat"> {{pv1|safe}}</a>{% endif %}
+      {% if pv2 is not none %} &nbsp; <a href="/pvarch/data/{{date1}}/{{date2}}/{{pv2}}/{{pv2}}.dat"> {{pv2|safe}}</a>{% endif %}
+    </td>
+  </tr>
 
-    <tr><td>Replot from </td><td colspan=3>
-	{% for c in ago_choices %}
-	{% if 'day' not in c.val %}
-	<a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/{{c.val}}"> {{c.label}}</a>&nbsp;&nbsp;
-	{% endif %}
-	{% endfor %}
-  </td></tr>
-  <tr><td>Present Time:</td><td colspan=3>
-	{% for c in ago_choices %}
-	{% if 'day' in c.val %}
-	<a href="/pvarch/plot/{{pv}}/{{pv2}}/time_ago/{{c.val}}"> {{c.label}}</a>&nbsp;&nbsp;
-	{% endif %}
-	{% endfor %}
-  </td></tr>
-  <tr><td> </td></tr>
+  {% if pv3 is not none %}
+  <tr>
+    <td></td><td colspan=3>
+      &nbsp; <a href="/pvarch/data/{{date1}}/{{date2}}/{{pv3}}/{{pv3}}.dat"> {{pv3|safe}}</a>
+      {% if pv4 is not none %}
+      &nbsp; <a href="/pvarch/data/{{date1}}/{{date2}}/{{pv4}}/{{pv4}}.dat"> {{pv4|safe}}</a>
+      {% endif %}
+    </td>
+  </tr>
+  {% endif %}
+
+  <tr>
+    <td colspan=4>
+      <script src="https://cdn.plot.ly/plotly-latest.min.js" charset="utf-8"></script>
+      <div id='pv_plot'>
+	<script  type="text/javascript">
+	  var graph = {{fig | safe}};
+	  Plotly.plot('pv_plot',   graph.data,   graph.layout || {}, config=graph.config);
+	</script>
+      </div>
+    </td>
+  </tr>
+  </table>
+
+</td>
+<td valign='top'>
+
+  <p><b>Related PVs:</b></p>
+  Click PV name to plot alone, or<br>
+  select up to 4 to <input type=submit name=submit value='plot selected:'></p>
+
+  <table>
+    <tr><th>PV Name</th><th>Plot?</th></tr>
+    {% for pvname, pvid in related %}
+    <tr class={{ loop.cycle('odd', 'even') }}>
+      <td><a href="/pvarch/plot/{{date1}}/{{date2}}/{{pvname}}"> {{pvname}}</a> </td>
+      <td><input type="checkbox" name="sel_{{pvid}}"
+		 {% if pvname in selected_pvs %}
+		 checked="checked" {% endif %}>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+
+</td></tr>
 </table>
 
 </form>
 
-</td><td valign='top'>
-
-  {% if pv2 is not none %}
-    <a href="/pvarch/plot/{{pv2}}/{{pv}}/{{timestr}}"> Swap {{pv|safe}} and {{pv2|safe}} </a> <p>
-    <a href="/pvarch/plot/{{pv}}/None/{{timestr}}">  Only {{pv|safe}}</a> <p>
-    <a href="/pvarch/plot/{{pv2}}/None/{{timestr}}"> Only  {{pv2|safe}}</a> <p>
-  {% endif %}
-
-  <b>Related PVs:</b><p>
-  {% for other in related %}
-       <a href="/pvarch/plot/{{pv}}/{{other}}/{{timestr}}"> {{other}}</a> <p>
-  {% endfor %}
-
-  </tr></table>
 {% endblock %}

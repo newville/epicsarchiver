@@ -18,6 +18,11 @@ h2              { font-size: 1.2em; }
                   border: 1px solid #aacbe2; }
 .error          { background: #f0d6d6; padding: 0.5em; }
 
+.even {background-color: #E0E0E0;}
+.odd {background-color: #FFFFFF;}
+
+
+
 .topbar {font: bold 12px verdana, arial, sans-serif;
 	 text-decoration: none; color: #553233;
 	 background: #FEFEFC;  border-bottom: 4px solid #999955}
@@ -38,7 +43,7 @@ h2 {font:bold 22px verdana,arial,sans-serif;color:#044484;font-weight:bold;}
 .h3font {font:bold 18px verdana,arial,sans-serif;color:#A42424;font-weight:bold;font-style:italic;}
 
 #ptable {background:#FEFEFC;}
-#pvval {font: bold 12pt verdana,arial,san-serif; 
+#pvval {font: bold 12pt verdana,arial,san-serif;
 	font-size: 12pt; font-weight:bold;
 	background:#FFFFFD; text-align:justify;}
 #pvval a, a.active {color: #000DD;}
