@@ -1,0 +1,8 @@
+
+{% macro showpv(name, format='text') %}
+<a id={{cache_data[name].id}} href="plot/time_ago/day/None/{{name}}/">
+  {{ cache_data[name].cvalue }}
+</a>
+{% endmacro %}
+
+    

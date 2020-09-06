@@ -1,14 +1,16 @@
-{% extends "layout.html" %}
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
 {% block body %}
 
 <p> <div class=subfont> PVArchiver Alerts  </div>
 
-
   <table cellspacing=5 cellpadding=2>
 
     <tr>
-      <td> Name: {% if admin %} (click to edit) {% endif %} </td>
-      <td>PV Name</td><td>Trip Point</td> <td>Active?</td>
+      <th> Name: {% if admin %} (click to edit) {% endif %} </th>
+      <th>PV Name</th><th>Trip Point</th> <th>Active?</th>
     </tr>
 
       {% for alert in alerts %}
@@ -16,10 +18,9 @@
 	<td>
 	  {% if admin %}
 	  <a href="editalert/{{alert.id}}"> {{ alert.name }}  </a>
-	     
-	    {% else %}
-	     {{ alert.name }}
-	     {% endif %}
+          {% else %}
+	  {{ alert.name }}
+	  {% endif %}
 	</td>
 	<td> {{ alert.pvname }}  </td>
 	<td> {{ alert.compare }} {{ alert.trippoint}} </td>
@@ -31,3 +32,4 @@
 
 
 {% endblock %}
+{% include 'footer_include.html' %}

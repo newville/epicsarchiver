@@ -1,17 +1,26 @@
-{% extends "layout.html" %}
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
 {% block body %}
 
-<p> <div class=subfont> PVArchiver Status   {{status.now }}  </div>
+<p> <div class=subfont> PVArchiver Status a t {{status.now}} </div>
 
-  <table>
-    <tr><td>Cache:</td>
-      <td>status={{ status.cache_status }}, 
-	{{status.cache_npvs}} PVS, {{ status.cache_nupdated }} updated in past minute</td></tr>
-    <tr><td>Archive: </td>
-      <td>status={{ status.arch_status }},
-	database={{ status.arch_dbname }}
-    </td></tr>	
+  <table><tr><th>Process</th><th>DB Name</th><th>Status</th><th>Activity</th></tr>
+    <tr>
+      <td>Cache:</td>
+      <td> {{ status.cache_dbname }}</td>
+      <td> {{ status.cache_status }}</td>
+      <td> {{ status.cache_activity}}</td>
+    </tr>
+    <tr>
+      <td>Archiver:</td>
+      <td> {{ status.arch_dbname }}</td>
+      <td> {{ status.arch_status }}</td>
+      <td> { {status.arch_activity}}</td>
+    </tr>
 </table>
 
 
 {% endblock %}
+{% include 'footer_include.html' %}

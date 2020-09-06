@@ -1,4 +1,7 @@
-{% extends "layout.html" %}
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
 {% block body %}
 
 <a href="{{ url_for('static', filename='style.css') }}"/>stylesheet </a>
@@ -118,3 +121,4 @@
 </form>
 
 {% endblock %}
+{% include 'footer_include.html' %}

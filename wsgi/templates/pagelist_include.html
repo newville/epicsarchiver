@@ -1,0 +1,19 @@
+<div id='tab'>
+  <ul id='tabmenu'>
+    <li> <a href="{{ url_for('index') }}">Main Page </a> </li>
+
+
+    
+    <li> <a href="{{ url_for('help') }}"> Help </a> </li>
+    <li> <a href="{{ url_for('status') }}"> Status </a> </li>
+
+    {% if admin %}
+    <li><a href="{{ url_for('alerts') }}">Alerts</a></li>
+    <li><a href="{{ url_for('logout') }}">Logout</a></li>
+    {% else %}
+    <li><a href="{{ url_for('login') }}">Login</a></li>
+    {% endif %}
+</ul>
+
+</div>
+

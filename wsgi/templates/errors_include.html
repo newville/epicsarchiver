@@ -1,0 +1,8 @@
+<div id='errors'>
+ {% if error %}
+  <p class=error><strong>Error:</strong> {{ error }} </p>
+{% endif %}
+{% for message in get_flashed_messages() %}
+  <div class=flash>{{ message }}</div>
+{% endfor %}
+</div>
