@@ -5,8 +5,8 @@ from dateutil.parser import parse as dateparser
 import numpy as np
 import json
 
-
 from .util import normalize_pvname
+
 
 def isnull(x):
     if x is None:
@@ -201,27 +201,31 @@ def make_plot(plotdata, size=(725, 625)):
 
 ###
 ###
-html_top = """{% extends "layout.html" %}
+html_top = """{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
 {% block body %}
 
 <table>
+<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
 """
 
 html_bottom = """</table>
 {% endblock %}
+{% include 'footer_include.html' %}
 """
 
 html_label  = " <tr><td class='section'>  %s </td><td></td></tr> "
 html_hr     = " <tr><td colspan=2><hr></td></tr> "
 html_space  = " <tr><td colspan=2>&nbsp;</td></tr> "
 html_pvrow  = """
-  <tr><td class='pvlabel'> %s </td>
-      <td class='pvlink'> %s </td>
-  </tr>"""
-
-showpv = " {{ showpv('%s') }} "
-def tmpl2jinja(file):
-    with open(file, "r") as fh:
+ <tr><td class='pvlabel'> %s </td>
+     <td class='pvlink'> %s </td>
+ </tr>"""
+html_showpv = " {{ showpv('%s') }} "
+def tmpl2jinja(filename):
+    with open(filename, "r") as fh:
         lines = fh.readlines()
         
     buff = [html_top]
@@ -245,21 +249,31 @@ def tmpl2jinja(file):
  
             pvnames = words.pop(0)
             pvnames = [normalize_pvname(w.strip()) for w in pvnames.split(',')]
-            desc, format, outtype = None, None, None
+            desc = None
 
             if len(words) > 0:
                 desc = words.pop(0).strip()
                 if len(desc) == 0:
                     desc = None
-                if len(words) > 0:
-                    format = words.pop(0).strip()
-            if format == 'yes/no':
-                format = None
-                outtype = 'yes/no'
-
-            pvlinks = ', '.join([showpv % n for n in pvnames])
+            if desc is None:
+                desc = ', '.join(pvnames)
+            if len(words) > 0:
+                format = words.pop(0).strip()
+                if format == 'yes/no':
+                    pvnames = ['%s, form="yesno"' % (p) for p in pvnames]
+                elif '%' in format:
+                    pvnames = ['%s, form="gform"' % (p) for p in pvnames]
+            pvlinks = ', '.join([html_showpv % n for n in pvnames])
             buff.append(html_pvrow % (desc, pvlinks))
 
     buff.append(html_bottom)
-    return '\n'.join(buff)
+
+    if filename.endswith('.html'):
+        filename = "%s_alt" % filename[:-5]
+    if filename.endswith('.tmpl'):
+        filename = filename[:-5]
+    outfile = "%s.html" % filename
+    with open(outfile, 'w') as fh:
+        fh.write('\n'.join(buff))
+    print("wrote '%s'" % outfile)
 
