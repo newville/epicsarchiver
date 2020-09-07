@@ -1,8 +1,10 @@
 
-{% macro showpv(name, format='text') %}
+{% macro showpv(name, form='text') %}
 <a id={{cache_data[name].id}} href="plot/time_ago/day/None/{{name}}/">
-  {{ cache_data[name].cvalue }}
+  {% if  form == 'yesno' %}
+      {% if  cache_data[name].value  == 0 %} No {% else %} Yes {% endif %}
+  {% else %}
+      {{ cache_data[name].cvalue }}
+  {% endif %} 
 </a>
 {% endmacro %}
-
-    
