@@ -15,7 +15,7 @@ import epics
 
 from .util import (clean_bytes, normalize_pvname, tformat, valid_pvname,
                    clean_mail_message, DatabaseConnection, None_or_one,
-                   MAX_EPOCH, get_config, motor_fields, get_pvpair)
+                   MAX_EPOCH, get_config, motor_fields, get_pvpair, gformat)
 
 from . import schema
 
@@ -62,6 +62,7 @@ class Cache(object):
         self.pvs   = {}
         self.data  = {}
         self.alert_data = {}
+        self.pvtypes = {}
         self.get_pvnames()
         self.read_alert_table()
         if self.pvconnect:
@@ -192,6 +193,7 @@ class Cache(object):
         pvnames = []
         for row in self.tables['cache'].select().execute().fetchall():
             pvnames.append(row.pvname)
+            self.pvtypes[row.pvname] = row.type
             if row.pvname not in self.pvs and self.pvconnect:
                 self.pvs[row.pvname] = epics.get_pv(row.pvname)
         return pvnames
@@ -430,6 +432,8 @@ class Cache(object):
             val, cval, tstamp = self.data.pop(pvname)
             if isinstance(val, np.ndarray):
                 val = val.tolist()
+            if self.pvtypes[pvname] == 'double':
+                cval = gformat(val)
             newdata[pvname] = {'ts': tstamp,
                                'val': clean_bytes(val),
                                'cval': clean_bytes(cval)}
