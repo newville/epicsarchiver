@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>setInterval/clearInterval example</title>
+
+  <script>
+    function setup_update() {setInterval(do_update, 1000);  }
+ 
+    function do_update() {
+      var ex = document.getElementById('my_box');
+      ex.style.color = ex.style.color == 'red' ? 'blue' : 'red';
+    }
+ 
+  </script>
+</head>
+ 
+<body onload="setup_update();">
+  <div id="my_box">
+    <p>Hello World</p>
+  </div>
+</body>
+</html>

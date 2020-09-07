@@ -1,0 +1,66 @@
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
+{% block body %}
+
+<table>
+<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+
+ <tr><td colspan=2>&nbsp;</td></tr> 
+ <tr><td class='section'>  Energy </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Mono Energy </td>
+     <td class='pvlink'>  {{ showpv('13BMA:E:Energy.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> PID Looped Locked? </td>
+     <td class='pvlink'>  {{ showpv('13BMA:mono_pid1Locked.VAL, form="yesno"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> I0 Set Point </td>
+     <td class='pvlink'>  {{ showpv('13BMA:mono_pid1.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> I0 Actual Value </td>
+     <td class='pvlink'>  {{ showpv('13BMA:mono_pid1.CVAL, form="gform"') }}  </td>
+ </tr>
+ <tr><td colspan=2>&nbsp;</td></tr> 
+ <tr><td class='section'>  Scan </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Scan Data File </td>
+     <td class='pvlink'>  {{ showpv('13BMD:edb:file.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Scan Status </td>
+     <td class='pvlink'>  {{ showpv('13BMD:scan1.FAZE') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Total Points in Scan </td>
+     <td class='pvlink'>  {{ showpv('13BMD:scan1.NPTS') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Current Point in Scan </td>
+     <td class='pvlink'>  {{ showpv('13BMD:scan1.CPT') }}  </td>
+ </tr>
+ <tr><td colspan=2>&nbsp;</td></tr> 
+ <tr><td class='section'>  Sample Temperature and Pressure </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Cooling Temperature </td>
+     <td class='pvlink'>  {{ showpv('13Keithley1:DMM1Ch1_calc.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Cell 1 Temperature </td>
+     <td class='pvlink'>  {{ showpv('13Keithley1:DMM1Ch3_calc.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Cell 1 Pressure </td>
+     <td class='pvlink'>  {{ showpv('13Keithley1:DMM1Ch5_calc.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Cell 2 Pressure </td>
+     <td class='pvlink'>  {{ showpv('13Keithley1:DMM1Ch7_calc.VAL, form="gform"') }}  </td>
+ </tr>
+</table>
+{% endblock %}
+{% include 'footer_include.html' %}

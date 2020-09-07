@@ -1,0 +1,93 @@
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
+{% block body %}
+
+<table>
+<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+
+ <tr><td class='section'>  Cryo Coolers </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> C/D Mono LN2 Low Pressure Reservoir, High Pressure Reservoir </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ILM200_1_calc1.VAL') }} ,  {{ showpv('13IDA:ILM200_1_calc2.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Mono LN2 Low Pressure Reservoir, High Pressure Reservoir </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ILM200_2_calc1.VAL') }} ,  {{ showpv('13IDA:ILM200_2_calc2.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  Vacuum </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> C/D Ion Pump Pressure (CC2), E Ion Pump Pressure (CC3) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:cc2.VAL, form="gform"') }} ,  {{ showpv('13IDA:cc3.VAL, form="gform"') }}  </td>
+ </tr>
+ <tr><td class='section'>  C/D Monochromator </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Mono Energy, Mono Angle, Undulator Energy </td>
+     <td class='pvlink'>  {{ showpv('13IDA:CDEn:Energy.VAL, form="gform"') }} ,  {{ showpv('13IDA:m57.VAL, form="gform"') }} ,  {{ showpv('ID13ds:Energy.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> 2nd XTAL Height, Pitch, Roll </td>
+     <td class='pvlink'>  {{ showpv('13IDA:m58.VAL, form="gform"') }} ,  {{ showpv('13IDA:m59.VAL, form="gform"') }} ,  {{ showpv('13IDA:m60.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Mono Crystal Position </td>
+     <td class='pvlink'>  {{ showpv('13IDA:CDEn:MonoPosition.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> 1st XTAL, 2nd XTAL, 3rd Tc Temperature </td>
+     <td class='pvlink'>  {{ showpv('13IDA:DMM1Ch2_calc.VAL, form="gform"') }} ,  {{ showpv('13IDA:DMM1Ch3_calc.VAL, form="gform"') }} ,  {{ showpv('13IDA:DMM1Ch4_calc.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Motor1, Motor2, Motor2 Temperature </td>
+     <td class='pvlink'>  {{ showpv('13IDA:DMM1Ch5_calc.VAL, form="gform"') }} ,  {{ showpv('13IDA:DMM1Ch6_calc.VAL, form="gform"') }} ,  {{ showpv('13IDA:DMM1Ch7_calc.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> PID Looped is Locked? </td>
+     <td class='pvlink'>  {{ showpv('13IDA:mono_pid1Locked.VAL, form="yesno"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Mono Diff Seal Cold Cathode, Pirani </td>
+     <td class='pvlink'>  {{ showpv('13BMA:cc11.VAL, form="gform"') }} ,  {{ showpv('13BMA:pr11.VAL, form="gform"') }}  </td>
+ </tr>
+ <tr><td class='section'>  E Monochromator </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Mono Energy, Mono Angle, Undulator Energy </td>
+     <td class='pvlink'>  {{ showpv('13IDE:En:Energy.VAL, form="gform"') }} ,  {{ showpv('13IDA:m65.VAL, form="gform"') }} ,  {{ showpv('ID13us:Energy.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> 2nd XTAL Height, Pitch Roll </td>
+     <td class='pvlink'>  {{ showpv('13IDA:m66.VAL, form="gform"') }} ,  {{ showpv('13IDA:m67.VAL, form="gform"') }} ,  {{ showpv('13IDA:m68.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Motor X </td>
+     <td class='pvlink'>  {{ showpv('13IDA:m32.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> 1st XTAL, XTAL Cage Temperature </td>
+     <td class='pvlink'>  {{ showpv('13IDA:DMM1Ch12_calc.VAL, form="gform"') }} ,  {{ showpv('13IDA:DMM1Ch13_calc.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> 2nd XTAL Inboard, Outboard Temperature </td>
+     <td class='pvlink'>  {{ showpv('13IDA:DMM1Ch11_calc.VAL, form="gform"') }} ,  {{ showpv('13IDA:DMM1Ch14_calc.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Motor1, Motor2, Motor2 Temperature </td>
+     <td class='pvlink'>  {{ showpv('13IDA:DMM1Ch15_calc.VAL, form="gform"') }} ,  {{ showpv('13IDA:DMM1Ch16_calc.VAL, form="gform"') }} ,  {{ showpv('13IDA:DMM1Ch17_calc.VAL, form="gform"') }}  </td>
+ </tr>
+ <tr><td class='section'>  Other Temperatures </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> BPM1, BPM2 Temperatures </td>
+     <td class='pvlink'>  {{ showpv('13IDA:DMM1Ch8_calc.VAL, form="gform"') }} ,  {{ showpv('13IDA:DMM1Ch9_calc.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Mirror1 Leg, Mask Temperatures </td>
+     <td class='pvlink'>  {{ showpv('13IDA:DMM1Ch18_calc.VAL, form="gform"') }} ,  {{ showpv('13IDA:DMM1Ch19_calc.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Mirror2 Leg, Mask Temperatures </td>
+     <td class='pvlink'>  {{ showpv('13IDA:DMM1Ch20_calc.VAL, form="gform"') }} ,  {{ showpv('13IDA:DMM1Ch10_calc.VAL, form="gform"') }}  </td>
+ </tr>
+</table>
+{% endblock %}
+{% include 'footer_include.html' %}

@@ -1,0 +1,139 @@
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
+{% block body %}
+
+<table>
+<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+
+ <tr><td class='section'>  Front End </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Front End Shutter, Front End Valve </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi25.VAL') }} ,  {{ showpv('13IDA:eps_mbbi126.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Differential Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('FE:13:ID:IP6.VOLT') }} ,  {{ showpv('FE:13:ID:IP6.CRNT') }} ,  {{ showpv('FE:13:ID:IP6.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Beamline Isolation Valve (Valve 1) </td>
+     <td class='pvlink'>  {{ showpv('EPS:13:ID:BIV:POSITION.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Slit Tank Cold Cathode, Pirani </td>
+     <td class='pvlink'>  {{ showpv('13IDA:cc1.VAL, form="gform"') }} ,  {{ showpv('13IDA:pr1.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Slit Tank Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ip1_Volts.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip1_Current.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip1_Pressure.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Valve 2 </td>
+     <td class='pvlink'>  {{ showpv('13IDA:V2_status.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Mono Tank Cold Cathode, Pirani </td>
+     <td class='pvlink'>  {{ showpv('13IDA:cc2.VAL, form="gform"') }} ,  {{ showpv('13IDA:pr2.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Mono Tank Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ip2:VOLT.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip2:CUR.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip2:PRES.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Valve 3 </td>
+     <td class='pvlink'>  {{ showpv('13IDA:V3_status.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Mono Tank Cold Cathode, Pirani </td>
+     <td class='pvlink'>  {{ showpv('13IDA:cc3.VAL, form="gform"') }} ,  {{ showpv('13IDA:pr3.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Mono Tank Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ip3_Volts.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip3_Current.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip3_Pressure.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Valve 4 </td>
+     <td class='pvlink'>  {{ showpv('13IDA:V4_status.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Mirror Tank Cold Cathode, Pirani </td>
+     <td class='pvlink'>  {{ showpv('13IDA:cc4.VAL, form="gform"') }} ,  {{ showpv('13IDA:pr4.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Mirror Tank Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ip4:VOLT.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip4:CUR.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip4:PRES.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Valve 5 </td>
+     <td class='pvlink'>  {{ showpv('13IDA:V5_status.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Pumping Cross 1 Tank Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ip5_Volts.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip5_Current.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip5_Pressure.VAL, form="gform"') }}  </td>
+ </tr>
+ <tr><td colspan=2><hr></td></tr> 
+ <tr><td class='section'>  IDB (Upstream) </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Pumping Cross 2 Tank Cold Cathode, Pirani </td>
+     <td class='pvlink'>  {{ showpv('13IDA:cc5.VAL, form="gform"') }} ,  {{ showpv('13IDA:pr5.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Pumping Cross 2 Tank Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ip6_Volts.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip6_Current.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip6_Pressure.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> SSA Tank Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ip7_Volts.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip7_Current.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip7_Pressure.VAL, form="gform"') }}  </td>
+ </tr>
+ <tr><td colspan=2><hr></td></tr> 
+ <tr><td class='section'>  ID-C/D Branch </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Valve 7 </td>
+     <td class='pvlink'>  {{ showpv('13IDA:V7_status.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Vert Mirror Tank Cold Cathode, Pirani </td>
+     <td class='pvlink'>  {{ showpv('13IDA:cc6.VAL, form="gform"') }} ,  {{ showpv('13IDA:pr6.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Vert Mirror Tank Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ip8:VOLT.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip8:CUR.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip8:PRES.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Shutter Tank Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ip10:VOLT.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip10:CUR.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip10:PRES.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Horiz Mirror Tank Cold Cathode, Pirani </td>
+     <td class='pvlink'>  {{ showpv('13IDA:cc9.VAL, form="gform"') }} ,  {{ showpv('13IDA:pr9.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Horiz Mirror Tank Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ip11:VOLT.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip11:CUR.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip11:PRES.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D transport Pirani </td>
+     <td class='pvlink'>  {{ showpv('13IDA:pr10.VAL, form="gform"') }}  </td>
+ </tr>
+ <tr><td colspan=2><hr></td></tr> 
+ <tr><td class='section'>  ID-E Branch </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Valve 6 </td>
+     <td class='pvlink'>  {{ showpv('13IDA:V6_status.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Shutter Tank Cold Cathode, Pirani </td>
+     <td class='pvlink'>  {{ showpv('13IDA:cc7.VAL, form="gform"') }} ,  {{ showpv('13IDA:pr7.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Shutter Tank Pump Voltage, Current, Pressure </td>
+     <td class='pvlink'>  {{ showpv('13IDA:ip9:VOLT.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip9:CUR.VAL, form="gform"') }} ,  {{ showpv('13IDA:ip9:PRES.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E transport Pirani </td>
+     <td class='pvlink'>  {{ showpv('13IDA:pr8.VAL, form="gform"') }}  </td>
+ </tr>
+</table>
+{% endblock %}
+{% include 'footer_include.html' %}

@@ -1,0 +1,77 @@
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
+{% block body %}
+
+<table>
+<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+
+ <tr><td class='section'>  Mono and Feedback </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Front End Shutter, E Shutter </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi25.VAL') }} ,  {{ showpv('13IDA:eps_mbbi27.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Mono Energy (ID-E) </td>
+     <td class='pvlink'>  {{ showpv('13IDE:En:Energy.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> 1st XTAL, 2nd XTAL Temp </td>
+     <td class='pvlink'>  {{ showpv('13IDA:DMM1Ch12_calc.VAL') }} ,  {{ showpv('13IDA:DMM1Ch11_calc.VAL') }}  </td>
+ </tr>
+ <tr><td colspan=2>&nbsp;</td></tr> 
+ <tr><td class='section'>  XRF Map </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Scan Status, Message </td>
+     <td class='pvlink'>  {{ showpv('13XRM:map:status.VAL') }} ,  {{ showpv('13XRM:map:message.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Pixels Per Row, Total Rows, Current Row </td>
+     <td class='pvlink'>  {{ showpv('13XRM:map:npts.VAL') }} ,  {{ showpv('13XRM:map:maxrow.VAL') }} ,  {{ showpv('13XRM:map:nrow.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Working Directory </td>
+     <td class='pvlink'>  {{ showpv('13XRM:map:basedir.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Current Data File Name </td>
+     <td class='pvlink'>  {{ showpv('13XRM:map:filename.VAL') }}  </td>
+ </tr>
+ <tr><td colspan=2>&nbsp;</td></tr> 
+ <tr><td class='section'>  Energy Scan, Macros </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Current Scan Command </td>
+     <td class='pvlink'>  {{ showpv('13XRM:SCANDB:command.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Scan Data Folder </td>
+     <td class='pvlink'>  {{ showpv('13XRM:SCANDB:workdir.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Scan Status </td>
+     <td class='pvlink'>  {{ showpv('13XRM:SCANDB:status.VAL') }}  </td>
+ </tr>
+ <tr><td colspan=2>&nbsp;</td></tr> 
+ <tr><td class='section'>  4-Element XRF Detector </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Status, Acquire Real Time </td>
+     <td class='pvlink'>  {{ showpv('13QX4:DetectorState_RBV.VAL') }} ,  {{ showpv('13QX4:AcquireTime.VAL') }}  </td>
+ </tr>
+ <tr><td colspan=2>&nbsp;</td></tr> 
+ <tr><td class='section'>  Flux </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> I0 transmitted flux (Hz) </td>
+     <td class='pvlink'>  {{ showpv('13XRM:ION:FluxOut.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> I0 current (uA),   I0 absorbed flux (Hz) </td>
+     <td class='pvlink'>  {{ showpv('13XRM:ION:Current.VAL') }} ,  {{ showpv('13XRM:ION:FluxAbs.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> I0 chamber length (cm), gas </td>
+     <td class='pvlink'>  {{ showpv('13XRM:ION:Length.VAL') }} ,  {{ showpv('13XRM:ION:Gas.VAL') }}  </td>
+ </tr>
+</table>
+{% endblock %}
+{% include 'footer_include.html' %}

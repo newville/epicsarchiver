@@ -1,0 +1,41 @@
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
+{% block body %}
+
+<table>
+<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+
+ <tr><td class='section'>  CPU Load, Free Memory </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> IDA CPU Load, Free Memory </td>
+     <td class='pvlink'>  {{ showpv('13IDA::IOC_CPU_LOAD.VAL') }} ,  {{ showpv('13IDA::MEM_FREE.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDC CPU Load, Free Memory </td>
+     <td class='pvlink'>  {{ showpv('13IDC::IOC_CPU_LOAD.VAL') }} ,  {{ showpv('13IDC::MEM_FREE.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDD CPU Load, Free Memory </td>
+     <td class='pvlink'>  {{ showpv('13IDD::IOC_CPU_LOAD.VAL') }} ,  {{ showpv('13IDD::MEM_FREE.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDE CPU Load, Free Memory </td>
+     <td class='pvlink'>  {{ showpv('13IDE::IOC_CPU_LOAD.VAL') }} ,  {{ showpv('13IDE::MEM_FREE.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> BMA CPU Load, Free Memory </td>
+     <td class='pvlink'>  {{ showpv('13BMA::IOC_CPU_LOAD.VAL') }} ,  {{ showpv('13BMA::MEM_FREE.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> BMC CPU Load, Free Memory </td>
+     <td class='pvlink'>  {{ showpv('13BMC::IOC_CPU_LOAD.VAL') }} ,  {{ showpv('13BMC::MEM_FREE.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> BMD CPU Load, Free Memory </td>
+     <td class='pvlink'>  {{ showpv('13BMD::IOC_CPU_LOAD.VAL') }} ,  {{ showpv('13BMD::MEM_FREE.VAL') }}  </td>
+ </tr>
+</table>
+{% endblock %}
+{% include 'footer_include.html' %}

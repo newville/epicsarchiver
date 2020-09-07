@@ -1,0 +1,116 @@
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
+{% block body %}
+
+<table>
+<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+
+ <tr><td class='section'>  Storage Ring </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Machine Status </td>
+     <td class='pvlink'>  {{ showpv('S:ActualMode.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Storage Ring Current (mA) </td>
+     <td class='pvlink'>  {{ showpv('S:SRcurrentAI.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Storage Ring Lifetime (hours) </td>
+     <td class='pvlink'>  {{ showpv('S:SRlifeTimeHrsCC.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Operating Mode </td>
+     <td class='pvlink'>  {{ showpv('S:DesiredMode.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ACIS Shutter Permit,  Front End EPS Permit </td>
+     <td class='pvlink'>  {{ showpv('ACIS:ShutterPermit.VAL') }} ,  {{ showpv('EPS:13:ID:FE:PERM.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Chain A alarm values </td>
+     <td class='pvlink'>  {{ showpv('PA:13ID:STA_A_FAULT_PL.VAL') }} ,  {{ showpv('PA:13ID:STA_A_TRIP_PL.VAL') }} ,  {{ showpv('PB:13ID:STA_A_FAULT_PL.VAL') }} ,  {{ showpv('PB:13ID:STA_A_TRIP_PL.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  ID EPS </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Front End Shutter Enable,  Status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_bo1.VAL') }} ,  {{ showpv('13IDA:eps_mbbi25.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> EPS Status: Front End, ID-C/D, ID-E </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi192.VAL') }} ,  {{ showpv('13IDA:eps_mbbi193.VAL') }} ,  {{ showpv('13IDA:eps_mbbi194.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Vacuum Status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi195.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Front End Valve,  Beamline Isolation Valve </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi126.VAL') }} ,  {{ showpv('EPS:13:ID:BIV:POSITION.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> White Beam Stop Closed (On=Closed, Off=Open) </td>
+     <td class='pvlink'>  {{ showpv('PA:13ID:SCS_PS_CLSD_LS.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Mono, White Beam Mode </td>
+     <td class='pvlink'>  {{ showpv('PA:13ID:STA_A_INBD_MONO_PL.VAL') }} ,  {{ showpv('PA:13ID:STA_A_INBD_WHITE_PL.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID-C/D Shutter </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi26.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID-E Shutter </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi27.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID-C Backstop Closed (On=Closed, Off=Open) </td>
+     <td class='pvlink'>  {{ showpv('PA:13ID:SDS_PS_CLSD_LS.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  BM EPS </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Front End Valve </td>
+     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi42.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Front End Shutter </td>
+     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi4.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> EPS Status </td>
+     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi5.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> BMC EPS Status </td>
+     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi117.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> BMD EPS Status </td>
+     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi118.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  Configuration </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> ID Stations Searched (A,B,C,D,E) </td>
+     <td class='pvlink'>  {{ showpv('PA:13ID:STA_A_SRCHD_TO_B.VAL, form="yesno"') }} ,  {{ showpv('PA:13ID:STA_B_SRCHD_TO_B.VAL, form="yesno"') }} ,  {{ showpv('PA:13ID:STA_C_SRCHD_TO_B.VAL, form="yesno"') }} ,  {{ showpv('PA:13ID:STA_D_SRCHD_TO_B.VAL, form="yesno"') }} ,  {{ showpv('PA:13ID:STA_E_SRCHD_TO_B.VAL, form="yesno"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> BM Stations Searched (A,B,C,D) </td>
+     <td class='pvlink'>  {{ showpv('PA:13BM:STA_A_SEARCHED_PL.VAL, form="yesno"') }} ,  {{ showpv('PA:13BM:STA_B_SEARCHED_PL.VAL, form="yesno"') }} ,  {{ showpv('PA:13BM:STA_C_SEARCHED_PL.VAL, form="yesno"') }} ,  {{ showpv('PA:13BM:STA_D_SEARCHED_PL.VAL, form="yesno"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> He gas farm (left, right) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi211.VAL') }} ,  {{ showpv('13IDA:eps_mbbi210.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID-E He gas farm (left, right) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi226.VAL') }} ,  {{ showpv('13IDA:eps_mbbi227.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Air Temps (13IDD, 13IDC, 13BMD, Roof) (F) </td>
+     <td class='pvlink'>  {{ showpv('G:AHU:FP5088Ai.VAL, form="gform"') }} ,  {{ showpv('G:AHU:FP5087Ai.VAL, form="gform"') }} ,  {{ showpv('G:AHU:FP5095Ai.VAL, form="gform"') }} ,  {{ showpv('G:AHU:FP5097Ai.VAL, form="gform"') }}  </td>
+ </tr>
+</table>
+{% endblock %}
+{% include 'footer_include.html' %}

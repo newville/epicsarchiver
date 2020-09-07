@@ -1,0 +1,121 @@
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
+{% block body %}
+
+<table>
+<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+
+ <tr><td class='section'>  Storage Ring </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Machine Status </td>
+     <td class='pvlink'>  {{ showpv('S:ActualMode.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Storage Ring Current (mA) </td>
+     <td class='pvlink'>  {{ showpv('S:SRcurrentAI.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Storage Ring Lifetime (hours) </td>
+     <td class='pvlink'>  {{ showpv('S:SRlifeTimeHrsCC.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Operating Mode </td>
+     <td class='pvlink'>  {{ showpv('S:DesiredMode.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ACIS Shutter Permit </td>
+     <td class='pvlink'>  {{ showpv('ACIS:ShutterPermit.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  BL13 </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> BL13:ActualMode.VAL </td>
+     <td class='pvlink'>  {{ showpv('BL13:ActualMode.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> BL13:srCurrent.VAL </td>
+     <td class='pvlink'>  {{ showpv('BL13:srCurrent.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> BL13:srLifetime.VAL </td>
+     <td class='pvlink'>  {{ showpv('BL13:srLifetime.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> BL13:BeamPresent.VAL </td>
+     <td class='pvlink'>  {{ showpv('BL13:BeamPresent.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID-A Shutter Permit </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_bo1.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  Beam Position Monitors </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> BM Vertical Angle, Position </td>
+     <td class='pvlink'>  {{ showpv('BL13:SRBM:VAngle.VAL, form="gform"') }} ,  {{ showpv('BL13:SRBM:VPosition.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID:  RF BPM B:P0 x Actual, Setpoint </td>
+     <td class='pvlink'>  {{ showpv('S13B:P0:mswAve:x:AdjustedCC.VAL, form="gform"') }} ,  {{ showpv('S13B:P0:ms:x:SetpointAO.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID:  RF BPM A:P0 x Actual, Setpoint </td>
+     <td class='pvlink'>  {{ showpv('S14A:P0:mswAve:x:AdjustedCC.VAL, form="gform"') }} ,  {{ showpv('S14A:P0:ms:x:SetpointAO.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID:  RF BPM B:P0 y Actual, Setpoint </td>
+     <td class='pvlink'>  {{ showpv('S13B:P0:mswAve:y:AdjustedCC.VAL, form="gform"') }} ,  {{ showpv('S13B:P0:ms:y:SetpointAO.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID:  RF BPM A:P0 y Actual, Setpoint </td>
+     <td class='pvlink'>  {{ showpv('S14A:P0:mswAve:y:AdjustedCC.VAL, form="gform"') }} ,  {{ showpv('S14A:P0:ms:y:SetpointAO.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID: x-ray BPM 1 x Actual, Setpoint </td>
+     <td class='pvlink'>  {{ showpv('S13ID:P1:mswAve:x:AdjustedCC.VAL, form="gform"') }} ,  {{ showpv('S13ID:P1:ms:x:SetpointAO.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID: x-ray BPM 2 x Actual, Setpoint </td>
+     <td class='pvlink'>  {{ showpv('S13ID:P2:mswAve:x:AdjustedCC.VAL, form="gform"') }} ,  {{ showpv('S13ID:P2:ms:x:SetpointAO.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID: x-ray BPM 1 y Actual, Setpoint </td>
+     <td class='pvlink'>  {{ showpv('S13ID:P1:mswAve:y:AdjustedCC.VAL, form="gform"') }} ,  {{ showpv('S13ID:P1:ms:y:SetpointAO.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID: x-ray BPM 2 y Actual, Setpoint </td>
+     <td class='pvlink'>  {{ showpv('S13ID:P2:mswAve:y:AdjustedCC.VAL, form="gform"') }} ,  {{ showpv('S13ID:P2:ms:y:SetpointAO.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID (Downstream) Horizontal Angle, Position </td>
+     <td class='pvlink'>  {{ showpv('S13ds:ID:SrcPt:xAngleM.VAL, form="gform"') }} ,  {{ showpv('S13ds:ID:SrcPt:xPositionM.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID (Downstream) Vertical Angle, Position </td>
+     <td class='pvlink'>  {{ showpv('S13ds:ID:SrcPt:yAngleM.VAL, form="gform"') }} ,  {{ showpv('S13ds:ID:SrcPt:yPositionM.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID (Upstream) Horizontal Angle, Position </td>
+     <td class='pvlink'>  {{ showpv('S13us:ID:SrcPt:xAngleM.VAL, form="gform"') }} ,  {{ showpv('S13us:ID:SrcPt:xPositionM.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID (Upstream) Vertical Angle, Position </td>
+     <td class='pvlink'>  {{ showpv('S13us:ID:SrcPt:yAngleM.VAL, form="gform"') }} ,  {{ showpv('S13us:ID:SrcPt:yPositionM.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID Vertical Angle, Position </td>
+     <td class='pvlink'>  {{ showpv('BL13:SRID:VAngle.VAL, form="gform"') }} ,  {{ showpv('BL13:SRID:VPosition.VAL, form="gform"') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> ID Horizontal Angle, Position </td>
+     <td class='pvlink'>  {{ showpv('BL13:SRID:HAngle.VAL, form="gform"') }} ,  {{ showpv('BL13:SRID:HPosition.VAL, form="gform"') }}  </td>
+ </tr>
+ <tr><td colspan=2><hr></td></tr> 
+ <tr><td class='section'>  Storage Ring Feedback </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Global Loop Status (Horiz,Vert) </td>
+     <td class='pvlink'>  {{ showpv('SRFB:GBL:HLoopStatusBI.VAL') }} ,  {{ showpv('SRFB:GBL:VLoopStatusBI.VAL') }}  </td>
+ </tr>
+</table>
+{% endblock %}
+{% include 'footer_include.html' %}

@@ -1,0 +1,69 @@
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
+{% block body %}
+
+<table>
+<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+
+ <tr><td class='section'>  Main DI Water  </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> DI Water Flows 1-5 (should all be ~1.0) </td>
+     <td class='pvlink'>  {{ showpv('PD:13ID:FM1:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM2:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM3:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM4:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM5:ReadAI.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> DI Water Flows 6-10 (should all be ~1.0) </td>
+     <td class='pvlink'>  {{ showpv('PD:13ID:FM6:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM7:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM8:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM9:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM10:ReadAI.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  13 ID A Water </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Horiz slit (ID-A) (status,latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi17.VAL') }} ,  {{ showpv('13IDA:eps_mbbi18.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Vert slit (ID-A) (status,latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi19.VAL') }} ,  {{ showpv('13IDA:eps_mbbi20.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> 400 W Pinhole V (status,latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi69.VAL') }} ,  {{ showpv('13IDA:eps_mbbi70.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> 400 H Pinhole V (status,latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi71.VAL') }} ,  {{ showpv('13IDA:eps_mbbi72.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> 100 W Pinhole & Beamstop (status,latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi73.VAL') }} ,  {{ showpv('13IDA:eps_mbbi74.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  13 ID B Water </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Be Windows (status,latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi15.VAL') }} ,  {{ showpv('13IDA:eps_mbbi16.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Vertical mirror (status,latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi92.VAL') }} ,  {{ showpv('13IDA:eps_mbbi93.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Horizonatal mirror (status,latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi94.VAL') }} ,  {{ showpv('13IDA:eps_mbbi95.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Mirror masks (status,latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi96.VAL') }} ,  {{ showpv('13IDA:eps_mbbi97.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  13 ID C Water </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> ID-C backstop (status,latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi82.VAL') }} ,  {{ showpv('13IDA:eps_mbbi83.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  13 ID D Water </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> ID-D backstop (status,latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi61.VAL') }} ,  {{ showpv('13IDA:eps_mbbi62.VAL') }}  </td>
+ </tr>
+</table>
+{% endblock %}
+{% include 'footer_include.html' %}

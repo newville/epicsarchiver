@@ -1,0 +1,357 @@
+{% extends 'header_include.html' %}
+{% include 'pagelist_include.html' %}
+{% include 'pvupdate_include.html' %}
+{% include 'errors_include.html' %}
+{% block body %}
+
+<table>
+<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+
+ <tr><td class='section'>  General EPS Status </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> DCM user status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi1.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> DCM status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi2.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> PLC run mode </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi6.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> PLC keyswitch </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi7.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> PLC overrides </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi8.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> PLC forces present </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi9.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> PLC battery low </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi10.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Remote inputs </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi11.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Front end shutter </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi25.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D shutter </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi26.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E shutter </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi27.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> White mode </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi28.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Mono mode </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi29.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> FOE EPS status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi192.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D EPS status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi193.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E EPS status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi194.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Vacuum status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi195.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E vert. low power </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi200.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E horiz. low power </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi201.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D vert. low power </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi202.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D horiz. low power </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi203.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Mono 111 position </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi204.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Mono 311 position </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi205.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Mono center position </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi206.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E viewer position </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi207.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D viewer position </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi208.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> SSA viewer position </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi209.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> He gas farm pressure (left) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi210.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> He gas farm pressure (right) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi211.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D QBPM position </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi212.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Pump Status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi213.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D Vent Status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi214.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Pump Status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi215.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Vent Status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi216.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> SSA viewer (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi218.VAL') }} ,  {{ showpv('13IDA:eps_mbbi219.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Battery switch Status </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi220.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDD CO2 laser water </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi221.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDD CO2 polarizer water </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi222.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDD LVP slits water </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi223.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDD fiber laser water </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi224.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDD DAC stage water </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi225.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDE gas pressure (left) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi226.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDE gas pressure (right) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi227.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E Mono E-Stop </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi228.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  13 IDA Water </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> C/D horiz. slits water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi32.VAL') }} ,  {{ showpv('13IDA:eps_mbbi33.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D vert. slits water (staus, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi34.VAL') }} ,  {{ showpv('13IDA:eps_mbbi35.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E horiz. slits water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi36.VAL') }} ,  {{ showpv('13IDA:eps_mbbi37.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E vert. slits water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi38.VAL') }} ,  {{ showpv('13IDA:eps_mbbi39.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E WBS water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi40.VAL') }} ,  {{ showpv('13IDA:eps_mbbi41.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E viewer water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi42.VAL') }} ,  {{ showpv('13IDA:eps_mbbi43.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> 100W horiz. water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi44.VAL') }} ,  {{ showpv('13IDA:eps_mbbi45.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> 100W vert. water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi46.VAL') }} ,  {{ showpv('13IDA:eps_mbbi47.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D WBS water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi48.VAL') }} ,  {{ showpv('13IDA:eps_mbbi49.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D viewer water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi50.VAL') }} ,  {{ showpv('13IDA:eps_mbbi51.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  13 IDC/D Water </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> IDC Be window water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi52.VAL') }} ,  {{ showpv('13IDA:eps_mbbi53.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDC horiz. mirror water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi54.VAL') }} ,  {{ showpv('13IDA:eps_mbbi55.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDC backstop water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi56.VAL') }} ,  {{ showpv('13IDA:eps_mbbi57.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDD backstop water (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi58.VAL') }} ,  {{ showpv('13IDA:eps_mbbi59.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  13 IDA Vacuum </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Slit tank vacuum (CC1) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi64.VAL') }} ,  {{ showpv('13IDA:eps_mbbi65.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Slit tank vacuum (PG1) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi66.VAL') }} ,  {{ showpv('13IDA:eps_mbbi67.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D mono vacuum (CC2) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi68.VAL') }} ,  {{ showpv('13IDA:eps_mbbi69.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D mono vacuum (PG2) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi70.VAL') }} ,  {{ showpv('13IDA:eps_mbbi71.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E mono vacuum (CC3) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi72.VAL') }} ,  {{ showpv('13IDA:eps_mbbi73.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E mono vacuum (PG3) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi74.VAL') }} ,  {{ showpv('13IDA:eps_mbbi75.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E mirror vacuum (CC4) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi76.VAL') }} ,  {{ showpv('13IDA:eps_mbbi77.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E mirror vacuum (PG4) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi78.VAL') }} ,  {{ showpv('13IDA:eps_mbbi79.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> SSA tank vacuum (CC5) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi80.VAL') }} ,  {{ showpv('13IDA:eps_mbbi81.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> SSA tank vacuum (PG5) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi82.VAL') }} ,  {{ showpv('13IDA:eps_mbbi83.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D vert. mirror (CC6) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi84.VAL') }} ,  {{ showpv('13IDA:eps_mbbi85.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D vert. mirror (PG6) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi86.VAL') }} ,  {{ showpv('13IDA:eps_mbbi87.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E shutter vacuum (CC7) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi88.VAL') }} ,  {{ showpv('13IDA:eps_mbbi89.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E shutter vacuum (PG7) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi90.VAL') }} ,  {{ showpv('13IDA:eps_mbbi91.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> E transport vac. (PG8) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi92.VAL') }} ,  {{ showpv('13IDA:eps_mbbi93.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D horiz. mirror (CC9)(status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi94.VAL') }} ,  {{ showpv('13IDA:eps_mbbi95.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D horiz. mirror (PG9) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi96.VAL') }} ,  {{ showpv('13IDA:eps_mbbi97.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> C/D trans. vac. (PG10) (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi98.VAL') }} ,  {{ showpv('13IDA:eps_mbbi99.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> IDC horiz. mir msk wat(status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi100.VAL') }} ,  {{ showpv('13IDA:eps_mbbi101.VAL') }}  </td>
+ </tr>
+ <tr><td class='section'>  13 ID Valves </td><td></td></tr> 
+
+ <tr><td class='pvlabel'> Valve V2 position (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi112.VAL') }} ,  {{ showpv('13IDA:eps_mbbi113.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Valve V3 position (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi114.VAL') }} ,  {{ showpv('13IDA:eps_mbbi115.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Valve V4 position (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi116.VAL') }} ,  {{ showpv('13IDA:eps_mbbi117.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Valve V5 position (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi118.VAL') }} ,  {{ showpv('13IDA:eps_mbbi119.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Valve V6 position (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi120.VAL') }} ,  {{ showpv('13IDA:eps_mbbi121.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Valve V7 position (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi122.VAL') }} ,  {{ showpv('13IDA:eps_mbbi123.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Valve V8 position (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi124.VAL') }} ,  {{ showpv('13IDA:eps_mbbi125.VAL') }}  </td>
+ </tr>
+
+ <tr><td class='pvlabel'> Front end valve pos. (status, latch) </td>
+     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi126.VAL') }} ,  {{ showpv('13IDA:eps_mbbi127.VAL') }}  </td>
+ </tr>
+</table>
+{% endblock %}
+{% include 'footer_include.html' %}
