@@ -58,7 +58,6 @@ class Config:
             out[k] = getattr(self, k)
         return out
 
-
 def get_config(envvar='PVARCH_CONFIG', **kws):
     """read config file defined by environmental variable PVARCH_CONFIG"""
     fconf = os.environ.get(envvar, None)
@@ -245,3 +244,65 @@ def write_saverestore(pvvals,format='plain',header=None):
         out.append(xfmt  % (pv,val))
 
     return '\n'.join(out)
+
+
+def gformat(val, length=10):
+    """Format a number with '%g'-like format.
+
+    Except that:
+        a) the output string will be exactly the requested length.
+        b) positive numbers will have a leading blank.
+        b) the precision will be very close to as high as possible.
+        c) trailing zeros will not be trimmed.
+
+    The precision will typically be ``length-7``, with at least
+    ``length-6`` significant digits.
+
+    Parameters
+    ----------
+    val : float
+        Value to be formatted.
+    length : int, optional
+        Length of output string (default is 11).
+
+    Returns
+    -------
+    str
+        String of specified length.
+
+    Notes
+    ------
+    1. Positive values will have leading blank.
+
+    2. Precision loss:  at values of 1.e(length-3), and at values
+    of 1.e(8-length) (so at 1.e+8 and 1.e-3 for length=11)
+
+    there will be a drop in precision as the output
+    changes from 'f' to 'e' formatting:
+    >>>
+    >>> x = 99999995.2
+    >>> print('\n'.join((gformat(x, length=11), gformat(x+10, length=11))))
+     99999995.2
+     1.0000e+08
+
+    So that the reported precision drops from 9 to 6. This is inevitable
+    when switching precision, we're just noting where and how it happens
+    with this function.
+    """
+    try:
+        expon = int(log10(abs(val)))
+    except (OverflowError, ValueError):
+        expon = 0
+    length = max(length, 7)
+    form = 'e'
+    prec = length - 7
+    if abs(expon) > 99:
+        prec -= 1
+    elif ((expon > 0 and expon < (prec+6)) or
+          (expon <= 0 and -expon < (prec-1))):
+        form = 'f'
+        prec += 4
+        if expon > 0:
+            prec = max(0, prec-expon)
+    fmt = '{0: %i.%i%s}' % (length, prec, form)
+    return fmt.format(val)[:length]
