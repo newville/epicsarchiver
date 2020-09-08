@@ -1,0 +1,23 @@
+
+
+{% macro showpv(name, form='text', with_link=1) %}
+  {% if name in cache_data %}
+     {% if with_link != 0 %}
+         <a id="{{cache_data[name].id}}"
+         href="{{request.script_root}}/plot/3days/now/{{name}}/">
+     {% else %}
+        <span id="{{cache_data[name].id}}">
+     {% endif %}
+
+     {% if  form == 'yesno' %}
+        {% if  cache_data[name].value  == 0 %} No {% else %} Yes {% endif %}
+     {% else %}
+        {{ cache_data[name].cvalue }}
+     {% endif %}
+     {% if with_link != 0 %} </a> {% else %} </span> {% endif %}
+
+  {% else %}
+     PV {{name}} not found
+  {% endif %}
+</a>
+{% endmacro %}
