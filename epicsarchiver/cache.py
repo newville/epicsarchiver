@@ -746,6 +746,9 @@ class Cache(object):
                     value = self.pvs[pvname].value
                 self.alert_data[pvname]['last_value'] = value
 
+    def get_alerts(self):
+        self.read_alert_table()
+        return self.alert_data
 
     def get_runs(self, start_time=0, stop_time=None):
         runs = self.tables['runs']
