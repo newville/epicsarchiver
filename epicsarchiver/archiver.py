@@ -22,10 +22,13 @@ from .cache import Cache
 def clean_value(val):
     if isinstance(val, bytes):
         val = val.decode('utf-8')
+
     try:
         val = float(val)
-    except:
-        pass
+    except ValueError:
+        # some values are stored like this:
+        if val.startswith("b'") and val.endswith("'"):
+            val = float(val[2:-1])
     return val
 
 class Archiver:
