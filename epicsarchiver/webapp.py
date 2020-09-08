@@ -11,7 +11,8 @@ from datetime import datetime
 
 import numpy as np
 
-from epicsarchiver import get_config, Archiver, tformat, hformat
+from epicsarchiver import Archiver
+from epicsarchiver.util import get_config, tformat, hformat, clean_string
 from epicsarchiver.web_utils import (parse_times, chararray_as_string,
                                      auto_ylog, make_plot, PlotData,
                                      isnull, null2blank, cull_data)
@@ -125,37 +126,45 @@ def status():
     update_data(session)
     cinfo = dict(cache.get_info(process='cache').items())
     ainfo = dict(cache.get_info(process='archive').items())
-    # print("Status: ", cinfo, ainfo)
-    opts = dict(config=pvarch_config,
-                etime=60,
-                cache_db=cache.db.dbname,
-                cache_status=cinfo['status'],
-                cache_nnew=len(cache.get_values(time_ago=60)),
-                arch_db=ainfo['db'],
-                arch_status=ainfo['status'],
-                arch_nnew=cache.get_narchived(time_ago=60),
-                last_refresh=last_refresh, age=age,
-                cache_data=cache_data, enum_strings=enum_strings)
-    return render_template('status.html', **opts)
-
-
+    return render_template('status.html',
+                           config=pvarch_config,
+                           etime=60,
+                           cache_db=cache.db.dbname,
+                           cache_status=cinfo['status'],
+                           cache_nnew=len(cache.get_values(time_ago=60)),
+                           arch_db=ainfo['db'],
+                           arch_status=ainfo['status'],
+                           arch_nnew=cache.get_narchived(time_ago=60),
+                           last_refresh=last_refresh, age=age,
+                           cache_data=cache_data, enum_strings=enum_strings)
 
 
 @app.route('/help')
 def help():
-    config.pvdat1 = config.dat_format % (config.dat_prefix, 1)
-    config.pvdat2 = config.dat_format % (config.dat_prefix, 2)
-    config.pvdat128 = config.dat_format % (config.dat_prefix, 128)
-    return render_template('help.html', version=__version__, config=config)
+    return render_template('help.html', version='2.1',
+                           config=pvarch_config)
 
 
 @app.route('/alerts')
 def alerts():
     update_data(session)
+    alerts = []
+    ops = {'ne': '!=', 'eq': '==', 'lt': '<', 'le': '<=',
+           'gt': '>', 'ge': '>='}
+    for pvname, dat in cache.get_alerts().items():
+
+        tpoint = "%s %s" % (ops[clean_string(dat['compare'])],
+                            clean_string(dat['trippoint']))
+        alerts.append({'pvname': pvname, 'id': dat['id'],
+                       'name': dat['name'],
+                       'active': dat['active'],
+                       'status': dat['status'],
+                       'trip_point': tpoint})
     return render_template('alerts.html',
-                           alerts=cache.get_alerts(),
-                           admin=session['is_admin'],
-                           alert_choices=alert_ops)
+                           config=pvarch_config,
+                           alerts=alerts)
+#                    admin=session['is_admin'],
+#alert_choices=alert_ops)
 
 
 @app.route('/editalert/<int:alertid>')
@@ -317,11 +326,16 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
     if time_ago is None:
         time_ago = '3 days'
     dt1, dt2 = parse_times(date1, date2)
+
+    now = time()
+    with_current = (now - dt2.timestamp()) < 86400.0
+
     pv1 = null2blank(pv1)
     pv2 = null2blank(pv2)
     pv3 = null2blank(pv3)
     pv4 = null2blank(pv4)
     fig = ''
+
     messages = []
     plotdata = []
     related = []
@@ -345,8 +359,9 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
             enum_labels = None
 
         force_ylog   = pvinfo['graph_type'].startswith('log')
-        t, y =  archiver.get_data(pv, with_current=True,
-                                   tmin=dt1.timestamp(), tmax=dt2.timestamp())
+        t, y =  archiver.get_data(pv, with_current=with_current,
+                                  tmin=dt1.timestamp(),
+                                  tmax=dt2.timestamp())
 
         if dtype == 'string':
             y = [chararray_as_string(i) for i in y]
@@ -354,7 +369,7 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
             npts_total = len(t)
             if npts_total > 20000:
                 while len(t) > 20000:
-                    t, y = cull_data(t, y, sample=5, percent=10)
+                    t, y = cull_data(t, y, sample=2.5, percent=10)
                 t, y = t.tolist(), y.tolist()
                 messages.append(cull_message % (pv, npts_total, len(t)))
 
