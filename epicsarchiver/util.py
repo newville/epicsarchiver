@@ -3,6 +3,7 @@
 import os
 import toml
 import time
+from math import log10
 from random import randint
 try:
     from MySQLdb import string_literal
@@ -46,6 +47,8 @@ class Config:
         self.web_secret_key = 'please replace with a random string'
         self.web_admin_user = 'the right honorable foobar'
         self.web_admin_pass = 'please select a better password'
+        self.web_index = 'index'
+        self.web_pages = [["APS",   "StorageRing"]]
 
         for key, val in kws.items():
             setattr(self, key, val)
@@ -246,7 +249,7 @@ def write_saverestore(pvvals,format='plain',header=None):
     return '\n'.join(out)
 
 
-def gformat(val, length=10):
+def hformat(val, length=10):
     """Format a number with '%g'-like format.
 
     Except that:
@@ -281,7 +284,7 @@ def gformat(val, length=10):
     changes from 'f' to 'e' formatting:
     >>>
     >>> x = 99999995.2
-    >>> print('\n'.join((gformat(x, length=11), gformat(x+10, length=11))))
+    >>> print('\n'.join((hformat(x, length=11), hformat(x+10, length=11))))
      99999995.2
      1.0000e+08
 
