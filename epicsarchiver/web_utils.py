@@ -97,7 +97,6 @@ def chararray_as_string(val):
     return ''.join([chr(int(i)) for i in val[:val.index(0)]])
 
 
-
 def auto_ylog(vals):
     """
     decide whether a list of values should be displayed on a ylog scale
@@ -110,7 +109,11 @@ def auto_ylog(vals):
     if xmin < 0:
         return False
 
-    x01, x99 = np.percentile(x[np.where(x>1.e-150)], [1, 99])
+    try:
+        x01, x99 = np.percentile(x[np.where(x>1.e-150)], [1, 99])
+    except:
+        return False
+
     return (x99 > 200*x01)
 
 
@@ -139,23 +142,19 @@ PlotData = namedtuple('PlotData', ('t', 'y', 'pvname', 'label',
 pcolors = ('#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
            '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf')
 
-def make_plot(plotdata, size=(725, 625)):
+def make_plot(plotdata, width=625, height=525):
     """make plotly plot from a list of PlotData tuples
     """
     data = []
     title = None
     ntraces = len(plotdata)
     domwid = 1.07 - 0.09*(ntraces-1)
-    layout = {'width': size[0], 'height': size[1],
-              'hovermode': 'closest',
-              'showlegend': True,
-              'bgcolor':'#FAFAFA',
-              'legend': {'borderwidth': 0.5, 'bgcolor':'#F0F0F0',
-                         'orientation': 'h',
-                         'x': 0.05, 'y': 1.10, 'yanchor': 'top',
-                         },
-              'xaxis': {'title': {'text': 'Date'},
-                        'domain': [0.02, domwid]}}
+    layout = {'width': width, 'height': height,  'bgcolor':'#FEFEFE',
+              'hovermode': 'closest', 'showlegend': True,
+              'legend': {'borderwidth': 0.5, 'bgcolor':'#F2F2F2',
+                         'orientation': 'h', 'x': 0.1, 'y': 1.15,
+                         'yanchor': 'top', 'font': {'size': 10}, },
+              'xaxis': {'title': {'text': 'Date'}, 'domain': [0.02, domwid]}}
     for trace, this in enumerate(plotdata):
         ykey = 'y%d' % (trace+1) if trace>0 else 'y'
         data.append({'x':[ts2iso(ts) for ts in this.t],
@@ -165,28 +164,22 @@ def make_plot(plotdata, size=(725, 625)):
                      'yaxis': ykey,
                      'line': {'width': 3, 'shape': 'hv'}})
 
-
-
         yax = {'title': {'text': this.label, 'color': pcolors[trace]},
                'zeroline': False,  'type': 'linear',
                'titlefont': {'color': pcolors[trace]},
                'tickfont':  {'color': pcolors[trace]}}
-
         if this.force_ylog or auto_ylog(this.y):
             yax.update({'type':  'log', 'tickformat': '.3g'})
-
 
         if this.enum_labels is not None:
             yax.update({'ticktext': this.enum_labels,
                         'tickvals': list(range(len(this.enum_labels)))})
+        elif this.force_ylog or auto_ylog(this.y):
+            yax.update({'type':  'log', 'tickformat': '.3g'})
 
         if trace > 0:
-            print("trace,  ", domwid, domwid+0.09*(trace-1))
-            yax.update({'anchor': 'free',
-                        'title': this.label,
-                        'showgrid': False,
-                        'overlaying': 'y',
-                        'side': 'right',
+            yax.update({'anchor': 'free', 'side': 'right', 'overlaying': 'y',
+                        'showgrid': False, 'title': this.label,
                         'position': domwid+0.09*(trace-1)})
 
         yl = ykey.replace('y', 'yaxis')
@@ -201,33 +194,38 @@ def make_plot(plotdata, size=(725, 625)):
 
 ###
 ###
-html_top = """{% extends 'header_include.html' %}
-{% include 'pagelist_include.html' %}
-{% include 'pvupdate_include.html' %}
-{% include 'errors_include.html' %}
+html_top = """{% include "header_include.html" %}
+{% include "pagelist_include.html" %}
+{% include "errors_include.html" %}
+{% from  "pvupdate_include.html" import showpv with context %}
 {% block body %}
+<body onload="enable_pv_updates();">
 
 <table>
-<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+<tr><th align='left'></th><th align='right'>
+         {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 """
 
 html_bottom = """</table>
+</body>
 {% endblock %}
-{% include 'footer_include.html' %}
+{% include "footer_include.html" %}
 """
 
 html_label  = " <tr><td class='section'>  %s </td><td></td></tr> "
 html_hr     = " <tr><td colspan=2><hr></td></tr> "
 html_space  = " <tr><td colspan=2>&nbsp;</td></tr> "
 html_pvrow  = """
- <tr><td class='pvlabel'> %s </td>
-     <td class='pvlink'> %s </td>
+ <tr><td class='pvlabel'>  %s  </td>
+     <td class='pvlink'>
+       %s
+     </td>
  </tr>"""
-html_showpv = " {{ showpv('%s') }} "
+html_showpv = "{{ showpv(%s) }}"
 def tmpl2jinja(filename):
     with open(filename, "r") as fh:
         lines = fh.readlines()
-        
+
     buff = [html_top]
     for line in lines:
         line = line[:-1].strip()
@@ -239,14 +237,14 @@ def tmpl2jinja(filename):
                 i= len(line)
             buff.append(html_label % (line[1:i]))
 
-            
+
         elif line.startswith('--'):
             buff.append(html_hr)
         elif line.startswith('<>'):
             buff.append(html_space)
         else:
             words = [w.strip() for w in line.split('|')]
- 
+
             pvnames = words.pop(0)
             pvnames = [normalize_pvname(w.strip()) for w in pvnames.split(',')]
             desc = None
@@ -260,10 +258,12 @@ def tmpl2jinja(filename):
             if len(words) > 0:
                 format = words.pop(0).strip()
                 if format == 'yes/no':
-                    pvnames = ['%s, form="yesno"' % (p) for p in pvnames]
-                elif '%' in format:
-                    pvnames = ['%s, form="gform"' % (p) for p in pvnames]
-            pvlinks = ', '.join([html_showpv % n for n in pvnames])
+                    pvnames = ['"%s", form="yesno"' % (p) for p in pvnames]
+                else:
+                    pvnames = ['"%s"' % (p) for p in pvnames]
+            else:
+                pvnames = ['"%s"' % (p) for p in pvnames]
+            pvlinks = ',\n       '.join([html_showpv % n for n in pvnames])
             buff.append(html_pvrow % (desc, pvlinks))
 
     buff.append(html_bottom)
@@ -276,4 +276,3 @@ def tmpl2jinja(filename):
     with open(outfile, 'w') as fh:
         fh.write('\n'.join(buff))
     print("wrote '%s'" % outfile)
-
