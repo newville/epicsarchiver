@@ -1,31 +1,30 @@
 
-body            { font-family: sans-serif; background: #FEFEFC; }
+body            { font-family: sans-serif; background: #FEFEFE; }
 a, h1, h2       { color: #377ba8; text-decoration: none; }
 h1, h2          { font-family: 'Georgia', serif; margin: 0; }
 h1              { border-bottom: 2px solid #eee; }
 h2              { font-size: 1.2em; }
 
 .page           { margin: 3px auto; border: 2px solid #F0F0F0;
-                 padding: 3px; background: #FEFEFC; }
+                 padding: 3px; background: #FEFEFE; }
 .entries        { list-style: none; margin: 0; padding: 0; }
 .entries li     { margin: 0.8em 1.2em; }
 .entries li h2  { margin-left: -1em; }
 .add-entry      { font-size: 0.9em; border-bottom: 1px solid #ccc; }
 .add-entry dl   { font-weight: bold; }
 .metanav        { text-align: right; font-size: 0.8em; padding: 0.3em;
-                  margin-bottom: 1em; background: #FEFEFC; }
+                  margin-bottom: 1em; background: #FEFEFE; }
 .flash          { background: #cee5F5; padding: 0.5em;
                   border: 1px solid #aacbe2; }
 .error          { background: #f0d6d6; padding: 0.5em; }
 
-.even {background-color: #E0E0E0;}
-.odd {background-color: #FFFFFF;}
-
+.even {background-color: #F2F2F2;}
+.odd {background-color: #FEFEFE;}
 
 
 .topbar {font: bold 12px verdana, arial, sans-serif;
 	 text-decoration: none; color: #553233;
-	 background: #FEFEFC;  border-bottom: 4px solid #999955}
+	 background: #FEFEFE;  border-bottom: 4px solid #999955}
 
 .topbar a {text-decoration: none; }
 
@@ -42,19 +41,24 @@ h2 {font:bold 22px verdana,arial,sans-serif;color:#044484;font-weight:bold;}
 .h4font {font:bold 18px verdana,arial,sans-serif;color:#042264;}
 .h3font {font:bold 18px verdana,arial,sans-serif;color:#A42424;font-weight:bold;font-style:italic;}
 
-#ptable {background:#FEFEFC;}
+#ptable {background:#FEFEFE;}
 #pvval {font: bold 12pt verdana,arial,san-serif;
 	font-size: 12pt; font-weight:bold;
-	background:#FFFFFD; text-align:justify;}
+	background:#FEFEFE; text-align:justify;}
 #pvval a, a.active {color: #000DD;}
 #pvval a:hover {color: #CC0000;}
 
-#spectra {font: bold 11pt verdana,arial,san-serif;  background:#FAFAF8; text-align:justify;}
-#spectra a, a.active {color: #4444AA; solid #880000 ; text-decoration: none; }
-#spectra a.active {color: #CC0000;  background: #FAFAE0;}
-#spectra a:hover {color: #CC0000;  background: #FAFAE0;}
-#spectra hr {height: 3px; background-color: #999955;}
-#even {background-color: #F0F0F0;}
+.section  {font: bold 13pt verdana,arial,san-serif;
+	   font-size: 13pt; font-weight:bold;
+	   background:#FEFEFE; color: #CC0000;}
+
+.pvlabel  {font: bold 12pt verdana,arial,san-serif;
+	   background:#FEFEFE; color: #303000;}
+
+.pvlink {font: bold 12pt verdana,arial,san-serif;
+	 background:#FEFEFE; color: #0050B0; text-align:right;}
+
+.pvlink a, a.active {color: #0050B0;}
 
 
 #grayentry {color:#B0B0B0;}
