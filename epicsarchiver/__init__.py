@@ -11,7 +11,7 @@
 """
 __version__ = '2.1'
 
-from .util import get_config, tformat
+from .util import get_config, tformat, hformat
 from .cache import Cache
 from .archiver import Archiver
 from .schema import initial_sql
