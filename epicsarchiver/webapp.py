@@ -14,7 +14,7 @@ import numpy as np
 from epicsarchiver import get_config, Archiver, tformat, hformat
 from epicsarchiver.web_utils import (parse_times, chararray_as_string,
                                      auto_ylog, make_plot, PlotData,
-                                     isnull, null2blank)
+                                     isnull, null2blank, cull_data)
 
 # note: this expects that the environmental variable
 # will be set and accessible by the web server, and we
@@ -42,6 +42,9 @@ enum_strings = {}
 
 ago_choices = ['4 hours', '12 hours', '1 day', '3 days', '1 week', '3 weeks',
                '6 weeks', '12 weeks', '26 weeks', '1 year']
+
+cull_message = """Warning: data for '%s' were culled
+from %d to %d values for plotting"""
 
 def update_data(session, force_refresh=False):
     global pvarch_config, archiver, cache
@@ -264,16 +267,15 @@ def data(date1=None, date2=None, pv=None, fname=None):
     t, y =  archiver.get_data(pv, with_current=False,
                               tmin=tmin, tmax=tmax)
 
-    print("Got Data ",  tmin, tmax, len(t), len(y))
-
     pvinfo  = archiver.get_pvinfo(pv)
     pvinfo.update(dict(stmin=tformat(tmin), stmax=tformat(tmax),
-                       now=tformat(time()) ))
+                       now=tformat(time()), npts=len(y)))
     buff = ['''# Data for {name:s}
 # Description: {description:s}
 # Start Time:  {stmin:s}
 # Stop Time:   {stmax:s}
 # Data Type:   {type:s}
+# Data Length: {npts:d}
 # Extracted:   {now:s}'''.format(**pvinfo)]
 
     dtype = pvinfo['type']
@@ -312,12 +314,12 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
     if time_ago is None:
         time_ago = '3 days'
     dt1, dt2 = parse_times(date1, date2)
-
     pv1 = null2blank(pv1)
     pv2 = null2blank(pv2)
     pv3 = null2blank(pv3)
     pv4 = null2blank(pv4)
     fig = ''
+    messages = []
     plotdata = []
     related = []
     selected_pvs=[]
@@ -345,10 +347,18 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
 
         if dtype == 'string':
             y = [chararray_as_string(i) for i in y]
+        else:
+            npts_total = len(t)
+            if npts_total > 20000:
+                while len(t) > 20000:
+                    t, y = cull_data(t, y, sample=5, percent=10)
+                t, y = t.tolist(), y.tolist()
+                messages.append(cull_message % (pv, npts_total, len(t)))
 
         thisplot = PlotData(t=t, y=y, pvname=pv, label=label,
                             force_ylog=force_ylog,
                             enum_labels=enum_labels)
+
         saved_arrays[pv] = (time(), thisplot)
         plotdata.append(thisplot)
 
@@ -379,10 +389,10 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
         if other>-1 and (oname, other) not in related:
             related.append((oname, other))
 
-    return render_template('plot.html',
+    return render_template('plot.html', messages=messages, nmessages=len(messages),
                            pv1=pv1, pv2=pv2, pv3=pv3, pv4=pv4,
-                           date1=dt1.isoformat(),
-                           date2=dt2.isoformat(),
+                           date1=dt1.isoformat().replace('T', ' '),
+                           date2=dt2.isoformat().replace('T', ' '),
                            selected_pvs=selected_pvs,
                            related=related,
                            time_ago=time_ago,
@@ -404,6 +414,7 @@ def formplot():
     form = request.form
     date1  = form.get('date1', '3 days')
     date2  = form.get('date2', 'now')
+
     submit = form.get('submit', 'Time From Present').lower()
 
     if 'plot selected' in submit:
