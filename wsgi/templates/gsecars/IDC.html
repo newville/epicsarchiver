@@ -3,6 +3,7 @@
 {% include "errors_include.html" %}
 {% from  "pvupdate_include.html" import showpv with context %}
 {% block body %}
+<body onload="enable_pv_updates();">
 
 <table>
 <tr><th align='left'></th><th align='right'>
@@ -178,5 +179,6 @@
      </td>
  </tr>
 </table>
+</body>
 {% endblock %}
 {% include "footer_include.html" %}

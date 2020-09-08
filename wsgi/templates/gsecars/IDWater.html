@@ -1,88 +1,149 @@
-{% extends 'header_include.html' %}
-{% include 'pagelist_include.html' %}
-{% include 'pvupdate_include.html' %}
-{% include 'errors_include.html' %}
+{% include "header_include.html" %}
+{% include "pagelist_include.html" %}
+{% include "errors_include.html" %}
+{% from  "pvupdate_include.html" import showpv with context %}
 {% block body %}
+<body onload="enable_pv_updates();">
 
 <table>
-<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+<tr><th align='left'></th><th align='right'>
+         {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 
  <tr><td class='section'>  13 ID A Water </td><td></td></tr> 
 
- <tr><td class='pvlabel'> C/D horiz. slits water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi36.VAL') }} ,  {{ showpv('13IDA:eps_mbbi37.VAL') }}  </td>
+ <tr><td class='pvlabel'>  C/D horiz. slits water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi36.VAL") }},
+       {{ showpv("13IDA:eps_mbbi37.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> C/D vert. slits water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi38.VAL') }} ,  {{ showpv('13IDA:eps_mbbi39.VAL') }}  </td>
+ <tr><td class='pvlabel'>  C/D vert. slits water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi38.VAL") }},
+       {{ showpv("13IDA:eps_mbbi39.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> E horiz. slits water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi32.VAL') }} ,  {{ showpv('13IDA:eps_mbbi33.VAL') }}  </td>
+ <tr><td class='pvlabel'>  E horiz. slits water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi32.VAL") }},
+       {{ showpv("13IDA:eps_mbbi33.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> E vert. slits water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi34.VAL') }} ,  {{ showpv('13IDA:eps_mbbi35.VAL') }}  </td>
+ <tr><td class='pvlabel'>  E vert. slits water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi34.VAL") }},
+       {{ showpv("13IDA:eps_mbbi35.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> E WBS water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi40.VAL') }} ,  {{ showpv('13IDA:eps_mbbi41.VAL') }}  </td>
+ <tr><td class='pvlabel'>  E WBS water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi40.VAL") }},
+       {{ showpv("13IDA:eps_mbbi41.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> E viewer water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi42.VAL') }} ,  {{ showpv('13IDA:eps_mbbi43.VAL') }}  </td>
+ <tr><td class='pvlabel'>  E viewer water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi42.VAL") }},
+       {{ showpv("13IDA:eps_mbbi43.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> 100W horiz. water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi44.VAL') }} ,  {{ showpv('13IDA:eps_mbbi45.VAL') }}  </td>
+ <tr><td class='pvlabel'>  100W horiz. water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi44.VAL") }},
+       {{ showpv("13IDA:eps_mbbi45.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> 100W vert. water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi46.VAL') }} ,  {{ showpv('13IDA:eps_mbbi47.VAL') }}  </td>
+ <tr><td class='pvlabel'>  100W vert. water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi46.VAL") }},
+       {{ showpv("13IDA:eps_mbbi47.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> C/D WBS water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi48.VAL') }} ,  {{ showpv('13IDA:eps_mbbi49.VAL') }}  </td>
+ <tr><td class='pvlabel'>  C/D WBS water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi48.VAL") }},
+       {{ showpv("13IDA:eps_mbbi49.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> C/D viewer water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi50.VAL') }} ,  {{ showpv('13IDA:eps_mbbi51.VAL') }}  </td>
+ <tr><td class='pvlabel'>  C/D viewer water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi50.VAL") }},
+       {{ showpv("13IDA:eps_mbbi51.VAL") }}
+     </td>
  </tr>
  <tr><td class='section'>  13 ID C Water </td><td></td></tr> 
 
- <tr><td class='pvlabel'> IDC Be window water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi52.VAL') }} ,  {{ showpv('13IDA:eps_mbbi53.VAL') }}  </td>
+ <tr><td class='pvlabel'>  IDC Be window water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi52.VAL") }},
+       {{ showpv("13IDA:eps_mbbi53.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> IDC horiz. mirror water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi54.VAL') }} ,  {{ showpv('13IDA:eps_mbbi55.VAL') }}  </td>
+ <tr><td class='pvlabel'>  IDC horiz. mirror water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi54.VAL") }},
+       {{ showpv("13IDA:eps_mbbi55.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> IDC backstop water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi56.VAL') }} ,  {{ showpv('13IDA:eps_mbbi57.VAL') }}  </td>
+ <tr><td class='pvlabel'>  IDC backstop water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi56.VAL") }},
+       {{ showpv("13IDA:eps_mbbi57.VAL") }}
+     </td>
  </tr>
  <tr><td class='section'>  13 ID D Water </td><td></td></tr> 
 
- <tr><td class='pvlabel'> IDD backstop water (status, latch) </td>
-     <td class='pvlink'>  {{ showpv('13IDA:eps_mbbi58.VAL') }} ,  {{ showpv('13IDA:eps_mbbi59.VAL') }}  </td>
+ <tr><td class='pvlabel'>  IDD backstop water (status, latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13IDA:eps_mbbi58.VAL") }},
+       {{ showpv("13IDA:eps_mbbi59.VAL") }}
+     </td>
  </tr>
  <tr><td class='section'>  Front End DI Water Flows </td><td></td></tr> 
 
- <tr><td class='pvlabel'> Chain A 1, 2, 3 </td>
-     <td class='pvlink'>  {{ showpv('PA:13ID:CHANNEL_1_CALC.VAL') }} ,  {{ showpv('PA:13ID:CHANNEL_2_CALC.VAL') }} ,  {{ showpv('PA:13ID:CHANNEL_3_CALC.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Chain A 1, 2, 3  </td>
+     <td class='pvlink'>
+       {{ showpv("PA:13ID:CHANNEL_1_CALC.VAL") }},
+       {{ showpv("PA:13ID:CHANNEL_2_CALC.VAL") }},
+       {{ showpv("PA:13ID:CHANNEL_3_CALC.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Chain A 4, 5, 6 </td>
-     <td class='pvlink'>  {{ showpv('PA:13ID:CHANNEL_4_CALC.VAL') }} ,  {{ showpv('PA:13ID:CHANNEL_5_CALC.VAL') }} ,  {{ showpv('PA:13ID:CHANNEL_6_CALC.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Chain A 4, 5, 6  </td>
+     <td class='pvlink'>
+       {{ showpv("PA:13ID:CHANNEL_4_CALC.VAL") }},
+       {{ showpv("PA:13ID:CHANNEL_5_CALC.VAL") }},
+       {{ showpv("PA:13ID:CHANNEL_6_CALC.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Chain B 1, 2, 3 </td>
-     <td class='pvlink'>  {{ showpv('PB:13ID:CHANNEL_1_CALC.VAL') }} ,  {{ showpv('PB:13ID:CHANNEL_2_CALC.VAL') }} ,  {{ showpv('PB:13ID:CHANNEL_3_CALC.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Chain B 1, 2, 3  </td>
+     <td class='pvlink'>
+       {{ showpv("PB:13ID:CHANNEL_1_CALC.VAL") }},
+       {{ showpv("PB:13ID:CHANNEL_2_CALC.VAL") }},
+       {{ showpv("PB:13ID:CHANNEL_3_CALC.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Chain B 4, 5, 6 </td>
-     <td class='pvlink'>  {{ showpv('PB:13ID:CHANNEL_4_CALC.VAL') }} ,  {{ showpv('PB:13ID:CHANNEL_5_CALC.VAL') }} ,  {{ showpv('PB:13ID:CHANNEL_6_CALC.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Chain B 4, 5, 6  </td>
+     <td class='pvlink'>
+       {{ showpv("PB:13ID:CHANNEL_4_CALC.VAL") }},
+       {{ showpv("PB:13ID:CHANNEL_5_CALC.VAL") }},
+       {{ showpv("PB:13ID:CHANNEL_6_CALC.VAL") }}
+     </td>
  </tr>
 </table>
+</body>
 {% endblock %}
-{% include 'footer_include.html' %}
+{% include "footer_include.html" %}

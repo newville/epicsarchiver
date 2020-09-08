@@ -1,52 +1,75 @@
-{% extends 'header_include.html' %}
-{% include 'pagelist_include.html' %}
-{% include 'pvupdate_include.html' %}
-{% include 'errors_include.html' %}
+{% include "header_include.html" %}
+{% include "pagelist_include.html" %}
+{% include "errors_include.html" %}
+{% from  "pvupdate_include.html" import showpv with context %}
 {% block body %}
+<body onload="enable_pv_updates();">
 
 <table>
-<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+<tr><th align='left'></th><th align='right'>
+         {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 
  <tr><td class='section'>  BM Monochromator </td><td></td></tr> 
 
- <tr><td class='pvlabel'> Ion Pump Pressure (CC) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:cc2.VAL, form="gform"') }}  </td>
+ <tr><td class='pvlabel'>  Ion Pump Pressure (CC)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:cc2.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> 1st XTAL Temp </td>
-     <td class='pvlink'>  {{ showpv('13BMA:DMM1Ch2_calc.VAL, form="gform"') }}  </td>
+ <tr><td class='pvlabel'>  1st XTAL Temp  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:DMM1Ch2_calc.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> 2nd XTAL Temp </td>
-     <td class='pvlink'>  {{ showpv('13BMA:DMM1Ch3_calc.VAL, form="gform"') }}  </td>
+ <tr><td class='pvlabel'>  2nd XTAL Temp  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:DMM1Ch3_calc.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Water Chiller Temp </td>
-     <td class='pvlink'>  {{ showpv('13BMA:DMM1Ch4_calc.VAL, form="gform"') }}  </td>
+ <tr><td class='pvlabel'>  Water Chiller Temp  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:DMM1Ch4_calc.VAL") }}
+     </td>
  </tr>
  <tr><td colspan=2>&nbsp;</td></tr> 
 
- <tr><td class='pvlabel'> Mono Angle </td>
-     <td class='pvlink'>  {{ showpv('13BMA:m17.VAL, form="gform"') }}  </td>
+ <tr><td class='pvlabel'>  Mono Angle  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:m17.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Mono Energy </td>
-     <td class='pvlink'>  {{ showpv('13BMA:E:E_RBV.VAL, form="gform"') }}  </td>
+ <tr><td class='pvlabel'>  Mono Energy  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:E:E_RBV.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> PID Looped Locked? </td>
-     <td class='pvlink'>  {{ showpv('13BMA:mono_pid1Locked.VAL') }}  </td>
+ <tr><td class='pvlabel'>  PID Looped Locked?  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:mono_pid1Locked.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Cage Y Position </td>
-     <td class='pvlink'>  {{ showpv('13BMA:m13.VAL, form="gform"') }}  </td>
+ <tr><td class='pvlabel'>  Cage Y Position  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:m13.VAL") }}
+     </td>
  </tr>
  <tr><td colspan=2><hr></td></tr> 
  <tr><td class='section'>  BM-D Vertical Mirror </td><td></td></tr> 
 
- <tr><td class='pvlabel'> Temperatures (Cu Mask, Up Leg, Down Leg) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:DMM2Ch2_raw.VAL, form="gform"') }} ,  {{ showpv('13BMA:DMM2Ch3_raw.VAL, form="gform"') }} ,  {{ showpv('13BMA:DMM2Ch4_raw.VAL, form="gform"') }}  </td>
+ <tr><td class='pvlabel'>  Temperatures (Cu Mask, Up Leg, Down Leg)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:DMM2Ch2_raw.VAL") }},
+       {{ showpv("13BMA:DMM2Ch3_raw.VAL") }},
+       {{ showpv("13BMA:DMM2Ch4_raw.VAL") }}
+     </td>
  </tr>
 </table>
+</body>
 {% endblock %}
-{% include 'footer_include.html' %}
+{% include "footer_include.html" %}

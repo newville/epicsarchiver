@@ -1,122 +1,209 @@
-{% extends 'header_include.html' %}
-{% include 'pagelist_include.html' %}
-{% include 'pvupdate_include.html' %}
-{% include 'errors_include.html' %}
+{% include "header_include.html" %}
+{% include "pagelist_include.html" %}
+{% include "errors_include.html" %}
+{% from  "pvupdate_include.html" import showpv with context %}
 {% block body %}
+<body onload="enable_pv_updates();">
 
 <table>
-<tr><th align='left'></th><th align='right'> {{ showpv('pvarch_timestamp') }} </th></tr>
+<tr><th align='left'></th><th align='right'>
+         {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 
  <tr><td class='section'>  Main DI Water  </td><td></td></tr> 
 
- <tr><td class='pvlabel'> DI Water Flows 1-5 (should all be ~1.0) </td>
-     <td class='pvlink'>  {{ showpv('PD:13ID:FM1:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM2:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM3:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM4:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM5:ReadAI.VAL') }}  </td>
+ <tr><td class='pvlabel'>  DI Water Flows 1-5 (should all be ~1.0)  </td>
+     <td class='pvlink'>
+       {{ showpv("PD:13ID:FM1:ReadAI.VAL") }},
+       {{ showpv("PD:13ID:FM2:ReadAI.VAL") }},
+       {{ showpv("PD:13ID:FM3:ReadAI.VAL") }},
+       {{ showpv("PD:13ID:FM4:ReadAI.VAL") }},
+       {{ showpv("PD:13ID:FM5:ReadAI.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> DI Water Flows 6-10 (should all be ~1.0) </td>
-     <td class='pvlink'>  {{ showpv('PD:13ID:FM6:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM7:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM8:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM9:ReadAI.VAL') }} ,  {{ showpv('PD:13ID:FM10:ReadAI.VAL') }}  </td>
+ <tr><td class='pvlabel'>  DI Water Flows 6-10 (should all be ~1.0)  </td>
+     <td class='pvlink'>
+       {{ showpv("PD:13ID:FM6:ReadAI.VAL") }},
+       {{ showpv("PD:13ID:FM7:ReadAI.VAL") }},
+       {{ showpv("PD:13ID:FM8:ReadAI.VAL") }},
+       {{ showpv("PD:13ID:FM9:ReadAI.VAL") }},
+       {{ showpv("PD:13ID:FM10:ReadAI.VAL") }}
+     </td>
  </tr>
  <tr><td class='section'>  13 BM A Water </td><td></td></tr> 
 
- <tr><td class='pvlabel'> Aperture plate  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi12.VAL') }} ,  {{ showpv('13BMA:eps_mbbi13.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Aperture plate  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi12.VAL") }},
+       {{ showpv("13BMA:eps_mbbi13.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Beamstops  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi14.VAL') }} ,  {{ showpv('13BMA:eps_mbbi15.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Beamstops  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi14.VAL") }},
+       {{ showpv("13BMA:eps_mbbi15.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Filter       (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi16.VAL') }} ,  {{ showpv('13BMA:eps_mbbi17.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Filter       (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi16.VAL") }},
+       {{ showpv("13BMA:eps_mbbi17.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-D vert slits  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi18.VAL') }} ,  {{ showpv('13BMA:eps_mbbi19.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-D vert slits  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi18.VAL") }},
+       {{ showpv("13BMA:eps_mbbi19.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-D horiz slits (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi20.VAL') }} ,  {{ showpv('13BMA:eps_mbbi21.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-D horiz slits (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi20.VAL") }},
+       {{ showpv("13BMA:eps_mbbi21.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-C vert slits (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi22.VAL') }} ,  {{ showpv('13BMA:eps_mbbi23.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-C vert slits (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi22.VAL") }},
+       {{ showpv("13BMA:eps_mbbi23.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-C horiz vee (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi24.VAL') }} ,  {{ showpv('13BMA:eps_mbbi25.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-C horiz vee (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi24.VAL") }},
+       {{ showpv("13BMA:eps_mbbi25.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Fixed mask 2 (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi81.VAL') }} ,  {{ showpv('13BMA:eps_mbbi82.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Fixed mask 2 (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi81.VAL") }},
+       {{ showpv("13BMA:eps_mbbi82.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Monochromator (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi83.VAL') }} ,  {{ showpv('13BMA:eps_mbbi84.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Monochromator (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi83.VAL") }},
+       {{ showpv("13BMA:eps_mbbi84.VAL") }}
+     </td>
  </tr>
  <tr><td class='section'>  13 BM B Water </td><td></td></tr> 
 
- <tr><td class='pvlabel'> BM-D slits SL3 (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi44.VAL') }} ,  {{ showpv('13BMA:eps_mbbi45.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-D slits SL3 (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi44.VAL") }},
+       {{ showpv("13BMA:eps_mbbi45.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-C mirror mask (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi107.VAL') }} ,  {{ showpv('13BMA:eps_mbbi108.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-C mirror mask (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi107.VAL") }},
+       {{ showpv("13BMA:eps_mbbi108.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-C mirror  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi109.VAL') }} ,  {{ showpv('13BMA:eps_mbbi110.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-C mirror  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi109.VAL") }},
+       {{ showpv("13BMA:eps_mbbi110.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-C mono backstop  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi113.VAL') }} ,  {{ showpv('13BMA:eps_mbbi114.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-C mono backstop  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi113.VAL") }},
+       {{ showpv("13BMA:eps_mbbi114.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-C mono  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi111.VAL') }} ,  {{ showpv('13BMA:eps_mbbi112.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-C mono  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi111.VAL") }},
+       {{ showpv("13BMA:eps_mbbi112.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-D mirror mask  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi93.VAL') }} ,  {{ showpv('13BMA:eps_mbbi94.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-D mirror mask  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi93.VAL") }},
+       {{ showpv("13BMA:eps_mbbi94.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-D mirror (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi95.VAL') }} ,  {{ showpv('13BMA:eps_mbbi96.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-D mirror (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi95.VAL") }},
+       {{ showpv("13BMA:eps_mbbi96.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-D shutter (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi97.VAL') }} ,  {{ showpv('13BMA:eps_mbbi98.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-D shutter (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi97.VAL") }},
+       {{ showpv("13BMA:eps_mbbi98.VAL") }}
+     </td>
  </tr>
  <tr><td colspan=2>&nbsp;</td></tr> 
 
- <tr><td class='pvlabel'> BM-C Be window helium (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi73.VAL') }} ,  {{ showpv('13BMA:eps_mbbi74.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-C Be window helium (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi73.VAL") }},
+       {{ showpv("13BMA:eps_mbbi74.VAL") }}
+     </td>
  </tr>
  <tr><td colspan=2>&nbsp;</td></tr> 
  <tr><td class='section'>  13 BM D Water </td><td></td></tr> 
 
- <tr><td class='pvlabel'> BM-D SL4  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi46.VAL') }} ,  {{ showpv('13BMA:eps_mbbi47.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-D SL4  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi46.VAL") }},
+       {{ showpv("13BMA:eps_mbbi47.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> BM-D SL5  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi48.VAL') }} ,  {{ showpv('13BMA:eps_mbbi49.VAL') }}  </td>
+ <tr><td class='pvlabel'>  BM-D SL5  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi48.VAL") }},
+       {{ showpv("13BMA:eps_mbbi49.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Be window  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi85.VAL') }} ,  {{ showpv('13BMA:eps_mbbi86.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Be window  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi85.VAL") }},
+       {{ showpv("13BMA:eps_mbbi86.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Station Water #1  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi50.VAL') }} ,  {{ showpv('13BMA:eps_mbbi51.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Station Water #1  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi50.VAL") }},
+       {{ showpv("13BMA:eps_mbbi51.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Station Water #2  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi52.VAL') }} ,  {{ showpv('13BMA:eps_mbbi53.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Station Water #2  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi52.VAL") }},
+       {{ showpv("13BMA:eps_mbbi53.VAL") }}
+     </td>
  </tr>
 
- <tr><td class='pvlabel'> Station Water #3  (status,latch) </td>
-     <td class='pvlink'>  {{ showpv('13BMA:eps_mbbi87.VAL') }} ,  {{ showpv('13BMA:eps_mbbi88.VAL') }}  </td>
+ <tr><td class='pvlabel'>  Station Water #3  (status,latch)  </td>
+     <td class='pvlink'>
+       {{ showpv("13BMA:eps_mbbi87.VAL") }},
+       {{ showpv("13BMA:eps_mbbi88.VAL") }}
+     </td>
  </tr>
 </table>
+</body>
 {% endblock %}
-{% include 'footer_include.html' %}
+{% include "footer_include.html" %}
