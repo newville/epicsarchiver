@@ -1,7 +1,7 @@
 {% include "header_include.html" %}
 {% include "pagelist_include.html" %}
 {% include "errors_include.html" %}
-{% from  "pvupdate_include.html" import showpv with context %}
+{% from  "showpv_macros.html" import showpv with context %}
 {% block body %}
 <body onload="enable_pv_updates();">
 
@@ -9,7 +9,7 @@
 <tr><th align='left'></th><th align='right'>
          {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 
- <tr><td class='section'>  Mono and Feedback </td><td></td></tr> 
+ <tr><td class='section'>  Mono and Feedback </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Front End Shutter, E Shutter  </td>
      <td class='pvlink'>
@@ -30,8 +30,8 @@
        {{ showpv("13IDA:DMM1Ch11_calc.VAL") }}
      </td>
  </tr>
- <tr><td colspan=2>&nbsp;</td></tr> 
- <tr><td class='section'>  XRF Map </td><td></td></tr> 
+ <tr><td colspan=2>&nbsp;</td></tr>
+ <tr><td class='section'>  XRF Map </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Scan Status, Message  </td>
      <td class='pvlink'>
@@ -59,8 +59,8 @@
        {{ showpv("13XRM:map:filename.VAL") }}
      </td>
  </tr>
- <tr><td colspan=2>&nbsp;</td></tr> 
- <tr><td class='section'>  Energy Scan, Macros </td><td></td></tr> 
+ <tr><td colspan=2>&nbsp;</td></tr>
+ <tr><td class='section'>  Energy Scan, Macros </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Current Scan Command  </td>
      <td class='pvlink'>
@@ -79,8 +79,8 @@
        {{ showpv("13XRM:SCANDB:status.VAL") }}
      </td>
  </tr>
- <tr><td colspan=2>&nbsp;</td></tr> 
- <tr><td class='section'>  4-Element XRF Detector </td><td></td></tr> 
+ <tr><td colspan=2>&nbsp;</td></tr>
+ <tr><td class='section'>  4-Element XRF Detector </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Status, Acquire Real Time  </td>
      <td class='pvlink'>
@@ -88,8 +88,8 @@
        {{ showpv("13QX4:AcquireTime.VAL") }}
      </td>
  </tr>
- <tr><td colspan=2>&nbsp;</td></tr> 
- <tr><td class='section'>  Flux </td><td></td></tr> 
+ <tr><td colspan=2>&nbsp;</td></tr>
+ <tr><td class='section'>  Flux </td><td></td></tr>
 
  <tr><td class='pvlabel'>  I0 transmitted flux (Hz)  </td>
      <td class='pvlink'>

@@ -1,7 +1,7 @@
 {% include "header_include.html" %}
 {% include "pagelist_include.html" %}
 {% include "errors_include.html" %}
-{% from  "pvupdate_include.html" import showpv with context %}
+{% from  "showpv_macros.html" import showpv with context %}
 {% block body %}
 <body onload="enable_pv_updates();">
 
@@ -9,7 +9,7 @@
 <tr><th align='left'></th><th align='right'>
          {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 
- <tr><td class='section'>  General EPS Status </td><td></td></tr> 
+ <tr><td class='section'>  General EPS Status </td><td></td></tr>
 
  <tr><td class='pvlabel'>  DCM user status  </td>
      <td class='pvlink'>
@@ -275,7 +275,7 @@
        {{ showpv("13IDA:eps_mbbi228.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  13 IDA Water </td><td></td></tr> 
+ <tr><td class='section'>  13 IDA Water </td><td></td></tr>
 
  <tr><td class='pvlabel'>  C/D horiz. slits water (status, latch)  </td>
      <td class='pvlink'>
@@ -346,7 +346,7 @@
        {{ showpv("13IDA:eps_mbbi51.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  13 IDC/D Water </td><td></td></tr> 
+ <tr><td class='section'>  13 IDC/D Water </td><td></td></tr>
 
  <tr><td class='pvlabel'>  IDC Be window water (status, latch)  </td>
      <td class='pvlink'>
@@ -375,7 +375,7 @@
        {{ showpv("13IDA:eps_mbbi59.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  13 IDA Vacuum </td><td></td></tr> 
+ <tr><td class='section'>  13 IDA Vacuum </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Slit tank vacuum (CC1) (status, latch)  </td>
      <td class='pvlink'>
@@ -509,7 +509,7 @@
        {{ showpv("13IDA:eps_mbbi101.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  13 ID Valves </td><td></td></tr> 
+ <tr><td class='section'>  13 ID Valves </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Valve V2 position (status, latch)  </td>
      <td class='pvlink'>

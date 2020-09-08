@@ -1,7 +1,7 @@
 {% include "header_include.html" %}
 {% include "pagelist_include.html" %}
 {% include "errors_include.html" %}
-{% from  "pvupdate_include.html" import showpv with context %}
+{% from  "showpv_macros.html" import showpv with context %}
 {% block body %}
 <body onload="enable_pv_updates();">
 
@@ -9,7 +9,7 @@
 <tr><th align='left'></th><th align='right'>
          {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 
- <tr><td class='section'>  Cryo Coolers </td><td></td></tr> 
+ <tr><td class='section'>  Cryo Coolers </td><td></td></tr>
 
  <tr><td class='pvlabel'>  C/D Mono LN2 Low Pressure Reservoir, High Pressure Reservoir  </td>
      <td class='pvlink'>
@@ -24,7 +24,7 @@
        {{ showpv("13IDA:ILM200_2_calc2.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  Vacuum </td><td></td></tr> 
+ <tr><td class='section'>  Vacuum </td><td></td></tr>
 
  <tr><td class='pvlabel'>  C/D Ion Pump Pressure (CC2), E Ion Pump Pressure (CC3)  </td>
      <td class='pvlink'>
@@ -32,7 +32,7 @@
        {{ showpv("13IDA:cc3.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  C/D Monochromator </td><td></td></tr> 
+ <tr><td class='section'>  C/D Monochromator </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Mono Energy, Mono Angle, Undulator Energy  </td>
      <td class='pvlink'>
@@ -84,7 +84,7 @@
        {{ showpv("13BMA:pr11.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  E Monochromator </td><td></td></tr> 
+ <tr><td class='section'>  E Monochromator </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Mono Energy, Mono Angle, Undulator Energy  </td>
      <td class='pvlink'>
@@ -129,7 +129,7 @@
        {{ showpv("13IDA:DMM1Ch17_calc.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  Other Temperatures </td><td></td></tr> 
+ <tr><td class='section'>  Other Temperatures </td><td></td></tr>
 
  <tr><td class='pvlabel'>  BPM1, BPM2 Temperatures  </td>
      <td class='pvlink'>

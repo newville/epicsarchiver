@@ -197,7 +197,7 @@ def make_plot(plotdata, width=625, height=525):
 html_top = """{% include "header_include.html" %}
 {% include "pagelist_include.html" %}
 {% include "errors_include.html" %}
-{% from  "pvupdate_include.html" import showpv with context %}
+{% from  "showpv_macros.html" import showpv with context %}
 {% block body %}
 <body onload="enable_pv_updates();">
 

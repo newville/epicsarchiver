@@ -1,7 +1,7 @@
 {% include "header_include.html" %}
 {% include "pagelist_include.html" %}
 {% include "errors_include.html" %}
-{% from  "pvupdate_include.html" import showpv with context %}
+{% from  "showpv_macros.html" import showpv with context %}
 {% block body %}
 <body onload="enable_pv_updates();">
 
@@ -9,7 +9,7 @@
 <tr><th align='left'></th><th align='right'>
          {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 
- <tr><td class='section'>  Storage Ring </td><td></td></tr> 
+ <tr><td class='section'>  Storage Ring </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Machine Status  </td>
      <td class='pvlink'>
@@ -50,7 +50,7 @@
        {{ showpv("PB:13ID:STA_A_TRIP_PL.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  ID EPS </td><td></td></tr> 
+ <tr><td class='section'>  ID EPS </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Front End Shutter Enable,  Status  </td>
      <td class='pvlink'>
@@ -110,7 +110,7 @@
        {{ showpv("PA:13ID:SDS_PS_CLSD_LS.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  BM EPS </td><td></td></tr> 
+ <tr><td class='section'>  BM EPS </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Front End Valve  </td>
      <td class='pvlink'>
@@ -141,7 +141,7 @@
        {{ showpv("13BMA:eps_mbbi118.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  Configuration </td><td></td></tr> 
+ <tr><td class='section'>  Configuration </td><td></td></tr>
 
  <tr><td class='pvlabel'>  ID Stations Searched (A,B,C,D,E)  </td>
      <td class='pvlink'>

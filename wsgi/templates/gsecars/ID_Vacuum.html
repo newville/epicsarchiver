@@ -1,7 +1,7 @@
 {% include "header_include.html" %}
 {% include "pagelist_include.html" %}
 {% include "errors_include.html" %}
-{% from  "pvupdate_include.html" import showpv with context %}
+{% from  "showpv_macros.html" import showpv with context %}
 {% block body %}
 <body onload="enable_pv_updates();">
 
@@ -9,7 +9,7 @@
 <tr><th align='left'></th><th align='right'>
          {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 
- <tr><td class='section'>  Front End </td><td></td></tr> 
+ <tr><td class='section'>  Front End </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Front End Shutter, Front End Valve  </td>
      <td class='pvlink'>
@@ -123,8 +123,8 @@
        {{ showpv("13IDA:ip5_Pressure.VAL") }}
      </td>
  </tr>
- <tr><td colspan=2><hr></td></tr> 
- <tr><td class='section'>  IDB (Upstream) </td><td></td></tr> 
+ <tr><td colspan=2><hr></td></tr>
+ <tr><td class='section'>  IDB (Upstream) </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Pumping Cross 2 Tank Cold Cathode, Pirani  </td>
      <td class='pvlink'>
@@ -148,8 +148,8 @@
        {{ showpv("13IDA:ip7_Pressure.VAL") }}
      </td>
  </tr>
- <tr><td colspan=2><hr></td></tr> 
- <tr><td class='section'>  ID-C/D Branch </td><td></td></tr> 
+ <tr><td colspan=2><hr></td></tr>
+ <tr><td class='section'>  ID-C/D Branch </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Valve 7  </td>
      <td class='pvlink'>
@@ -200,8 +200,8 @@
        {{ showpv("13IDA:pr10.VAL") }}
      </td>
  </tr>
- <tr><td colspan=2><hr></td></tr> 
- <tr><td class='section'>  ID-E Branch </td><td></td></tr> 
+ <tr><td colspan=2><hr></td></tr>
+ <tr><td class='section'>  ID-E Branch </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Valve 6  </td>
      <td class='pvlink'>

@@ -1,7 +1,7 @@
 {% include "header_include.html" %}
 {% include "pagelist_include.html" %}
 {% include "errors_include.html" %}
-{% from  "pvupdate_include.html" import showpv with context %}
+{% from  "showpv_macros.html" import showpv with context %}
 {% block body %}
 <body onload="enable_pv_updates();">
 
@@ -9,7 +9,7 @@
 <tr><th align='left'></th><th align='right'>
          {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 
- <tr><td class='section'>  Storage Ring </td><td></td></tr> 
+ <tr><td class='section'>  Storage Ring </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Machine Status  </td>
      <td class='pvlink'>
@@ -40,7 +40,7 @@
        {{ showpv("ACIS:ShutterPermit.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  BL13 </td><td></td></tr> 
+ <tr><td class='section'>  BL13 </td><td></td></tr>
 
  <tr><td class='pvlabel'>  BL13:ActualMode.VAL  </td>
      <td class='pvlink'>
@@ -71,7 +71,7 @@
        {{ showpv("13IDA:eps_bo1.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  Beam Position Monitors </td><td></td></tr> 
+ <tr><td class='section'>  Beam Position Monitors </td><td></td></tr>
 
  <tr><td class='pvlabel'>  BM Vertical Angle, Position  </td>
      <td class='pvlink'>
@@ -177,8 +177,8 @@
        {{ showpv("BL13:SRID:HPosition.VAL") }}
      </td>
  </tr>
- <tr><td colspan=2><hr></td></tr> 
- <tr><td class='section'>  Storage Ring Feedback </td><td></td></tr> 
+ <tr><td colspan=2><hr></td></tr>
+ <tr><td class='section'>  Storage Ring Feedback </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Global Loop Status (Horiz,Vert)  </td>
      <td class='pvlink'>

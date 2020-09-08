@@ -1,7 +1,7 @@
 {% include "header_include.html" %}
 {% include "pagelist_include.html" %}
 {% include "errors_include.html" %}
-{% from  "pvupdate_include.html" import showpv with context %}
+{% from  "showpv_macros.html" import showpv with context %}
 {% block body %}
 <body onload="enable_pv_updates();">
 
@@ -9,8 +9,8 @@
 <tr><th align='left'></th><th align='right'>
          {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 
- <tr><td class='section'>  Main DI Water  </td><td></td></tr> 
- <tr><td class='section'>  13 BM A Water </td><td></td></tr> 
+ <tr><td class='section'>  Main DI Water  </td><td></td></tr>
+ <tr><td class='section'>  13 BM A Water </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Aperture plate  (status,latch)  </td>
      <td class='pvlink'>
@@ -74,7 +74,7 @@
        {{ showpv("13BMA:eps_mbbi84.VAL") }}
      </td>
  </tr>
- <tr><td class='section'>  13 BM B Water </td><td></td></tr> 
+ <tr><td class='section'>  13 BM B Water </td><td></td></tr>
 
  <tr><td class='pvlabel'>  BM-D slits SL3 (status,latch)  </td>
      <td class='pvlink'>
@@ -131,7 +131,7 @@
        {{ showpv("13BMA:eps_mbbi98.VAL") }}
      </td>
  </tr>
- <tr><td colspan=2>&nbsp;</td></tr> 
+ <tr><td colspan=2>&nbsp;</td></tr>
 
  <tr><td class='pvlabel'>  BM-C Be window helium (status,latch)  </td>
      <td class='pvlink'>
@@ -139,8 +139,8 @@
        {{ showpv("13BMA:eps_mbbi74.VAL") }}
      </td>
  </tr>
- <tr><td colspan=2>&nbsp;</td></tr> 
- <tr><td class='section'>  13 BM D Water </td><td></td></tr> 
+ <tr><td colspan=2>&nbsp;</td></tr>
+ <tr><td class='section'>  13 BM D Water </td><td></td></tr>
 
  <tr><td class='pvlabel'>  BM-D SL4  (status,latch)  </td>
      <td class='pvlink'>

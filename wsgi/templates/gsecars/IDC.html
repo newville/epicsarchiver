@@ -1,7 +1,7 @@
 {% include "header_include.html" %}
 {% include "pagelist_include.html" %}
 {% include "errors_include.html" %}
-{% from  "pvupdate_include.html" import showpv with context %}
+{% from  "showpv_macros.html" import showpv with context %}
 {% block body %}
 <body onload="enable_pv_updates();">
 
@@ -9,7 +9,7 @@
 <tr><th align='left'></th><th align='right'>
          {{ showpv('pvarch_timestamp', with_link=0) }} </th></tr>
 
- <tr><td class='section'>  Mono and Feedback </td><td></td></tr> 
+ <tr><td class='section'>  Mono and Feedback </td><td></td></tr>
 
  <tr><td class='pvlabel'>  13IDA:eps_mbbi4.VAL  </td>
      <td class='pvlink'>
@@ -88,8 +88,8 @@
        {{ showpv("13IDA:mono_pid2.CVAL") }}
      </td>
  </tr>
- <tr><td colspan=2>&nbsp;</td></tr> 
- <tr><td class='section'>  Scan </td><td></td></tr> 
+ <tr><td colspan=2>&nbsp;</td></tr>
+ <tr><td class='section'>  Scan </td><td></td></tr>
 
  <tr><td class='pvlabel'>  Scan Data File  </td>
      <td class='pvlink'>
@@ -114,8 +114,8 @@
        {{ showpv("13IDE:scan1.CPT") }}
      </td>
  </tr>
- <tr><td colspan=2>&nbsp;</td></tr> 
- <tr><td class='section'>  4-Element Fluorescence Detector </td><td></td></tr> 
+ <tr><td colspan=2>&nbsp;</td></tr>
+ <tr><td class='section'>  4-Element Fluorescence Detector </td><td></td></tr>
 
  <tr><td class='pvlabel'>  MCA detector Preset Real Time  </td>
      <td class='pvlink'>
@@ -146,8 +146,8 @@
        {{ showpv("13SDD1:dxp1.PKTIM") }}
      </td>
  </tr>
- <tr><td colspan=2>&nbsp;</td></tr> 
- <tr><td class='section'>  Flux </td><td></td></tr> 
+ <tr><td colspan=2>&nbsp;</td></tr>
+ <tr><td class='section'>  Flux </td><td></td></tr>
 
  <tr><td class='pvlabel'>  I0 current (uA)  </td>
      <td class='pvlink'>
