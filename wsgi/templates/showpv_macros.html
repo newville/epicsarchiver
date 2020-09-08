@@ -10,7 +10,7 @@
      {% endif %}
 
      {% if  form == 'yesno' %}
-        {% if  cache_data[name].value  == 0 %} No {% else %} Yes {% endif %}
+        {% if cache_data[name].value == '0'  %} No {% else %} Yes {% endif %}
      {% else %}
         {{ cache_data[name].cvalue }}
      {% endif %}
