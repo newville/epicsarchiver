@@ -15,7 +15,7 @@ import epics
 
 from .util import (clean_bytes, normalize_pvname, tformat, valid_pvname,
                    clean_mail_message, DatabaseConnection, None_or_one,
-                   MAX_EPOCH, get_config, motor_fields, get_pvpair, gformat)
+                   MAX_EPOCH, get_config, motor_fields, get_pvpair, hformat)
 
 from . import schema
 
@@ -275,7 +275,7 @@ class Cache(object):
         if dbname is None:
             dbname = current_dbname
         if dbname == current_dbname:
-            tmax = MAX_EPOCH
+            tmax = MAX_EPOCH - 1.0
         archdb = DatabaseConnection(dbname, self.config)
         for i in range(1, 129):
             tab = archdb.tables['pvdat%3.3d' % i]
@@ -283,6 +283,9 @@ class Cache(object):
             newest = tab.select().order_by(tab.c.time.desc())
             tmin = min(tmin, float(oldest.limit(1).execute().fetchone().time))
             tmax = max(tmax, float(newest.limit(1).execute().fetchone().time))
+
+        tmin = max(1, min(tmin, MAX_EPOCH-1))
+        tmax = max(1, min(tmax, MAX_EPOCH-1))
 
         if dbname == current_dbname:
             notes = "%s to %s" % (tformat(tmin), '<currently running> ')
@@ -433,7 +436,7 @@ class Cache(object):
             if isinstance(val, np.ndarray):
                 val = val.tolist()
             if self.pvtypes[pvname] == 'double':
-                cval = gformat(val)
+                cval = hformat(val)
             newdata[pvname] = {'ts': tstamp,
                                'val': clean_bytes(val),
                                'cval': clean_bytes(cval)}
