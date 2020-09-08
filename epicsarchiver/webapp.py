@@ -4,15 +4,14 @@ import sys
 import toml
 import json
 from flask import (Flask, request, session, redirect, url_for,
-                   abort, render_template, flash, Response)
+                   abort, render_template, flash, Response, jsonify)
 
-from time import time, strftime, localtime
+from time import time, ctime, strftime, localtime
 from datetime import datetime
 
 import numpy as np
 
-from epicsarchiver import get_config, Archiver, tformat
-
+from epicsarchiver import get_config, Archiver, tformat, hformat
 from epicsarchiver.web_utils import (parse_times, chararray_as_string,
                                      auto_ylog, make_plot, PlotData,
                                      isnull, null2blank)
@@ -41,9 +40,8 @@ cache_data = {}
 saved_arrays = {}
 enum_strings = {}
 
-ago_choices = ['2 hours', '8 hours', '1 day', '3 days', '1 week', '3 weeks',
+ago_choices = ['4 hours', '12 hours', '1 day', '3 days', '1 week', '3 weeks',
                '6 weeks', '12 weeks', '26 weeks', '1 year']
-
 
 def update_data(session, force_refresh=False):
     global pvarch_config, archiver, cache
@@ -52,6 +50,7 @@ def update_data(session, force_refresh=False):
     if archiver is None:
         archiver = Archiver(**pvarch_config)
         cache = archiver.cache
+
 
     now = time()
     age = now - last_refresh
@@ -62,7 +61,10 @@ def update_data(session, force_refresh=False):
     else:
         cache_data.update(cache.get_values_dict(time_ago=(5 + 2*age)))
     last_refresh = now
-
+    cache_data.update({'pvarch_timestamp': {'id': 0, 'ts': now,
+                                            'value': ctime(now),
+                                            'cvalue': ctime(now),
+                                            'dtype': 'string'}})
     # drop stale saved arrays
     to_drop = []
     for key, val in saved_arrays.items():
@@ -72,15 +74,48 @@ def update_data(session, force_refresh=False):
     for k in to_drop:
         saved_arrays.pop(k)
 
+    if session.get('is_admin', None) is None:
+        session['is_admin'] = False
+
 
 
 @app.route('/')
 def index():
     update_data(session)
-    return render_template('show_config.html',
+    indexpage = pvarch_config.get('web_index', 'about')
+    if not indexpage.endswith('.html'):
+        indexpage = '%s.html' % indexpage
+    return render_template(indexpage,
                            config=pvarch_config,
                            last_refresh=last_refresh, age=age,
                            cache_data=cache_data, enum_strings=enum_strings)
+
+
+@app.route('/show/<page>')
+def show(page=None):
+    """
+    Could be translated to static pages ?
+    """
+    update_data(session)
+    # admin = session['is_admin']
+    if page is None:
+        page='Overview'
+    pagename = "%s.html" % page
+    return render_template(pagename,
+                           config=pvarch_config,
+                           last_refresh=last_refresh, age=age,
+                           cache_data=cache_data, enum_strings=enum_strings)
+
+
+@app.route('/rawdata')
+def rawdata():
+    """fetch data for javascript update"""
+    update_data(session)
+    data = {0: ctime()}
+    for val in cache.get_values_dict(time_ago=30).values():
+        data[val['id']] = val['cvalue']
+    return jsonify(data)
+
 
 @app.route('/status')
 def status():
@@ -213,82 +248,57 @@ def logout():
     session['is_admin'] = False
     return redirect(url_for('show', page='General'))
 
-@app.route('/show/<page>')
-def show(page=None):
-    """
-    Could be translated to static pages ?
-    """
-    update_data(session)
-    admin = session['is_admin']
-    p = WebStatus(cache=None, dbconn=dbconn, admin=admin)
-    page = str(page)
 
-    p.begin_page(page, pagelist, refresh=60)
 
-    template = filemap[page]
-    if template.startswith('<'):
-        method = template[1:-1]
-        try:
-            getattr(p,method)()
-        except:
-            pass
-    else:
-        p.show_pvfile(template)
 
-    p.end_page()
-    return Response(p.get_buffer())
 
-@app.route('/data/<pv>/<timevar>/<date1>')
-@app.route('/data/<pv>/<timevar>/<date1>/<date2>')
-@app.route('/data/<pv>/<timevar>/<date1>/<date2>/<extra>')
-def data(pv=None, timevar=None, date1=None, date2=None, extra=None):
+@app.route('/data/<date1>/<date2>/<pv>/<fname>')
+def data(date1=None, date2=None, pv=None, fname=None):
     update_data(session)
     # admin = session['is_admin']
 
-    if date1 is not None and date1.endswith('.dat'):
-        date1 = None
-    if date2 is not None and date2.endswith('.dat'):
-        date2 = None
+    dt1, dt2 = parse_times(date1, date2)
+    tmin = dt1.timestamp()
+    tmax = dt2.timestamp()
+    pv = null2blank(pv)
+    t, y =  archiver.get_data(pv, with_current=False,
+                              tmin=tmin, tmax=tmax)
 
-    tmin, tmax, date1, date2, time_ago = parse_times(timevar, date1, date2)
-    ts, dat = archiver.get_data(pv, tmin=tmin, tmax=tmax, with_current=True)
-
-    print("Got Data ",  tmin, tmax, time_ago, len(ts), len(dat))
-
-    stmin = strftime("%Y-%m-%d %H:%M:%S", localtime(tmin))
-    stmax = strftime("%Y-%m-%d %H:%M:%S", localtime(tmax))
+    print("Got Data ",  tmin, tmax, len(t), len(y))
 
     pvinfo  = archiver.get_pvinfo(pv)
+    pvinfo.update(dict(stmin=tformat(tmin), stmax=tformat(tmax),
+                       now=tformat(time()) ))
+    buff = ['''# Data for {name:s}
+# Description: {description:s}
+# Start Time:  {stmin:s}
+# Stop Time:   {stmax:s}
+# Data Type:   {type:s}
+# Extracted:   {now:s}'''.format(**pvinfo)]
 
-    buff = ['# Data for %s [%s] '      % (pv, pvinfo['desc']),
-            '# Time Range: %s , %s'   % (stmin, stmax),
-            '# Timestamps: [%.1f : %.1f]' % (tmin, tmax),
-            '# Data Type: %s'           % pvinfo['type']]
-
-    fmt = '%13.7g'
-    if pvinfo['type'] == 'enum':
-        buff.append('# Value Meanings:')
+    dtype = pvinfo['type']
+    if dtype == 'enum':
+        buff.append('# Meanings for Enum Values:')
         for _i, _enum in enumerate(enum_strings.get(pv, ['Unknown'])):
             buff.append('#   %i: %s' % (_i, _enum))
 
-    if dat.dtype.type == np.string:
-        dat = chararray_as_string(dat)
-        fmt = '%s'
+    # if dat.dtype.type == np.string:
+    #    dat = chararray_as_string(dat)
+    #    fmt = '%s'
 
-    buff.append('#---------------------------------------------------')
-    buff.append('# TimeStamp        Value       Date      Time')
-    for _t, _v in zip(ts, dat):
-        try:
-            val = fmt % _v
-        except:
-            val = repr(_v)
-        ddate = strftime("%Y%m%d", localtime(_t))
-        dtime = strftime("%H%M%S", localtime(_t))
-        buff.append(' %.1f  %s  %s  %s' % (_t, val, ddate, dtime))
+    buff.append('#-------------------------------------------------')
+    buff.append('# TimeStamp       Value    YYYYMMDD  HHMMSS')
+    for _t, _v in zip(t, y):
+        val = repr(_v)
+        if dtype in ('int', 'enum'):
+            val = "%d" %  _v
+        elif dtype == 'double':
+            val = hformat(_v)
+
+        buff.append(' %.1f  %s  %s  %s' % (_t, val,
+                                           strftime("%Y%m%d", localtime(_t)),
+                                           strftime("%H%M%S", localtime(_t))))
     return Response("\n".join(buff), mimetype='text/plain')
-
-
-
 
 
 @app.route('/plot/<date1>/<date2>/<pv1>/')
@@ -300,10 +310,8 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
     """
     update_data(session)
     if time_ago is None:
-        time_ago = '1 week'
-
+        time_ago = '3 days'
     dt1, dt2 = parse_times(date1, date2)
-    # is_current = is_current or abs(date2.timestamp() - time()) < 60.0
 
     pv1 = null2blank(pv1)
     pv2 = null2blank(pv2)
@@ -363,14 +371,13 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
             else:
                 related_work[pvname] = score
 
-    for pvname, score in sorted(related_work.items(), key=lambda a: -a[1]):
+    for oname, score in sorted(related_work.items(), key=lambda a: -a[1]):
         try:
-            other = cache_data[pvname]['id']
+            other = cache_data[oname]['id']
         except:
             pvid  = -1
-            print("error finding pv id for ", pvname)
-        if pvid>-1 and (pvname, pvid) not in related:
-            related.append((pvname, pvid))
+        if other>-1 and (oname, other) not in related:
+            related.append((oname, other))
 
     return render_template('plot.html',
                            pv1=pv1, pv2=pv2, pv3=pv3, pv4=pv4,
@@ -395,7 +402,7 @@ def formplot():
 
     update_data(session)
     form = request.form
-    date1  = form.get('date1', '1 week')
+    date1  = form.get('date1', '3 days')
     date2  = form.get('date2', 'now')
     submit = form.get('submit', 'Time From Present').lower()
 
@@ -418,8 +425,7 @@ def formplot():
                    pv2=null2blank(form.get('pv2', '')),
                    pv3=null2blank(form.get('pv3', '')),
                    pv4=null2blank(form.get('pv4', '')))
-        if 'from present' in submit:
-            date1 = form.get('time_ago', '1 week')
-            pvs['time_ago'] = date1
-            date2 = None
+        if 'from' in submit:
+            pvs['time_ago'] = date1 = form.get('time_ago', '3 days')
+            date2 = 'now'
     return plot(date1=date1, date2=date2, **pvs)
