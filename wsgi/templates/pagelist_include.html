@@ -1,7 +1,7 @@
 <div id='tab'>
   <ul id='tabmenu'>
     <li><a href="{{ url_for('index') }}">Main Page </a> </li>
-    {% for page, title in config.web_pages  %}
+    {% for title, page in config.web_pages  %}
         <li><a href="{{ url_for('show', page=page)}}">{{title}}</a></li>
     {% endfor %}
     <li><a href="{{ url_for('alerts') }}">Alerts</a></li>
