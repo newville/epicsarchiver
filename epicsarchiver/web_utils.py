@@ -71,8 +71,8 @@ def parse_times(date1, date2):
             hago = 8760 * float(date1.replace('years', '').replace('year', ''))
 
         now = time()
-        dt1 = datetime.fromtimestamp(now - 3600.0*hago)
-        dt2 = datetime.fromtimestamp(now)
+        dt1 = datetime.fromtimestamp(int(now - 3600.0*hago))
+        dt2 = datetime.fromtimestamp(int(now))
     else:
         if '.' in date1:
             date1 = date1[:date1.index('.')]
@@ -117,17 +117,46 @@ def auto_ylog(vals):
     return (x99 > 200*x01)
 
 
-## if ylog_scale:
-#         ytype = 'log'
-#         ymax = np.log10(y).max()
-#         ymin = max(np.log10(y).min(), -9)
-#         if y2 is not None:
-#             ymin = min(np.log10(y2).min(), ymin)
-#             ymax = max(np.log10(y2).max(), ymax)
-#         if yrange is None:
-#             yrange = (ymin-0.5, ymax+0.5)
-    # if yrange is not None:
-    #     layout['yaxis']['range'] = yrange
+def cull_data(x, y, sample=10, percent=5):
+    """cull large data sets by both interpolation and selecting
+    extreme values.  The returned data will include both:
+     a) data interploted down by a sampling rate in x given by 'sample'
+     b) y-values exceeding the supplied percent (both high and low)
+
+    Thus using sample=10 and percent=5 will reduce the data size by
+    about a factor of 5 (reduced to 10% from sampling and including
+    the most extreme 10% of y values).
+    """
+    if percent > 50:
+        percent = 100 - percent
+    n = len(x)
+    if isinstance(x, (list, tuple)):
+        x = np.array(x)
+    if isinstance(y, (list, tuple)):
+        y = np.array(y)
+
+    try:
+        ylo, yhi = np.percentile(y, (percent, 100-percent))
+    except:
+        yr  = y.max() - y.min()
+        ylo = y.min() + percent*yr/100.0
+        yhi = y.max() - percent*yr/100.0
+
+    xsample = np.linspace(x.min(), x.max(), n//sample)
+    ysample = np.interp(xsample, x, y, left=y[0], right=y[-1])
+
+    xwork = xsample.tolist()
+    ywork = ysample.tolist()
+
+    xwork.extend(x[np.where(y<ylo)[0]].tolist())
+    xwork.extend(x[np.where(y>yhi)[0]].tolist())
+
+    ywork.extend(y[np.where(y<ylo)[0]].tolist())
+    ywork.extend(y[np.where(y>yhi)[0]].tolist())
+
+    xorder = np.array(xwork).argsort()
+    return (np.array(xwork)[xorder], np.array(ywork)[xorder])
+
 
 # plotly modeBarButtons:
 ## - '2D': zoom2d, pan2d, select2d, lasso2d, zoomIn2d, zoomOut2d, autoScale2d, resetScale2d
