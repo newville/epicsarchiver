@@ -1,13 +1,10 @@
-{% extends 'header_include.html' %}
-{% include 'pagelist_include.html' %}
-{% include 'pvupdate_include.html' %}
-{% include 'errors_include.html' %}
+{% include "header_include.html" %}
+{% include "pagelist_include.html" %}
+{% include "errors_include.html" %}
 {% block body %}
 
 <a href="{{ url_for('static', filename='style.css') }}"/>stylesheet </a>
-<p>
 <form action="{{ url_for('formplot') }}" method=post>
-
   <table padding=5>
   <tr>
    <td valign=top>
@@ -15,7 +12,7 @@
   <table border=0.5 padding=1>
     <tr> <th colspan=2>Time Range:</th><th colspan=2> PV Names</th><tr>
     <tr>
-      <td> <input type=submit name=submit value='Use Date Range:'></td>
+      <td> <input type=submit name=submit value='Date Range:'></td>
       <td>
 	<input type='text' id="date1" name="date1" style="width: 125px;" value={{date1}}>
 	<script type="text/javascript">
@@ -26,7 +23,7 @@
       <td>PV 1:</td> <td><input style="width: 275px;" type=text name='pv1' value='{{pv1|safe}}'></td>
     </tr>
     <tr>
-      <td>End Date:</td>
+      <td>&nbsp;&nbsp; to:</td>
       <td>
 	<input type='text' id="date2" name="date2" style="width: 125px;" value={{date2}}>
 	<script type="text/javascript">
@@ -37,12 +34,12 @@
     </tr>
 
     <tr>
-      <td>  </td><td>or </td>
+      <td colspan=2> &nbsp;&nbsp; or show recent data:</td>
       <td>PV 3:</td><td><input style="width: 275px;" type=text name='pv3' value='{{pv3|safe}}'></td>
     </tr>
 
      <tr>
-      <td> <input type=submit name=submit value='Time From Present:'></td>
+      <td> <input type=submit name=submit value='From Now:'></td>
       <td>
 	<select name='time_ago' style="width: 125px;">
 	  {% for c in ago_choices %}
@@ -53,13 +50,14 @@
       <td>PV 4:</td><td><input style="width: 275px;" type=text name='pv4' value='{{pv4|safe}}'></td>
     </tr>
   <tr>
-    <td>Replot for Times:</td>
+    <td>Recent History:</td>
     <td colspan=3>
-      &nbsp; <a href="/pvarch/plot/8hours/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 12 hours </a>
-      &nbsp; <a href="/pvarch/plot/2days/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 2 days </a>
+      &nbsp; <a href="/pvarch/plot/4hours/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 4 hours </a>
+      &nbsp; <a href="/pvarch/plot/1days/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past day </a>
       &nbsp; <a href="/pvarch/plot/1week/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past week </a>
-      &nbsp; <a href="/pvarch/plot/12weeks/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 4 weeks </a>
-      &nbsp; <a href="/pvarch/plot/52weeks/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 52 weeks </a>
+      &nbsp; <a href="/pvarch/plot/6weeks/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past 6 weeks </a>
+      &nbsp; <a href="/pvarch/plot/26weeks/now/{{pv1}}/{{pv2}}/{{pv3}}/{{pv4}}">past
+      26 week </a>
     </tr>
 
   <tr><td colspan=4><hr></td></tr>
@@ -96,11 +94,12 @@
   </table>
 
 </td>
+<td>&nbsp;&nbsp;</td>
 <td valign='top'>
 
-  <p><b>Related PVs:</b></p>
+  <p>Related PVs:</p>
   Click PV name to plot alone, or<br>
-  select up to 4 to <input type=submit name=submit value='plot selected:'></p>
+  select up to 4 to &nbsp; <input type=submit name=submit value='plot selected:'></p>
 
   <table>
     <tr><th>PV Name</th><th>Plot?</th></tr>
@@ -121,4 +120,4 @@
 </form>
 
 {% endblock %}
-{% include 'footer_include.html' %}
+{% include "footer_include.html" %}
