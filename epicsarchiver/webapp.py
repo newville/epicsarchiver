@@ -123,18 +123,21 @@ def rawdata():
 @app.route('/status')
 def status():
     update_data(session)
-    return render_template('status.html',
-                           status=archiver.status_report(),
-                           admin=session['is_admin'])
+    cinfo = dict(cache.get_info(process='cache').items())
+    ainfo = dict(cache.get_info(process='archive').items())
+    # print("Status: ", cinfo, ainfo)
+    opts = dict(config=pvarch_config,
+                etime=60,
+                cache_db=cache.db.dbname,
+                cache_status=cinfo['status'],
+                cache_nnew=len(cache.get_values(time_ago=60)),
+                arch_db=ainfo['db'],
+                arch_status=ainfo['status'],
+                arch_nnew=cache.get_narchived(time_ago=60),
+                last_refresh=last_refresh, age=age,
+                cache_data=cache_data, enum_strings=enum_strings)
+    return render_template('status.html', **opts)
 
-
-@app.route('/pagex')
-def pagex():
-    update_data(session)
-    return render_template('page1.html',
-                           config=pvarch_config,
-                           last_refresh=last_refresh, age=age,
-                           cache_data=cache_data, enum_strings=enum_strings)
 
 
 
