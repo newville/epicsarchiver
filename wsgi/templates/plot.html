@@ -2,8 +2,12 @@
 {% include "pagelist_include.html" %}
 {% include "errors_include.html" %}
 {% block body %}
+<body>
 
-<a href="{{ url_for('static', filename='style.css') }}"/>stylesheet </a>
+<!--
+    <a href="{{ url_for('static', filename='style.css') }}"/>stylesheet </a>
+-->
+
 <form action="{{ url_for('formplot') }}" method=post>
   <table padding=5>
   <tr>
@@ -124,5 +128,6 @@
 
 </form>
 
+</body>
 {% endblock %}
 {% include "footer_include.html" %}

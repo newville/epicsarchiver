@@ -1,7 +1,8 @@
-{% extends 'header_include.html' %}
-{% include 'pagelist_include.html' %}
-{% include 'errors_include.html' %}
+{% include "header_include.html" %}
+{% include "pagelist_include.html" %}
+{% include "errors_include.html" %}
 {% block body %}
+<body>
 
 <p> <div class=subfont> PVArchiver Alerts  </div>
 
@@ -9,26 +10,26 @@
 
     <tr>
       <th> Name: {% if admin %} (click to edit) {% endif %} </th>
-      <th>PV Name</th><th>Trip Point</th> <th>Active?</th>
+      <th>PV Name</th><th>Trip Point</th> <th>Active?</th><th>Current Status</th>
     </tr>
 
-      {% for alert in alerts %}
+      {% for a in alerts %}
       <tr id="{{ loop.cycle('odd', 'even') }}" >
 	<td>
 	  {% if admin %}
-	  <a href="editalert/{{alert.id}}"> {{ alert.name }}  </a>
-          {% else %}
-	  {{ alert.name }}
-	  {% endif %}
+	  <a href="editalert/{{a.id}}"> {{ a.name }}  </a>
+          {% else %} {{ a.name }}  {% endif %}
 	</td>
-	<td> {{ alert.pvname }}  </td>
-	<td> {{ alert.compare }} {{ alert.trippoint}} </td>
-	<td> {{ alert.active }}  </td>
+	<td> {{ a.pvname }}  </td>
+	<td> {{ a.trip_point}} </td>
+	<td> {{ a.active }}  </td>
+	<td> {{ a.status }}  </td>
 	</tr>
       {% endfor %}
 
 </table>
 
 
+</body>
 {% endblock %}
-{% include 'footer_include.html' %}
+{% include "footer_include.html" %}
