@@ -3,11 +3,29 @@
 <head>
   <title>Epics PV Archiver</title>
 
-  <link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}"/>
+  <link rel=stylesheet type=text/css
+	href="{{ url_for('static', filename='style.css') }}"/>
 
-  <script type='text/javascript' src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
-  <script type='text/javascript' src="{{url_for('static', filename='datepicker.js')}}"></script>
-  <link rel='stylesheet' type='text/css' href="{{url_for('static', filename='datepicker.css')}}"/>
+  <script type='text/javascript'
+	  src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+  <script type='text/javascript'
+	  src="{{url_for('static', filename='datepicker.js')}}"></script>
+  <link rel='stylesheet' type='text/css' href="{{url_for('static',
+					       filename='datepicker.css')}}"/>
+  <script type="text/javascript">
+    function enable_pv_updates() {setInterval(update_pvs, 1000);}
+    function update_pvs(data) {
+	var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+	$.get($SCRIPT_ROOT+'/rawdata',
+	      function(data) {
+		  for (key in data) {
+		      var elem = document.getElementById(key);
+		      if (elem) { elem.innerHTML = data[key]; }
+		  }
+	      }
+	     );
+    }
+  </script>
 </head>
 
 <html>
@@ -20,6 +38,3 @@
       </tr>
     </table>
   </div>
-
-
-
