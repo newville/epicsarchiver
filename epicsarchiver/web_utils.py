@@ -61,6 +61,8 @@ def parse_times(date1, date2):
     if date2 == 'now':
         date1 = date1.lower()
         hago = 168
+        if '_' in date1:
+            date1 = date1.replace('_', ' ')
         if 'hour' in date1:
             hago =    1 * float(date1.replace('hours', '').replace('hour', ''))
         elif 'day' in date1:
