@@ -164,6 +164,7 @@ def pvarch_main():
     ## the rest of the commands assume that a cache / archive database exist
     archiver = Archiver()
     cache = archiver.cache
+    config = get_config().asdict()
 
     if 'status' == cmd:
         cache.show_status(cache_time=args.time_ago,
@@ -174,7 +175,6 @@ def pvarch_main():
 
     elif cmd == 'arch':
         action = None
-        config = get_config().asdict()
         if len(args.options) > 0:
             action = args.options.pop(0)
         if action == 'start':
@@ -224,7 +224,6 @@ def pvarch_main():
             print("%3d new values in past %d seconds"%(len(new_vals), args.time_ago))
 
         elif action == 'start':
-            config = get_config().asdict()
             cache_tago = int(config.get('cache_activity_time', '10'))
             cache_nmin = int(config.get('cache_activity_min_updates', '2'))
             if len(cache.get_values(time_ago=cache_tago)) > cache_nmin:
@@ -253,9 +252,7 @@ def pvarch_main():
         else:
             folder = '.'
 
-        conf = get_config().asdict()
-        conf['folder'] = os.path.abspath(folder)
-
+        config['folder'] = os.path.abspath(folder)
         dbnames = [cache.db.dbname]
         runs = cache.get_runs()
         if len(runs) > 0:
@@ -263,9 +260,9 @@ def pvarch_main():
         if len(runs) > 1:
             dbnames.append(runs[-2].db)
         for dbname in dbnames:
-            conf['dbname'] = dbname
-            os.system(DUMP_COMMAND.format(**conf))
-            print("wrote {folder:s}/{dbname:s}.sql".format(**conf))
+            config['dbname'] = dbname
+            os.system(DUMP_COMMAND.format(**config))
+            print("wrote {folder:s}/{dbname:s}.sql".format(**config))
 
     elif 'list' == cmd:
         runs = cache.tables['runs']
