@@ -185,7 +185,10 @@ def make_plot(plotdata, width=625, height=525):
               'legend': {'borderwidth': 0.5, 'bgcolor':'#F2F2F2',
                          'orientation': 'h', 'x': 0.1, 'y': 1.15,
                          'yanchor': 'top', 'font': {'size': 10}, },
-              'xaxis': {'title': {'text': 'Date'}, 'domain': [0.02, domwid]}}
+              'xaxis': {'title': {'text': 'Date'}}}
+
+    layout['xaxis']['domain'] = [0.1, domwid]
+
     for trace, this in enumerate(plotdata):
         ykey = 'y%d' % (trace+1) if trace>0 else 'y'
         data.append({'x':[ts2iso(ts) for ts in this.t],
@@ -203,8 +206,12 @@ def make_plot(plotdata, width=625, height=525):
             yax.update({'type':  'log', 'tickformat': '.3g'})
 
         if this.enum_labels is not None:
+            tvals =  [i for i in range(len(this.enum_labels))]
             yax.update({'ticktext': this.enum_labels,
-                        'tickvals': list(range(len(this.enum_labels)))})
+                        'tickvals': tvals,
+                        'range': (-0.25, len(tvals)+0.25) })
+            layout['xaxis']['domain'] = [0.15, domwid]
+
         elif this.force_ylog or auto_ylog(this.y):
             yax.update({'type':  'log', 'tickformat': '.3g'})
 
