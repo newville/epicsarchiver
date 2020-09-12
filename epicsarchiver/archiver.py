@@ -319,7 +319,7 @@ class Archiver:
         self.pvinfo[name]['last_value'] =  val
 
         info = self.pvinfo[name]
-        dval = clean_bytes(val, maxlen=4096)
+        dval = clean_bytes(val)
         self.db.tables[info['data_table']].insert().execute(pv_id=info['id'],
                                                             time=ts,
                                                             value=dval)
@@ -336,7 +336,9 @@ class Archiver:
                 self.add_pv(name)
             if dat.active == 'no':
                 continue
-            val = dat.value
+            val = dat.cvalue
+            if 'enum' in dat.type:
+                val = "%d" % dat.value
             ts  = float(dat.ts)
 
             info = self.pvinfo[name]
@@ -345,10 +347,11 @@ class Archiver:
                 if 'double' in dat.type or 'float' in dat.type:
                     last_val  = self.pvinfo[name]['last_value']
                     try:
-                        v, o = float(val), float(last_val)
+                        v, o = float(dat.value), float(last_val)
                         do_save = abs(v-o) > abs(info['deadband'])
                     except:
-                        pass
+                        do_save = True
+
             if do_save:
                 newvals[name] = (ts, val)
                 if name in self.dtime_limbo:
@@ -363,11 +366,9 @@ class Archiver:
         # print('====== Collect: ',  len(newvals), len(self.dtime_limbo), time.ctime())
         for name in list(self.dtime_limbo.keys()):
             info = self.pvinfo[name]
-            if info['active'] == 'yes':
-                last_ts  = float(info['last_ts'])
-                deadtime = float(info['deadtime'])
-                if tnow > (last_ts + deadtime):
-                    newvals[name] = self.dtime_limbo.pop(name)
+            if (info['active'] == 'yes' and
+                tnow > (float(info['last_ts']) + float(info['deadtime']))):
+                newvals[name] = self.dtime_limbo.pop(name)
 
         n_new     = len(newvals)
         n_forced  = 0
@@ -396,7 +397,7 @@ class Archiver:
 
         for name, data in newvals.items():
             self.update_value(name, data[0], data[1])
-        return len(newvals), n_forced
+        return n_new, n_forced
 
 
     def get_nchanged(self, minutes=10, limit=None):
