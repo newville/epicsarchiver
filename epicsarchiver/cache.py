@@ -17,6 +17,7 @@ from .util import (clean_bytes, normalize_pvname, tformat, valid_pvname,
                    clean_mail_message, DatabaseConnection, None_or_one,
                    MAX_EPOCH, get_config, motor_fields, get_pvpair, hformat)
 
+
 from . import schema
 
 logging.basicConfig(level=logging.INFO,
@@ -505,8 +506,8 @@ class Cache(object):
             addcmd(pvname=pvname,
                    type=pvtype,
                    ts=time.time(),
-                   value=clean_bytes(val, maxlen=4096),
-                   cvalue=clean_bytes(cval, maxlen=4096),
+                   value=clean_bytes(val),
+                   cvalue=clean_bytes(cval),
                    active='yes')
             return pvtype
 
@@ -718,8 +719,8 @@ class Cache(object):
                                 val = val.tolist()
                             cache.insert().execute(pvname=pvname, type=pv.type,
                                                    ts=time.time(),
-                                                   value=clean_bytes(val, maxlen=4096),
-                                                   cvalue=clean_bytes(cval, maxlen=4096),
+                                                   value=clean_bytes(val),
+                                                   cvalue=clean_bytes(cval),
                                                    active='yes')
                             reqtable.delete().where(reqtable.c.id==row.id).execute()
                             msg = 'added'
