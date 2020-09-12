@@ -174,13 +174,18 @@ def pvarch_main():
 
     elif cmd == 'arch':
         action = None
+        config = get_config().asdict()
         if len(args.options) > 0:
             action = args.options.pop(0)
         if action == 'start':
-            if len(cache.get_values(time_ago=15)) < 5:
+            cache_tago = int(config.get('cache_activity_time', '10'))
+            cache_nmin = int(config.get('cache_activity_min_updates', '2'))
+            if len(cache.get_values(time_ago=cache_tago)) < cache_nmin:
                 print("Warning: cache appears to not be running")
-            arch_status = cache.get_info(process='archive').status
-            if arch_status == 'running' or cache.get_narchived(time_ago=10) > 2:
+
+            arch_tago = int(config.get('arch_activity_time', '60'))
+            arch_nmin = int(config.get('arch_activity_min_updates', '2'))
+            if cache.get_narchived(time_ago=arch_tago) > arch_nmin:
                 print("Archive appears to be running... try 'restart'?")
                 return
             archiver.mainloop()
@@ -219,8 +224,10 @@ def pvarch_main():
             print("%3d new values in past %d seconds"%(len(new_vals), args.time_ago))
 
         elif action == 'start':
-            cache_status = cache.get_info(process='cache').status
-            if cache_status == 'running' or len(cache.get_values(time_ago=10)) > 2:
+            config = get_config().asdict()
+            cache_tago = int(config.get('cache_activity_time', '10'))
+            cache_nmin = int(config.get('cache_activity_min_updates', '2'))
+            if len(cache.get_values(time_ago=cache_tago)) > cache_nmin:
                 print("Cache appears to be running... try 'restart'?")
                 return
             cache = Cache(pvconnect=True, debug=args.debug)
