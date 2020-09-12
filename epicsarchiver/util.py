@@ -41,6 +41,13 @@ class Config:
         self.cache_alert_period = '30'
         self.cache_report_period = '300'
         self.archive_report_period = '300'
+
+        self.cache_activity_time = '10'
+        self.cache_activity_min_updates =  '2'
+        self.arch_activity_time = '60'
+        self.arch_activity_min_updates = '2'
+
+
         self.web_baseurl = 'https://localhost/'
         self.web_url = 'pvarch'
         self.web_dir = '/var/web/pvarch'
@@ -49,6 +56,9 @@ class Config:
         self.web_admin_pass = 'please select a better password'
         self.web_index = 'index'
         self.web_pages = [["APS",   "StorageRing"]]
+
+
+
 
         for key, val in kws.items():
             setattr(self, key, val)
@@ -118,7 +128,7 @@ def None_or_one(result):
         return None
 
 
-def clean_bytes(x, maxlen=4096, encoding='utf-8'):
+def clean_bytes(x, maxlen=4090, encoding='utf-8'):
     """
     clean data as a string with comments stripped,
     guarding against extra sql statements,
@@ -134,7 +144,7 @@ def clean_bytes(x, maxlen=4096, encoding='utf-8'):
             x = x[:eol]
     return x.strip().encode(encoding)
 
-def clean_string(x, maxlen=4096):
+def clean_string(x, maxlen=4090):
     return clean_bytes(x, maxlen=maxlen).decode('utf-8')
 
 def safe_string(x):
