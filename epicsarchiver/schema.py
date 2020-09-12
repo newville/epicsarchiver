@@ -25,7 +25,7 @@ pvdat_init_pv = """create table pv(
 pvdat_init_dat = """create table pvdat{idat:03d} (
   time double not null,
   pv_id int(10) unsigned not null,
-  value tinyblob,
+  value varchar(4096),
   key pv_idx (pv_id)
 ) default charset=latin1;
 """
