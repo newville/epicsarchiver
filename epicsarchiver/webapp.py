@@ -367,9 +367,9 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
             y = [chararray_as_string(i) for i in y]
         else:
             npts_total = len(t)
-            if npts_total > 20000:
-                while len(t) > 20000:
-                    t, y = cull_data(t, y, sample=2.5, percent=10)
+            if npts_total > 30000:
+                while len(t) > 30000:
+                    t, y = cull_data(t, y, sample=3, percent=15)
                 t, y = t.tolist(), y.tolist()
                 messages.append(cull_message % (pv, npts_total, len(t)))
 
