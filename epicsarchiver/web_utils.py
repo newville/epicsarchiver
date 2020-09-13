@@ -143,7 +143,7 @@ def cull_data(x, y, sample=3, percent=15):
         ylo = y.min() + percent*yr/100.0
         yhi = y.max() - percent*yr/100.0
 
-    tmp = list(range(0, len(x)-1, sample))
+    tmp = list(range(0, len(x)-1, int(sample)))
     tmp.extend(np.where(y<ylo)[0].tolist())
     tmp.extend(np.where(y>yhi)[0].tolist())
     iorder = np.unique(np.array(sorted(tmp)))
