@@ -115,23 +115,22 @@ def auto_ylog(vals):
         x01, x99 = np.percentile(x[np.where(x>1.e-150)], [1, 99])
     except:
         return False
-
     return (x99 > 200*x01)
 
 
-def cull_data(x, y, sample=10, percent=5):
-    """cull large data sets by both interpolation and selecting
+def cull_data(x, y, sample=3, percent=15):
+    """cull large data sets by sampling every nth value and selecting
     extreme values.  The returned data will include both:
-     a) data interploted down by a sampling rate in x given by 'sample'
+     a) data at the sampling rate in x given by 'sample'
      b) y-values exceeding the supplied percent (both high and low)
 
     Thus using sample=10 and percent=5 will reduce the data size by
-    about a factor of 5 (reduced to 10% from sampling and including
-    the most extreme 10% of y values).
+    about a factor of 5 (taking every 10th value and including the
+    most extreme 10% of y values).
     """
     if percent > 50:
         percent = 100 - percent
-    n = len(x)
+
     if isinstance(x, (list, tuple)):
         x = np.array(x)
     if isinstance(y, (list, tuple)):
@@ -144,20 +143,12 @@ def cull_data(x, y, sample=10, percent=5):
         ylo = y.min() + percent*yr/100.0
         yhi = y.max() - percent*yr/100.0
 
-    xsample = np.linspace(x.min(), x.max(), n//sample)
-    ysample = np.interp(xsample, x, y, left=y[0], right=y[-1])
+    tmp = list(range(0, len(x)-1, sample))
+    tmp.extend(np.where(y<ylo)[0].tolist())
+    tmp.extend(np.where(y>yhi)[0].tolist())
+    iorder = np.unique(np.array(sorted(tmp)))
 
-    xwork = xsample.tolist()
-    ywork = ysample.tolist()
-
-    xwork.extend(x[np.where(y<ylo)[0]].tolist())
-    xwork.extend(x[np.where(y>yhi)[0]].tolist())
-
-    ywork.extend(y[np.where(y<ylo)[0]].tolist())
-    ywork.extend(y[np.where(y>yhi)[0]].tolist())
-
-    xorder = np.array(xwork).argsort()
-    return (np.array(xwork)[xorder], np.array(ywork)[xorder])
+    return (x[iorder], y[iorder])
 
 
 # plotly modeBarButtons:
