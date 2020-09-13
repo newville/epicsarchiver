@@ -338,7 +338,9 @@ class Archiver:
                 continue
             val = dat.cvalue
             if 'enum' in dat.type:
-                val = "%d" % dat.value
+                val = dat.value
+                if isinstance(val, int):
+                    val = "%d" % val
             ts  = float(dat.ts)
 
             info = self.pvinfo[name]
