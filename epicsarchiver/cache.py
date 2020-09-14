@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import re
 import json
 import time
-import sys
+import psutil
 import logging
 import smtplib
 from decimal import Decimal
+from datetime import datetime
 
 import numpy as np
 from sqlalchemy import text, and_, or_
@@ -24,7 +26,7 @@ logging.basicConfig(level=logging.INFO,
                     format='%(levelname)s [%(asctime)s]  %(message)s',
                     datefmt='%Y-%b-%d %H:%M:%S')
 
-STAT_MSG = "{process:8s}: {status:8s}, db={db:14s}, pid={pid:7d}, {n_new:5d} {action:15s} in past {time:2d} seconds [{datetime:s}]"
+STAT_MSG = "{process:8s}: {status:8s}, db={db:14s}, pid={pid:7d}, runtime={runtime:s}, {n_new:5d} {action:15s} in past {time:2d} seconds [{datetime:s}]"
 
 
 OPTOKENS = ('ne', 'eq', 'le', 'lt', 'ge', 'gt')
@@ -256,15 +258,31 @@ class Cache(object):
 
     def show_status(self, with_archive=True, cache_time=60, archive_time=60):
         info = dict(self.get_info(process='cache').items())
+        try:
+            proc = psutil.Process(info['pid'])
+            tnow = datetime.fromtimestamp(round(time.time()))
+            tstart = datetime.fromtimestamp(round(proc.create_time()))
+            runtime = str(tnow-tstart)
+        except:
+            runtime = 'unknown'
         info.update({'n_new': len(self.get_values(time_ago=cache_time)),
                      'time': cache_time, 'db': self.db.dbname,
+                     'runtime': runtime,
                      'process': 'Cache', 'action': 'PVs updated   '})
 
         print(STAT_MSG.format(**info))
         if with_archive:
             info = dict(self.get_info(process='archive').items())
+            try:
+                proc = psutil.Process(info['pid'])
+                tnow = datetime.fromtimestamp(round(time.time()))
+                tstart = datetime.fromtimestamp(round(proc.create_time()))
+                runtime = str(tnow-tstart)
+            except:
+                runtime = 'unknown'
+
             info.update({'n_new': self.get_narchived(time_ago=archive_time),
-                         'time': archive_time,
+                         'time': archive_time,  'runtime': runtime,
                          'process': 'Archiver', 'action': 'values archived'})
             print(STAT_MSG.format(**info))
 
@@ -567,7 +585,6 @@ class Cache(object):
             self.data.pop(pvname)
 
     def process_alerts(self, debug=False):
-        self.log('processing alerts')
         msg = 'Alert sent for PV=%s, Label=%s'
         # self.db.set_autocommit(1)
         table = self.tables['alerts']
@@ -680,7 +697,7 @@ class Cache(object):
         reqtable = self.tables['requests']
         req = reqtable.select().execute().fetchall()
         if len(req) == 0:
-            self.log("no requests to process")
+            # self.log("no requests to process")
             return
 
         self.log("processing %d requests" % len(req) )
@@ -799,7 +816,7 @@ class Cache(object):
 
         current_score = self.get_pair_score(pv1, pv2)
         if score is None:
-            score = incremenet + current_score
+            score = increment + current_score
 
         ptable = self.tables['pairs']
         if current_score == 0:
