@@ -44,8 +44,7 @@ enum_strings = {}
 ago_choices = ['4 hours', '12 hours', '1 day', '3 days', '1 week', '3 weeks',
                '6 weeks', '12 weeks', '26 weeks', '1 year']
 
-cull_message = """Warning: data for '%s' were culled
-from %d to %d values for plotting"""
+cull_message = """Warning: data for %s culled for plotting (%d to %d values)"""
 
 def update_data(session, force_refresh=False):
     global pvarch_config, archiver, cache
@@ -301,7 +300,7 @@ def data(date1=None, date2=None, pv=None, fname=None):
     #    fmt = '%s'
 
     buff.append('#-------------------------------------------------')
-    buff.append('# TimeStamp       Value    YYYYMMDD  HHMMSS')
+    buff.append('# TimeStamp         Value    YYYYMMDD  HHMMSS')
     for _t, _v in zip(t, y):
         val = repr(_v)
         if dtype in ('int', 'enum'):
@@ -309,7 +308,7 @@ def data(date1=None, date2=None, pv=None, fname=None):
         elif dtype == 'double':
             val = hformat(_v)
 
-        buff.append(' %.1f  %s  %s  %s' % (_t, val,
+        buff.append(' %.3f  %s  %s  %s' % (_t, val,
                                            strftime("%Y%m%d", localtime(_t)),
                                            strftime("%H%M%S", localtime(_t))))
     return Response("\n".join(buff), mimetype='text/plain')
@@ -365,6 +364,7 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
 
         if dtype == 'string':
             y = [chararray_as_string(i) for i in y]
+            thisplot = None
         else:
             npts_total = len(t)
             if npts_total > 30000:
@@ -373,15 +373,22 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
                 t, y = t.tolist(), y.tolist()
                 messages.append(cull_message % (pv, npts_total, len(t)))
 
-        thisplot = PlotData(t=t, y=y, pvname=pv, label=label,
-                            force_ylog=force_ylog,
-                            enum_labels=enum_labels)
+            thisplot = PlotData(t=t, y=y, pvname=pv, label=label,
+                                force_ylog=force_ylog,
+                                enum_labels=enum_labels)
 
-        saved_arrays[pv] = (time(), thisplot)
+        # saved_arrays[pv] = (time(), thisplot)
         plotdata.append(thisplot)
 
     if len(plotdata) > 0:
         fig = make_plot(plotdata)
+
+    if len(plotdata) > 1:
+        tmp = [p.pvname for p in plotdata]
+        while len(tmp) > 1:
+            pv1 = tmp.pop(0)
+            for pv2 in tmp:
+                cache.increment_pair_score(pv1, pv2)
 
     # now fix related to be list of (pvname, pvid) and so that we have the top 3
     # scores for each PV and then order by total scores, up to 20:
