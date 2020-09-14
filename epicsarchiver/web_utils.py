@@ -4,7 +4,7 @@ from datetime import datetime, date, timedelta
 from dateutil.parser import parse as dateparser
 import numpy as np
 import json
-
+from math import modf
 from .util import normalize_pvname
 
 
@@ -23,7 +23,10 @@ def null2blank(val):
 
 def ts2iso(ts):
     "timestamp to iso format"
-    return strftime("%Y-%m-%dT%H:%M:%S", localtime(ts))
+    tfrac, tint = modf(ts)
+    sfrac = "{0:03d}".format(round(tfrac*1000))
+    out = "%s.%s" % (strftime("%Y-%m-%dT%H:%M:%S", localtime(tint)), sfrac)
+    return out
 
 def parse_times(date1, date2):
     """returns 2 datetimes for date1 and date2 values
