@@ -116,7 +116,6 @@ class Cache(object):
             time.sleep(0.25)
             self.db = DatabaseConnection(self.config.cache_db, self.config)
 
-
     def create_next_archive(self, copy_pvs=True):
         """Create a pvdata database for archiving
 
@@ -143,6 +142,7 @@ class Cache(object):
             sql.append(schema.pvdat_init_dat.format(idat=idat))
 
         self.log("creating database %s" % dbname)
+
 
         # add this new run to the runs table
         runs = self.tables['runs']
@@ -173,6 +173,8 @@ class Cache(object):
                                  graph_type=pvdata.graph_type,
                                  active=pvdata.active)
 
+        # update run info
+        self.set_info(process='archiver', db=dbname)
         return dbname
 
 
