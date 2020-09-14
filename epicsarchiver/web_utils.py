@@ -220,7 +220,7 @@ def make_plot(plotdata, width=625, height=525):
     config = {'displaylogo': False,
               'modeBarButtonsToRemove': ['hoverClosestCartesian',
                                          'hoverCompareCartesian',
-                                         'toggleSpikelines', 'pan2d',
+                                         'toggleSpikelines', # 'pan2d',
                                          'select2d', 'lasso2d']}
     return json.dumps({'data': data, 'layout': layout, 'config': config})
 
