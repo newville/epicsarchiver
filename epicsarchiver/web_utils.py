@@ -184,7 +184,8 @@ def make_plot(plotdata, width=625, height=525):
     layout['xaxis']['domain'] = [0.1, domwid]
 
     for trace, this in enumerate(plotdata):
-        if this is None: continue
+        if this is None:
+            continue
         ykey = 'y%d' % (trace+1) if trace>0 else 'y'
         data.append({'x':[ts2iso(ts) for ts in this.t],
                      'y': this.y,
