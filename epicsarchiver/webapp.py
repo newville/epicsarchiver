@@ -276,7 +276,8 @@ def data(date1=None, date2=None, pv=None, fname=None):
     tmin = dt1.timestamp()
     tmax = dt2.timestamp()
     pv = null2blank(pv)
-    t, y =  archiver.get_data(pv, with_current=False,
+    with_current = abs(now - dt2.timestamp()) < 86400.0
+    t, y =  archiver.get_data(pv, with_current=with_current,
                               tmin=tmin, tmax=tmax)
 
     pvinfo  = archiver.get_pvinfo(pv)
@@ -328,7 +329,7 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
     dt1, dt2 = parse_times(date1, date2)
 
     now = time()
-    with_current = (now - dt2.timestamp()) < 86400.0
+    with_current = abs(now - dt2.timestamp()) < 86400.0
 
     pv1 = null2blank(pv1)
     pv2 = null2blank(pv2)
