@@ -22,7 +22,7 @@ h2              { font-size: 1.2em; }
 .odd {background-color: #FEFEFE;}
 
 .topbar {font: bold 12px verdana, arial, sans-serif;
-	 text-decoration: none; color: #BB1234;
+	 text-decoration: none; color: #0055BB;
 	 background: #FEFEFE;  border-bottom: 0px solid #BB1234;}
 
 .topbar a {text-decoration: none; }
@@ -69,23 +69,23 @@ body {margin:10px; padding:0px;background:#FCFCFC; font:bold 14px verdana, arial
 #content {text-align:justify;  background:#FCFCFC; padding: 0px;border:4px solid #88000;
           border-top: none;  z-index: 2; }
 
-#tabmenu { font: bold 13px verdana, arial, sans-serif; margin: 0px;
+#tabmenu { font: bold 13px verdana, arial, sans-serif;
+	   margin: 8px;
            padding: 0px 0px 16px 0px;
-	   border: 2px solid #BB1234AA;
+	   border: 3px solid #BB1234B0;
            background-color: #FDFDFD;}
 
 #tabmenu ul {margin: 0px;  padding: 0px}
 #tabmenu li {float: left;  display: inline;
-             margin: 0px;
-             list-style-type: none;
+             margin: 0px;  list-style-type: none;
              border-right: 3px solid #0050BB80;
              padding: 0px 5px 0px 5px;
 	     background-color: #FEFEFE;}
 
 #tabmenu a           {color: #0050BB; }
-#tabmenu a.active    {color: #BB1234; background-color: #FE9;}
 #tabmenu a:hover     {color: #BB1234; background-color: #FE9; transition: 0.5s ease-in; }
 #tabmenu li:hover    {color: #BB1234; background-color: #FE9; transition: 1.0s ease-in; }
+#tabmenu li:active   {color: #00A00B; background-color: #EE5;}
 
 
 #time {font: bold 12px verdana, arial, sans-serif; border: 2px; color: #4444AA; margin: 1px;}
