@@ -39,7 +39,6 @@ app.secret_key = pvarch_config['web_secret_key']
 archiver = cache = None
 last_refresh = age = 0
 cache_data = {}
-saved_arrays = {}
 enum_strings = {}
 
 ago_choices = ['4 hours', '12 hours', '1 day', '3 days', '1 week', '3 weeks',
@@ -69,15 +68,6 @@ def update_data(session, force_refresh=False):
                                             'value': ctime(now),
                                             'cvalue': ctime(now),
                                             'dtype': 'string'}})
-    # drop stale saved arrays
-    to_drop = []
-    for key, val in saved_arrays.items():
-        insert_time = val[0]
-        if time() > (val[0] + 600.0):
-            to_drop.append(key)
-    for k in to_drop:
-        saved_arrays.pop(k)
-
     if session.get('is_admin', None) is None:
         session['is_admin'] = False
 
@@ -265,8 +255,6 @@ def logout():
 
 
 
-
-
 @app.route('/data/<date1>/<date2>/<pv>/<fname>')
 def data(date1=None, date2=None, pv=None, fname=None):
     update_data(session)
@@ -276,7 +264,7 @@ def data(date1=None, date2=None, pv=None, fname=None):
     tmin = dt1.timestamp()
     tmax = dt2.timestamp()
     pv = null2blank(pv)
-    with_current = abs(now - dt2.timestamp()) < 86400.0
+    with_current = abs(time() - dt2.timestamp()) < 86400.0
     t, y =  archiver.get_data(pv, with_current=with_current,
                               tmin=tmin, tmax=tmax)
 
@@ -380,7 +368,6 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
                                 force_ylog=force_ylog,
                                 enum_labels=enum_labels)
 
-            # saved_arrays[pv] = (time(), thisplot)
             plotdata.append(thisplot)
 
     if len(plotdata) > 0:
