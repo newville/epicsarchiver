@@ -83,6 +83,7 @@
   </tr>
   {% endif %}
 
+  {% if fig is not none %}
   <tr>
     <td colspan=4>
       <script src="https://cdn.plot.ly/plotly-latest.min.js" charset="utf-8"></script>
@@ -94,6 +95,24 @@
       </div>
     </td>
   </tr>
+  {% endif %}
+  {% if table is not none %}
+  <tr>
+    <td colspan=4>
+      Data for {{ tablepv }}
+      <table>
+	<tr><th>Date</th><th>Value</th></tr>
+	{% for ts, val in table %}
+	<tr class={{ loop.cycle('odd', 'even') }}>
+	  <td> {{ts}} &nbsp;&nbsp;</td><td> {{val}} </td>
+	</tr>
+	{% endfor %}
+      </table>
+    </td>
+  </tr>
+  {% endif %}
+
+
   </table>
 
 </td>
