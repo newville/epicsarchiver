@@ -184,6 +184,7 @@ def make_plot(plotdata, width=625, height=525):
     layout['xaxis']['domain'] = [0.1, domwid]
 
     for trace, this in enumerate(plotdata):
+        if this is None: continue
         ykey = 'y%d' % (trace+1) if trace>0 else 'y'
         data.append({'x':[ts2iso(ts) for ts in this.t],
                      'y': this.y,
@@ -222,7 +223,10 @@ def make_plot(plotdata, width=625, height=525):
                                          'hoverCompareCartesian',
                                          'toggleSpikelines', # 'pan2d',
                                          'select2d', 'lasso2d']}
-    return json.dumps({'data': data, 'layout': layout, 'config': config})
+    if len(data) == 0:
+        return None
+    else:
+        return json.dumps({'data': data, 'layout': layout, 'config': config})
 
 ###
 ###
