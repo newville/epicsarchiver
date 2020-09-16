@@ -180,7 +180,7 @@ class Archiver:
                     datavals.append(clean_value(row.value))
         if with_current:
             cur = self.cache.get_full(pvname)
-            timevals.append(float(cur.ts))
+            timevals.append(float(time.time()))
             datavals.append(clean_value(cur.value))
 
         # sort time/data by time values
