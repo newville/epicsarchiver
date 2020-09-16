@@ -13,9 +13,10 @@ import numpy as np
 
 from epicsarchiver import Archiver
 from epicsarchiver.util import get_config, tformat, hformat, clean_string
-from epicsarchiver.web_utils import (parse_times, chararray_as_string,
-                                     auto_ylog, make_plot, PlotData,
-                                     isnull, null2blank, cull_data)
+
+from epicsarchiver.web_utils import (parse_times, chararray_as_string, ts2iso,
+                                     auto_ylog, make_plot, PlotData, isnull,
+                                     null2blank, cull_data)
 
 # note: this expects that the environmental variable
 # will be set and accessible by the web server, and we
@@ -53,8 +54,8 @@ def update_data(session, force_refresh=False):
     if archiver is None:
         archiver = Archiver(**pvarch_config)
         cache = archiver.cache
-
-
+    if 'current_page' not in  pvarch_config:
+        pvarch_config['current_page'] = 'Main Page'
     now = time()
     age = now - last_refresh
     if len(cache_data) < 1 or age > 3600:
@@ -333,8 +334,8 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
     pv2 = null2blank(pv2)
     pv3 = null2blank(pv3)
     pv4 = null2blank(pv4)
-    fig = ''
 
+    fig = table = tablepv = None
     messages = []
     plotdata = []
     related = []
@@ -361,10 +362,11 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
         t, y =  archiver.get_data(pv, with_current=with_current,
                                   tmin=dt1.timestamp(),
                                   tmax=dt2.timestamp())
-
-        if dtype == 'string':
-            y = [chararray_as_string(i) for i in y]
-            thisplot = None
+        if dtype == 'string' and table is None: # only show table of 1st string PV
+            table = []
+            tablepv = pv
+            for _t, _y in  zip(t, y):
+                table.append((ts2iso(_t).replace('T', ' '), chararray_as_string(_y)))
         else:
             npts_total = len(t)
             if npts_total > 30000:
@@ -377,8 +379,8 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
                                 force_ylog=force_ylog,
                                 enum_labels=enum_labels)
 
-        # saved_arrays[pv] = (time(), thisplot)
-        plotdata.append(thisplot)
+            # saved_arrays[pv] = (time(), thisplot)
+            plotdata.append(thisplot)
 
     if len(plotdata) > 0:
         fig = make_plot(plotdata)
@@ -423,7 +425,7 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
                            time_ago=time_ago,
                            ago_choices=ago_choices,
                            config=pvarch_config,
-                           fig=fig,
+                           fig=fig, table=table, tablepv=tablepv,
                            last_refresh=last_refresh,
                            age=age,
                            cache_data=cache_data,
