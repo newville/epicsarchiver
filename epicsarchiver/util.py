@@ -303,6 +303,8 @@ def hformat(val, length=10):
     with this function.
     """
     try:
+        if isinstance(val, (str, bytes)):
+           val = float(clean_bytes(val))
         expon = int(log10(abs(val)))
     except (OverflowError, ValueError):
         expon = 0
