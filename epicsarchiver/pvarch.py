@@ -203,7 +203,8 @@ def pvarch_main():
             time.sleep(1)
             cache.set_runinfo()
             new_dbname = cache.create_next_archive()
-
+            cache.set_info(process='archive', db=new_dbname)
+            time.sleep(0.5)
             # this requires remaking the Archiver and Cache as
             # the underlying DB engine is now altered.
             archiver = Archiver()
