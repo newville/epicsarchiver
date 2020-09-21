@@ -135,7 +135,6 @@ class Cache(object):
                 raise ValueError('cannot get index of current database: %s' % current_dbname)
 
         dbname = conf.dat_format % (conf.dat_prefix, current_index+1)
-
         sql = ['create database {dbname:s}; use {dbname:s};'.format(dbname=dbname),
                schema.pvdat_init_pv]
         for idat in range(1, 129):
@@ -173,7 +172,9 @@ class Cache(object):
                                  active=pvdata.active)
 
         # update run info
-        self.set_info(process='archiver', db=dbname)
+        self.db = DatabaseConnection(self.config.cache_db, self.config)
+        table = self.db.tables['info']
+        table.update().where(table.c.process==process).execute(db=dbname)
         return dbname
 
 
