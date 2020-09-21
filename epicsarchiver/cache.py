@@ -143,14 +143,13 @@ class Cache(object):
 
         self.log("creating database %s" % dbname)
 
-
         # add this new run to the runs table
         runs = self.tables['runs']
         tnow = time.time()
-        notes = "%s to %s" % (tformat(tnow), tformat(MAX_EPOCH)),
-        runs.insert().execute(notes=notes,
-                              start_time=tnow,
-                              stop_time=MAX_EPOCH)
+        notes = "%s to %s" % (tformat(tnow), tformat(MAX_EPOCH))
+
+        runs.insert().execute(db=dbname, notes=notes,
+                              start_time=tnow, stop_time=MAX_EPOCH)
 
         self.db.engine.execute('\n'.join(sql))
         self.db.flush()
