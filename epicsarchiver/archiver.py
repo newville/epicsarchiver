@@ -390,7 +390,7 @@ class Archiver:
                 if info['active'] == 'no':
                     continue
                 try:
-                    force = tnow > float(info['last_ts'])+float(info['force_time'])
+                    force = tnow > (float(info['last_ts']) +float(info['force_time']))
                 except:
                     force = False
                 if force and name in fullcache and name not in newvals:
