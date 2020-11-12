@@ -304,16 +304,22 @@ def data(date1=None, date2=None, pv=None, fname=None):
     return Response("\n".join(buff), mimetype='text/plain')
 
 
+@app.route('/plot/<date1>/')
 @app.route('/plot/<date1>/<date2>/<pv1>/')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/')
 @app.route('/plot/<date1>/<date2>/<pv1>/<pv2>/<pv3>/<pv4>/')
-def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
+def plot(date1, date2=None, pv1='', pv2='', pv3='', pv4='', time_ago=None):
     """plot with plain link, only command line args: see also formplot()
     """
     update_data(session)
     if time_ago is None:
         time_ago = '3 days'
+    if date2 is None and len(pv1) < 1: # just passed pvname as only argument: plot/pvname
+        pv1 = date1
+        date2 = ts2iso(time())
+        date1 = ts2iso(time() - 3*86400)
+
     dt1, dt2 = parse_times(date1, date2)
 
     now = time()
@@ -355,7 +361,7 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
             table = []
             tablepv = pv
             for _t, _y in  zip(t, y):
-                table.append((ts2iso(_t).replace('T', ' '), chararray_as_string(_y)))
+                table.append((ts2iso(_t), chararray_as_string(_y)))
         else:
             npts_total = len(t)
             if npts_total > 30000:
@@ -406,8 +412,8 @@ def plot(date1, date2, pv1='', pv2='', pv3='', pv4='', time_ago=None):
 
     return render_template('plot.html', messages=messages, nmessages=len(messages),
                            pv1=pv1, pv2=pv2, pv3=pv3, pv4=pv4,
-                           date1=dt1.isoformat().replace('T', ' '),
-                           date2=dt2.isoformat().replace('T', ' '),
+                           date1=dt1.isoformat(),
+                           date2=dt2.isoformat(),
                            selected_pvs=selected_pvs,
                            related=related,
                            time_ago=time_ago,
