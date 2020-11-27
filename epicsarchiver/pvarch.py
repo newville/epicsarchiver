@@ -201,10 +201,10 @@ def pvarch_main():
         elif action == 'next':
             cache.set_info(process='archive', status='stopping')
             time.sleep(1)
-            cache.set_runinfo()
+            # cache.set_runinfo()
             new_dbname = cache.create_next_archive()
             cache.set_info(process='archive', db=new_dbname)
-            time.sleep(0.5)
+            time.sleep(1)
             # this requires remaking the Archiver and Cache as
             # the underlying DB engine is now altered.
             archiver = Archiver()
