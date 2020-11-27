@@ -173,8 +173,9 @@ class Cache(object):
 
         # update run info
         self.db = DatabaseConnection(self.config.cache_db, self.config)
+        self.tables  = self.db.tables
         table = self.db.tables['info']
-        table.update().where(table.c.process==process).execute(db=dbname)
+        table.update().where(table.c.process=='archive').execute(db=dbname)
         return dbname
 
 
@@ -302,8 +303,11 @@ class Cache(object):
             tab = archdb.tables['pvdat%3.3d' % i]
             oldest = tab.select().order_by(tab.c.time)
             newest = tab.select().order_by(tab.c.time.desc())
-            tmin = min(tmin, float(oldest.limit(1).execute().fetchone().time))
-            tmax = max(tmax, float(newest.limit(1).execute().fetchone().time))
+            try:
+                tmin = min(tmin, float(oldest.limit(1).execute().fetchone().time))
+                tmax = max(tmax, float(newest.limit(1).execute().fetchone().time))
+            except:
+                print( "failed to get times ")
 
         tmin = max(1, min(tmin, MAX_EPOCH-1))
         tmax = max(1, min(tmax, MAX_EPOCH-1))
