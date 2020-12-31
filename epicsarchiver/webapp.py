@@ -412,8 +412,8 @@ def plot(date1, date2=None, pv1='', pv2='', pv3='', pv4='', time_ago=None):
 
     return render_template('plot.html', messages=messages, nmessages=len(messages),
                            pv1=pv1, pv2=pv2, pv3=pv3, pv4=pv4,
-                           date1=dt1.isoformat(),
-                           date2=dt2.isoformat(),
+                           date1=dt1.isoformat().replace('T', ' '),
+                           date2=dt2.isoformat().replace('T', ' '),
                            selected_pvs=selected_pvs,
                            related=related,
                            time_ago=time_ago,
