@@ -13,17 +13,22 @@
   <link rel='stylesheet' type='text/css' href="{{url_for('static',
 					       filename='datepicker.css')}}"/>
   <script type="text/javascript">
-    function enable_pv_updates() {setInterval(update_pvs, 1000);}
+    function enable_pv_updates() {setInterval(update_pvs, 1500);}
+
     function update_pvs(data) {
 	var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
-	$.get($SCRIPT_ROOT+'/rawdata',
-	      function(data) {
-		  for (key in data) {
-		      var elem = document.getElementById(key);
-		      if (elem) { elem.innerHTML = data[key]; }
-		  }
-	      }
-	     );
+	if (document.visibilityState  == "visible") {
+	    $.get($SCRIPT_ROOT+'/rawdata',
+		  function(data) {
+		      for (key in data) {
+			  var elem = document.getElementById(key);
+			  if (elem) { elem.innerHTML = data[key]; }
+		      }
+		  });
+	} else {
+	    var elem = document.getElementById("0");
+	    if (elem) { elem.innerHTML = "sleeping"; }
+	}
     }
   </script>
 </head>
