@@ -594,7 +594,6 @@ class Cache(object):
         msg = 'Alert sent for PV=%s, Label=%s'
         # self.db.set_autocommit(1)
         table = self.tables['alerts']
-        print("process alerts ", time.ctime())
         for pvname, alert in list(self.alert_data.items()):
             value = alert.get('last_value', None)
             if alert['active'] == 'no' or value is None:
@@ -613,17 +612,15 @@ class Cache(object):
 
             # compute new alarm status: note form  'value.__ne__(trippoint)'
             value_ok = not getattr(value, cmp)(trippoint)
-
             old_value_ok = (alert['status'] == 'ok')
+            # print("   send alert: ", value_ok, old_value_ok, time.time()-last_notice, alert['timeout'])
             notify = notify and old_value_ok and (not value_ok)
-            if old_value_ok != value_ok:
-                # update the status field in the alerts table
-                status = 'alarm'
-                if value_ok:
-                    status = 'ok'
-                table.update(whereclause=text("pvname='%s'" %  pvname)).execute(status=status)
-                if notify:
-                    self.send_alert_mail(alert, value)
+            self.log("alert data: %s ok=%s val=%s trip=%s, notify=%s" %(pvname, value_ok, value, trippoint, notify))
+            status = 'ok' if value_ok else 'alarm'
+            table.update(whereclause=text("pvname='%s'" %  pvname)).execute(status=status)
+
+            if notify and (old_value_ok != value_ok):
+                self.send_alert_mail(alert, value)
 
             if notify:
                 alert['last_notice'] = time.time()
@@ -649,12 +646,14 @@ class Cache(object):
 
         mailto = mailto.replace('\r','').replace('\n','')
 
-        trippoint = str(alert['trippoint'])
+        trippoint = alert['trippoint']
+        if isinstance(trippoint, bytes):
+            trippoint = trippoint.decode('utf-8')
         mailto    = tuple(mailto.split(','))
         subject   = "[Epics Alert] %s" % (label)
 
         if msg in ('', None):
-            msg = self.def_alert_msg
+            msg = "error message"
 
         msg  = clean_mail_message(msg)
 
@@ -663,9 +662,10 @@ class Cache(object):
             if tok == compare: opstr = desc
 
         # fill in 'template' values in mail message
+
         for k, v in list({'PV': pvname,  'LABEL':label,
                           'COMP': opstr, 'VALUE': str(value),
-                          'TRIP': str(trippoint)}.items()):
+                          'TRIP': trippoint}.items()):
             msg = msg.replace("%%%s%%" % k, v)
 
         pvrow = self.get_full(pvname, add=False)
@@ -686,14 +686,20 @@ class Cache(object):
                 nmatch = nmatch + 1
             mlines[i] = line
         conf = self.config
-        msg = "From: %s\r\nSubject: %s\r\n%s\nSee %s/%splot/1days/now/%s\n" % \
-              (conf.mail_from, subject,'\n'.join(mlines),
-               conf.web_baseurl, conf.web_url,pvrow.pvname)
+        msg = """From: %s
+Subject: %s
+
+%s
+
+See %s%s/plot/1days/now/%s""" % (conf.mail_from, subject,'\n'.join(mlines),
+                                 conf.web_baseurl, conf.web_url, pvrow.pvname)
 
         try:
             s = smtplib.SMTP(self.config.mail_server)
             s.sendmail(self.config.mail_from, mailto, msg)
-            self.log("sending mail : %s" % msg)
+            self.log("sending mail message:")
+            self.log("from: %s , To: %s" % (self.config.mail_from, mailto))
+            self.log("%s" % msg)
             s.quit()
         except:
             self.log("Could not send Alert mail:  mail not configured??",

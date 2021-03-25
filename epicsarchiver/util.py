@@ -32,13 +32,13 @@ class Config:
         self.sql_dump = '/usr/bin/mysqldump'
 
         self.mail_server =  'localhost'
-        self.mail_from = 'pvarchiver@aps.anl.gov'
+        self.mail_from = 'gsecars@millenia.aps.anl.gov'
         self.cache_db = 'pvarch_master'
         self.dat_prefix = 'pvdata'
         self.dat_format = '%s_%.5d'
         self.pv_deadtime_double = '5'
         self.pv_deadtime_enum = '1'
-        self.cache_alert_period = '30'
+        self.cache_alert_period = '15'
         self.cache_report_period = '300'
         self.archive_report_period = '300'
 
