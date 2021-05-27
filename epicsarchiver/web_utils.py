@@ -63,20 +63,22 @@ def parse_times(date1, date2):
 
     if date2 == 'now':
         date1 = date1.lower()
-        hago = 168
+        min_ago = 10080.0
         if '_' in date1:
-            date1 = date1.replace('_', ' ')
-        if 'hour' in date1:
-            hago =    1 * float(date1.replace('hours', '').replace('hour', ''))
+            date1 = date1.replace('_', ' ').replace('s', '')
+        if 'minute' in date1:
+            min_ago =      1 * float(date1.replace('minute', ''))
+        elif 'hour' in date1:
+            min_ago =     60 * float(date1.replace('hour', ''))
         elif 'day' in date1:
-            hago =   24 * float(date1.replace('days', '').replace('day', ''))
+            min_ago =   1440 * float(date1.replace('day', ''))
         elif 'week' in date1:
-            hago =  168 * float(date1.replace('weeks', '').replace('week', ''))
+            min_ago =  10080 * float(date1.replace('week', ''))
         elif 'year' in date1:
-            hago = 8760 * float(date1.replace('years', '').replace('year', ''))
+            min_ago = 525600 * float(date1.replace('year', ''))
 
         now = time()
-        dt1 = datetime.fromtimestamp(int(now - 3600.0*hago))
+        dt1 = datetime.fromtimestamp(int(now - 60.0*min_ago))
         dt2 = datetime.fromtimestamp(int(now))
     else:
         if '.' in date1:
