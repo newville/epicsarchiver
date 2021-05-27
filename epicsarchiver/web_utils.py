@@ -60,22 +60,21 @@ def parse_times(date1, date2):
 
     date1 = '1week' if isnull(date1) else date1.lower()
     date2 = 'now'   if isnull(date2) else date2.lower()
-
     if date2 == 'now':
         date1 = date1.lower()
         min_ago = 10080.0
         if '_' in date1:
-            date1 = date1.replace('_', ' ').replace('s', '')
+            date1 = date1.replace('_', ' ')
         if 'minute' in date1:
-            min_ago =      1 * float(date1.replace('minute', ''))
+            min_ago =      1 * float(date1.replace('minutes', '').replace('minutes', ''))
         elif 'hour' in date1:
-            min_ago =     60 * float(date1.replace('hour', ''))
+            min_ago =     60 * float(date1.replace('hours', '').replace('hour', ''))
         elif 'day' in date1:
-            min_ago =   1440 * float(date1.replace('day', ''))
+            min_ago =   1440 * float(date1.replace('days', '').replace('day', ''))
         elif 'week' in date1:
-            min_ago =  10080 * float(date1.replace('week', ''))
+            min_ago =  10080 * float(date1.replace('weeks', '').replace('week', ''))
         elif 'year' in date1:
-            min_ago = 525600 * float(date1.replace('year', ''))
+            min_ago = 525600 * float(date1.replace('years', '').replace('year', ''))
 
         now = time()
         dt1 = datetime.fromtimestamp(int(now - 60.0*min_ago))
