@@ -8,6 +8,8 @@ import time
 import psutil
 import logging
 import smtplib
+from email.mime.text import MIMEText
+
 from decimal import Decimal
 from datetime import datetime
 
@@ -635,21 +637,20 @@ class Cache(object):
         """ send an alert email from an alert dict holding
         the appropriate row of the alert table.
         """
-        mailto = alert['mailto']
+        mail_to = alert['mailto']
         pvname = alert['pvname']
         label  = alert['name']
         compare= alert['compare']
         msg    = alert['mailmsg']
 
-        if mailto in ('', None) or pvname in ('', None):
+        if mail_to in ('', None) or pvname in ('', None):
             return
 
-        mailto = mailto.replace('\r','').replace('\n','')
+        mail_to = mail_to.replace('\r','').replace('\n','')
 
         trippoint = alert['trippoint']
         if isinstance(trippoint, bytes):
             trippoint = trippoint.decode('utf-8')
-        mailto    = tuple(mailto.split(','))
         subject   = "[Epics Alert] %s" % (label)
 
         if msg in ('', None):
@@ -686,20 +687,24 @@ class Cache(object):
                 nmatch = nmatch + 1
             mlines[i] = line
         conf = self.config
-        msg = """From: %s
-Subject: %s
 
-%s
+        message = """%s
 
-See %s%s/plot/1days/now/%s""" % (conf.mail_from, subject,'\n'.join(mlines),
+See %s%s/plot/1days/now/%s""" % ('\n'.join(mlines),
                                  conf.web_baseurl, conf.web_url, pvrow.pvname)
 
+        mmsg = MIMEText(message)
+        mmsg['Subject'] = subject
+        mmsg['From'] = conf.mail_from
+        mmsg['To'] = mail_to
+
         try:
-            s = smtplib.SMTP(self.config.mail_server)
-            s.sendmail(self.config.mail_from, mailto, msg)
+            s = smtplib.SMTP(conf.mail_server)
+
+            s.send_message(mmsg)
             self.log("sending mail message:")
-            self.log("from: %s , To: %s" % (self.config.mail_from, mailto))
-            self.log("%s" % msg)
+            self.log("from: %s , To: %s" % (self.config.mail_from, mail_to))
+            self.log("%s" % message)
             s.quit()
         except:
             self.log("Could not send Alert mail:  mail not configured??",
