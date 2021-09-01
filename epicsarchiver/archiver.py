@@ -70,7 +70,7 @@ class Archiver:
                             'force_time': get_force_update_time()})
                 self.pvinfo[name] = dat
                 # if name not in self.pvs:
-                #    self.pvs[name] = epics.get_pv(name)
+                #   self.pvs[name] = epics.get_pv(name)
 
 
     def get_pvinfo(self, pvname):
@@ -221,7 +221,7 @@ class Archiver:
         if not pv.connected:
             self.log("cannot connect to PV '%s'" % pvname, level='warn')
             return
-
+        # print("Archiver Add PV #2,  ", pv)
         # determine type
         dtype = 'string'
         pvtype = pv.type.replace('ctrl_', '').replace('time_', '')
@@ -288,16 +288,18 @@ class Archiver:
         self.log('Archiver adding PV: %s, table: %s' % (pvname,table))
 
         pvtab = self.pvtable
+        print("Add PV ", pvname, dtype, description, table, deadtime, deadband, gr)
+
         pvtab.insert().execute(name=pvname,
                                type=dtype,
                                description=description,
                                data_table=table,
                                deadtime=deadtime,
                                deadband=deadband,
-                               graph_lo=gr['low'],
-                               graph_hi=gr['high'],
+                               graph_lo=clean_bytes(gr['low']),
+                               graph_hi=clean_bytes(gr['high']),
                                graph_type=gr['type'])
-
+        print("added ok")
         time.sleep(0.01)
         pvdata = pvtab.select().where(pvtab.c.name==pvname).execute().fetchone()
 
@@ -315,6 +317,9 @@ class Archiver:
         if ts is None or ts < self.MIN_TIME:
             ts = time.time()
 
+        if name not in self.pvinfo:
+            self.refresh_pvinfo()
+        info = self.pvinfo[name]
         self.pvinfo[name]['last_ts'] =  float(ts)
         self.pvinfo[name]['last_value'] =  val
 
