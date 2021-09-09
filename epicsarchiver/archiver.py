@@ -192,7 +192,7 @@ class Archiver:
     def add_pv(self, name, description=None, graph={}, deadtime=None, deadband=None):
         """add PV to the archive database: expected to take a while"""
         pvname = normalize_pvname(name)
-
+        print("archive add_pv ", name , pvname, valid_pvname(pvname), pvname in self.pvinfo)
         if not valid_pvname(pvname):
             self.log("## Archiver add_pv invalid pvname = '%s'" % pvname,
                      level='warn')
@@ -338,7 +338,9 @@ class Archiver:
         for dat in self.cache.get_values(time_ago=dt):
             name  = dat.pvname
             if name not in self.pvinfo:
-                self.add_pv(name)
+                name  = normalize_pvname(name)
+                if name not in self.pvinfo:
+                    self.add_pv(name)
             if dat.active == 'no':
                 continue
             val = dat.cvalue
@@ -348,6 +350,9 @@ class Archiver:
                     val = "%d" % val
             ts  = float(dat.ts)
 
+            if name not in self.pvinfo:
+                print("PV not in pvinfo?  ", name)
+                continue
             info = self.pvinfo[name]
             do_save = ts > float(info['last_ts'])+float(info['deadtime'])
             if do_save:

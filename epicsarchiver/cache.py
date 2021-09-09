@@ -513,6 +513,7 @@ class Cache(object):
         for name in  pvname:
             if isinstance(name, bytes):
                 name = name.decode('utf-8')
+            name = normalize_pvname(name)
             if name not in pvnames:
                 pvs.append(epics.get_pv(name))
 
