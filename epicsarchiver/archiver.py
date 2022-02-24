@@ -115,7 +115,7 @@ class Archiver:
         wclause = text("name='%s'" % pvname)
         row = db.tables['pv'].select(whereclause=wclause).execute().fetchall()
         if len(row) < 1:
-            self.log("no data table for  %" % (pvname), level='warn')
+            self.log("no data table for  %s" % (pvname), level='warn')
 
         row = row[0]
         dtable = db.tables[row.data_table]
@@ -138,6 +138,7 @@ class Archiver:
         """
         get data for a PV over a time range, optionally including the current value
         """
+        pvname_raw = pvname
         pvname = normalize_pvname(pvname)
         if pvname not in self.pvinfo:
             self.log("pv %s not found" % (pvname), level='warn')
@@ -156,7 +157,8 @@ class Archiver:
             wclause = text("name='%s'" % pvname)
             pvrow = db.tables['pv'].select(whereclause=wclause).execute().fetchall()
             if len(pvrow) < 1:
-                self.log("no data table for  %" % (pvname), level='warn')
+                self.log("no data table for %s" % (pvname), level='warn')
+                continue
 
             dtable = db.tables[pvrow[0].data_table]
             query  = dtable.select().where(dtable.c.pv_id==pvrow[0].id)
@@ -180,8 +182,11 @@ class Archiver:
                     datavals.append(clean_value(row.value))
         if with_current:
             cur = self.cache.get_full(pvname)
-            timevals.append(float(time.time()))
-            datavals.append(clean_value(cur.value))
+            if cur is None:
+                cur = self.cache.get_full(pvname_raw)
+            if cur is not None:
+                timevals.append(float(time.time()))
+                datavals.append(clean_value(cur.value))
 
         # sort time/data by time values
         timevals = np.array(timevals)
