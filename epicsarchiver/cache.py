@@ -566,7 +566,7 @@ class Cache(object):
         """
         with  open(fname,'r') as fh:
             lines = fh.readlines()
-        logger.info('Adding PVs listed in file: %s ' % fname)
+        self.logger.info('Adding PVs listed in file: %s ' % fname)
 
         for line in lines:
             line = line[:-1].strip()
