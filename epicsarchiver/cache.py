@@ -818,16 +818,20 @@ See %s%s/plot/1days/now/%s""" % ('\n'.join(mlines),
             return 0
         score = 0
         ptable = self.tables['pairs']
-        for (a, b) in ((pv1, pv2), (pv2, pv1)):
-            q = ptable.select().where(and_(ptable.c.pv1==a, ptable.c.pv2==b))
+        q = ptable.select().where(and_(ptable.c.pv1==pv1, ptable.c.pv2==pv2))
+        r = None_or_one(q.execute().fetchall())
+        if r is None:
+            q = ptable.select().where(and_(ptable.c.pv1==pv2, ptable.c.pv2==pv1))
             r = None_or_one(q.execute().fetchall())
-            if r is not None:
-                score += r.score
+        if r is not None:
+            score = r.score
         return score
 
     def set_pair_score(self, pv1, pv2, score=None, increment=1):
         "set pair score for 2 pvs"
         pv1, pv2 = get_pvpair(pv1, pv2)
+        if pv1 == pv2:
+            return
         if pv1 not in self.pvs or pv2 not in self.pvs:
             self.log("Cannot set pair score for unknonwn PVS '%s' and '%s'" % (pv1, pv2),
                      level='warn')
