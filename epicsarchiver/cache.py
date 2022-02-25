@@ -811,7 +811,6 @@ See %s%s/plot/1days/now/%s""" % ('\n'.join(mlines),
                 break
         return out
 
-
     def get_pair_score(self, pv1, pv2):
         "get pair score for 2 pvs"
         pv1, pv2 = get_pvpair(pv1, pv2)
@@ -839,7 +838,7 @@ See %s%s/plot/1days/now/%s""" % ('\n'.join(mlines),
 
         ptable = self.tables['pairs']
         if current_score == 0:
-            ptable.insert().execute(pv1=pv2, pv2=pv2, score=score)
+            ptable.insert().execute(pv1=pv1, pv2=pv2, score=score)
         else:
             ptable.update().where(and_(ptable.c.pv1==pv1,
                                        ptable.c.pv2==pv2)).execute(score=score)
@@ -852,13 +851,12 @@ See %s%s/plot/1days/now/%s""" % ('\n'.join(mlines),
     def set_allpairs(self, pvlist, score=10):
         """for a list/tuple of pvs, set all pair scores
         to be at least the provided score"""
-        tmplist = [normalize_pvname(p) for p in pvlist]
+        alist = [normalize_pvname(p) for p in pvlist]
+        blist = alist[:]
         self.get_pvnames()
-
-        while tmplist:
-            a = tmplist.pop()
-            for b in tmplist:
-                if self.get_pair_score(a, b) < score:
+        for a in alist:
+            for b in blist:
+                if a != b and self.get_pair_score(a, b) < score:
                     self.set_pair_score(a, b, score=score)
 
     def check_pairscores(self):
