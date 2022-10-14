@@ -120,8 +120,10 @@ def None_or_one(result):
     """expect result (as from query.fetchall() to return
     either None or exactly one result
     """
-    if isinstance(result, engine.result.ResultProxy):
+    if len(result) == 1:
         return result
+    elif len(result) ==  0:
+        return None
     try:
         return result[0]
     except:
