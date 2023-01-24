@@ -322,4 +322,7 @@ def hformat(val, length=10):
         if expon > 0:
             prec = max(0, prec-expon)
     fmt = '{0: %i.%i%s}' % (length, prec, form)
-    return fmt.format(val)[:length]
+    out = fmt.format(val)[:length]
+    if out.endswith("000"):
+        out = out[:-3]
+    return out
