@@ -346,8 +346,7 @@ class Cache(object):
         self.log("connect to pvs: %.3f sec, %d new entries" % (time.time()-t0, nnew))
         return nnew
 
-    def onChanges(self, pvname=None, value=None, char_value=None,
-                  timestamp=None, **kw):
+    def onChanges(self, pvname=None, value=None, char_value=None, timestamp=None, **kw):
         if value is not None and pvname is not None:
             if timestamp is None:
                 timestamp = time.time()
@@ -458,7 +457,7 @@ class Cache(object):
         # Note: be careful to not set self.data = {}, which would
         # blow away any changes that occur during this processing
         newdata = {}
-        for pvname in list(self.data.keys()):
+        for pvname in list(self.data.keys()):  # Yes!! data size might change during processing!
             val, cval, tstamp = self.data.pop(pvname)
             if isinstance(val, np.ndarray):
                 val = val.tolist()

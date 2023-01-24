@@ -121,7 +121,7 @@ def None_or_one(result):
     either None or exactly one result
     """
     if len(result) == 1:
-        return result
+        return result[0]
     elif len(result) ==  0:
         return None
     try:

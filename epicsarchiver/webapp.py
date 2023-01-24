@@ -344,7 +344,11 @@ def plot(date1, date2=None, pv1='', pv2='', pv3='', pv4='', time_ago=None):
         if this is None:
             continue
         selected_pvs.append(pv)
-        pvid = cache_data.get(pv, {id:-1})['id']
+        try:
+            pvid = cache_data.get(pv, {id:-1})['id']
+        except:
+            print("Could not get cache data ", pv, cache_data.get(pv, {id:-1}))
+            continue
         related.append((pv, pvid))
         pvinfo = archiver.get_pvinfo(pv)
         label  = "%s [%s]" % (pvinfo['description'], pv)
@@ -395,7 +399,11 @@ def plot(date1, date2=None, pv1='', pv2='', pv3='', pv4='', time_ago=None):
         rel = list(cache.get_related(apv, limit=20).items())
         for i in range(min(len(rel), 5)):
             pvname, score = rel.pop(0)
-            pvid = cache_data.get(pvname, {id:-1})['id']
+            try:
+                pvid = cache_data.get(pvname, {id:-1})['id']
+            except:
+                print("Could not get cache data ", pvname, cache_data.get(pvname, {id:-1}))
+                continue
             if (pvname, pvid) not in related:
                 related.append((pvname, pvid))
         for pvname, score in rel:

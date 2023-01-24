@@ -92,7 +92,14 @@ def parse_times(date1, date2):
 
 def chararray_as_string(val):
     """convert numpy string arrays for Waveform PVs to strings"""
-    tval = val[:]
+    try:
+        tval = val[:]
+    except:
+        try:
+            return str(val)
+        except:
+            return val
+
     for c in ('\n', '\r', '[', ']', '(', ')', ','):
         tval = tval.replace(c, '')
     try:
