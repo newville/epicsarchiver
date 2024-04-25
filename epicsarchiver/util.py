@@ -25,7 +25,7 @@ class Config:
     def __init__(self, **kws):
         self.logdir =  '/var/log/pvarch'
 
-        self.server = 'mysql'
+        self.server = 'mariadb'
         self.host = 'localhost'
         self.user = 'epics'
         self.password = 'change_this_password!'
@@ -71,8 +71,8 @@ class Config:
             out[k] = getattr(self, k)
         return out
 
-def get_config(envvar='PVARCH_CONFIG', **kws):
-    """read config file defined by environmental variable PVARCH_CONFIG"""
+def get_config(envvar='EPICSARCH_CONFIG', **kws):
+    """read config file defined by environmental variable EPICSARCH_CONFIG"""
     fconf = os.environ.get(envvar, None)
     conf = {}
     if fconf is not None and os.path.exists(fconf):
@@ -85,11 +85,18 @@ def get_dbengine(dbname, server='sqlite', create=False,
     """create database engine"""
     if server == 'sqlite':
         return create_engine('sqlite:///%s' % (dbname))
-    elif server == 'mysql':
-        conn_str= 'mysql+mysqldb://%s:%s@%s:%d/%s'
+    elif server.startswith('maria'):
+        conn_str= 'mariadb+pymysql://%s:%s@%s:%d/%s'
         if port is None:
             port = 3306
         return create_engine(conn_str % (user, password, host, port, dbname))
+    elif server == 'mysql':
+        #conn_str= 'mysql+mysqldb://%s:%s@%s:%d/%s'
+        if port is None:
+            port = 3306
+        print("FAIL " , server)
+        raise ValueError("no mysql")
+        # return create_engine(conn_str % (user, password, host, port, dbname))
 
     elif server.startswith('p'):
         conn_str= 'postgresql://%s:%s@%s:%d/%s'
@@ -101,14 +108,16 @@ def get_dbengine(dbname, server='sqlite', create=False,
 class DatabaseConnection:
     def __init__(self, dbname, config, autocommit=True):
         self.dbname = dbname
+        print("db " , dbname, config.server, config.host,
+              config.user, config.password)
         self.engine = get_dbengine(dbname,
                                    server=config.server,
                                    user=config.user,
                                    password=config.password,
                                    host=config.host)
 
-        self.metadata = MetaData(self.engine)
-        self.metadata.reflect()
+        self.metadata = MetaData()
+        self.metadata.reflect(self.engine)
         self.conn    = self.engine.connect()
         self.session = sessionmaker(bind=self.engine, autocommit=autocommit)()
         self.tables  = self.metadata.tables
