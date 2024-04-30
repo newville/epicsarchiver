@@ -10,8 +10,8 @@ try:
 except:
     string_literal = str
 
-from sqlalchemy import MetaData, create_engine, engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import MetaData, create_engine, engine, text, and_
+from sqlalchemy.orm import sessionmaker, Session
 
 MAX_EPOCH = 2147483647.0   # =  2**31 - 1.0 (max unix timestamp)
 SEC_DAY   = 86400.0
@@ -56,9 +56,6 @@ class Config:
         self.web_admin_pass = 'please select a better password'
         self.web_index = 'index'
         self.web_pages = [["APS",   "StorageRing"]]
-
-
-
 
         for key, val in kws.items():
             setattr(self, key, val)
@@ -106,7 +103,7 @@ def get_dbengine(dbname, server='sqlite', create=False,
 
 
 class DatabaseConnection:
-    def __init__(self, dbname, config, autocommit=True):
+    def __init__(self, dbname, config):
         self.dbname = dbname
         print("db " , dbname, config.server, config.host,
               config.user, config.password)
@@ -119,12 +116,168 @@ class DatabaseConnection:
         self.metadata = MetaData()
         self.metadata.reflect(self.engine)
         self.conn    = self.engine.connect()
-        self.session = sessionmaker(bind=self.engine, autocommit=autocommit)()
         self.tables  = self.metadata.tables
+        # self.session = sessionmaker(bind=self.engine)()
+        
+    def execute(self, query, flush=True):
+        """general execute of query"""
+        result = None
+        with Session(self.engine) as session, session.begin():
+            result = session.execute(query)
+            if flush:
+                session.flush()
+        return result
+ 
+    def sql_execute(self, sql,  flush=True):
+        """general execute of SQL"""
+        return self.execute(text(sql), flush=flush)
 
+    def insert(self, tablename, **kws):
+        """insert to a table with keyword/value pairs"""
+        tab = self.tables[tablename]
+        self.execute(tab.insert().values(**kws))
+
+    def insert_many(self, tablename, list_of_dicts):
+        """make many inserts to a single table with a list of dicts"""
+        
+        tab = self.tables[tablename]
+        with Session(self.engine) as session, session.begin():
+            for kws in list_of_dicts:
+                session.execute(tab.insert().values(**kws))
+            session.flush()
+    
     def flush(self):
-        self.session.flush()
+        with Session(self.engine) as session, session.begin():
+            session.flush()
 
+    def add_row(self, tablename, **kws):
+        """add row to a table with keyword/value pairs  == insert()"""
+        self.insert(tablename, **kws)
+
+    def table_error(self, message, tablename, funcname):
+        raise ValueError(f"{message} for table '{tablename}' in {funcname}()")
+        
+    def handle_where(self, tablename, where=None, funcname=None, **kws):
+        if funcname is None:
+            funcname = 'handle_where'
+        tab = self.tables.get(tablename, None)
+        if tab is None:
+            self.table_error("no table found", tablename, funcname)
+
+        filters = []
+        if where is None or isinstance(where, bool) and where:
+            where = {}
+            if len(kws) == 0:
+                filters.append(True)
+
+        if isinstance(where, int):
+            if 'id' in tab.c:
+                filters.append(tab.c.id==where)
+            else:
+                for colname, coldat in tab.columns.items():
+                    if coldat.primary_key and isinstance(coldat.type, Integer):
+                        filters.append(getattr(tab.c, colname)==where)
+            if len(filters) == 0:
+                self.table_error("could not interpret integer `where` value",
+                                 tablename, funcname)
+        elif isinstance(where, dict):
+            where.update(kws)
+            for keyname, val in where.items():
+                key = getattr(tab.c, keyname, None)
+                if key is None:
+                    key = getattr(tab.c, "%s_id" % keyname, None)
+                if key is None:
+                    self.table_error(f"no column '{keyname}'", tablename, funcname)
+                filters.append(key==val)
+        return and_(*filters)
+
+    def get_rows(self, tablename, where=None, order_by=None, order_desc=False,
+                 limit_one=False,  none_if_empty=False, **kws):
+        """general-purpose select of row data:
+
+        Arguments
+        ----------
+        tablename    name of table
+        where        dict of key/value pairs for where clause [None]
+        order_by     name of column to order by [None]
+        limit_one    whether to limit result to 1 row [False[
+        none_if_empty whether to return None for an empty row [False]
+        kwargs        other keyword/value pairs are included in the `where` dictionary
+        Returns
+        -------
+        rows matching `where` (all if `where=None`) optionally ordered by order_by
+
+        Examples
+        --------
+        >>> db.get_rows('element', where{'z': 30})
+        """
+        tab = self.tables.get(tablename, None)
+        if tab is None:
+            self.table_error("no table found", tablename, 'get_rows')
+
+        where = self.handle_where(tablename, where=where, funcname='get_rows', **kws)
+        query = tab.select().where(where)
+
+        order_key = None
+        if order_by is None:
+            order_key = getattr(tab.c, "id", None)
+        else:
+            order_key = getattr(tab.c, order_by, None)
+            if order_key is None:
+                order_key = getattr(tab.c, f"{order_by}_id", None)
+            if order_key is None:
+                self.table_error(f"no column '{order_by}'", tablename, 'get_rows')
+        if order_key is not None:
+            if order_desc:
+                order_key = order_key.desc()
+            query = query.order_by(order_key)
+
+        result = self.execute(query)
+        if limit_one:
+            result = result.fetchone()
+        else:
+            result = result.fetchall()
+
+        if result is not None and len(result) == 0 and none_if_empty:
+            result = None
+        return result
+
+    def update(self, tablename, where=None, **kws):
+        """update a row (with where in a table
+        using keyword args
+
+        Arguments
+        ----------
+        tablename   name of table
+        where       select row to update, either int for id or dict for key/val
+
+        kws          values to update
+
+
+        """
+        tab = self.tables.get(tablename, None)
+        if tab is None:
+            self.table_error("no table found", tablename, 'update')
+
+        where = self.handle_where(tablename, where=where, funcname='update')
+        self.execute(tab.update().where(where).values(**kws))
+
+    def delete_rows(self, tablename, where):
+        """delete rows from table
+
+        Arguments
+        ----------
+        tablename   name of table
+        where       rows to delete, either int for id or dict for key/val
+        """
+        tab = self.tables.get(tablename, None)
+        if tab is None:
+            self.table_error("no table found", tablename, 'delete')
+
+        where = self.handle_where(tablename, where=where, funcname='delete')
+        self.execute(tab.delete().where(where))
+    
+        
 def None_or_one(result):
     """expect result (as from query.fetchall() to return
     either None or exactly one result

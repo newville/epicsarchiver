@@ -7,7 +7,7 @@
 from setuptools import setup
 
 setup(name        = 'epicsarchiver',
-      version     = '2.1',
+      version     = '2.2',
       author      = 'Matthew Newville',
       author_email= 'newville@cars.uchicago.edu',
       url         = 'https://github.com/newville/epicsarchiver/',
@@ -19,9 +19,9 @@ setup(name        = 'epicsarchiver',
       entry_points = {'console_scripts': ['pvarch = epicsarchiver:pvarch_main']},
       package_data = {'epicsarchiver.templates': ['templates/*'],
                       'epicsarchiver.static': ['static/*']},
-      install_requires=['pyepics>=3.4.0',
+      install_requires=['pyepics>=3.5.0',
                         'numpy>=1.14',
-                        'sqlalchemy>0.9',
-                        'mysqlclient',
+                        'sqlalchemy>2.0',
+                        'pymysql',
                         'toml',
                         'flask'])
