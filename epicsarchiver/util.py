@@ -115,9 +115,7 @@ class DatabaseConnection:
 
         self.metadata = MetaData()
         self.metadata.reflect(self.engine)
-        self.conn    = self.engine.connect()
         self.tables  = self.metadata.tables
-        # self.session = sessionmaker(bind=self.engine)()
 
     def execute(self, query, flush=True):
         """general execute of query"""
