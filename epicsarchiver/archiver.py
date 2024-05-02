@@ -7,17 +7,25 @@ from decimal import Decimal
 
 from sqlalchemy import MetaData, create_engine, engine, text, and_
 import numpy as np
-
+import hashlib, base64
 import epics
 
 from .util import (normalize_pvname, get_force_update_time, tformat,
                    clean_bytes, clean_string, SEC_DAY,
                    DatabaseConnection, None_or_one,
                    MAX_EPOCH, valid_pvname, motor_fields,
-                   get_config)
+                   get_config, row2dict)
 
 from .cache import Cache
 
+def hashname(name):
+    h = hashlib.sha256()
+    h.update(bytes(name, encoding='utf-8'))
+    s = base64.b64encode(h.digest()).decode('utf-8')
+    sum = 0
+    for i in s:
+        sum += ord(i)
+    return (sum % 128)
 
 def clean_value(val):
     if isinstance(val, bytes):
@@ -53,6 +61,7 @@ class Archiver:
         # self.pvs    = {k: v for k,v in self.cache.pvs.items()}
         self.pvinfo = {}
         self.refresh_pvinfo()
+        # print("using ArchiveDB ", dbname, len(self.pvinfo))
 
     def refresh_pvinfo(self):
         """
@@ -63,9 +72,9 @@ class Archiver:
         for pvdata in self.db.get_rows('pv'):
             name = pvdata.name
             if name in self.pvinfo:
-                self.pvinfo[name].update(pvdata.items())
+                self.pvinfo[name].update(row2dict(pvdata))
             else:
-                dat = dict(pvdata.items())
+                dat = row2dict(pvdata)
                 dat.update({'last_ts': 0,'last_value':None,
                             'force_time': get_force_update_time()})
                 self.pvinfo[name] = dat
@@ -238,7 +247,7 @@ class Archiver:
             dtype = 'double'
 
         # determine data table
-        table = "pvdat%3.3i" % ((hash(pvname) % 128) + 1)
+        table = "pvdat%3.3i" % (hashname(pvname)+1)
 
         # determine descrption (don't try too hard!)
         if description is None:
@@ -295,20 +304,19 @@ class Archiver:
         pvtab = self.pvtable
         print("Add PV ", pvname, dtype, description, table, deadtime, deadband, gr)
 
-        pvtab.insert().execute(name=pvname,
-                               type=dtype,
-                               description=description,
-                               data_table=table,
-                               deadtime=deadtime,
-                               deadband=deadband,
-                               graph_lo=clean_bytes(gr['low']),
-                               graph_hi=clean_bytes(gr['high']),
-                               graph_type=gr['type'])
-        print("added ok")
+        self.db.add_row('pv', name=pvname,
+                        type=dtype,
+                        description=description,
+                        data_table=table,
+                        deadtime=deadtime,
+                        deadband=deadband,
+                        graph_lo=clean_bytes(gr['low']),
+                        graph_hi=clean_bytes(gr['high']),
+                        graph_type=gr['type'])
         time.sleep(0.01)
-        pvdata = pvtab.select().where(pvtab.c.name==pvname).execute().fetchone()
+        pvdata = self.db.get_rows('pv', where={'name': pvname}, limit_one=True)
 
-        dat = dict(pvdata.items())
+        dat = row2dict(pvdata)
         dat.update({'last_ts': 0,'last_value':None,
                     'force_time': get_force_update_time()})
         self.pvinfo[name] = dat
@@ -329,18 +337,18 @@ class Archiver:
         self.pvinfo[name]['last_value'] =  val
 
         info = self.pvinfo[name]
-        dval = clean_bytes(val)
-        self.db.tables[info['data_table']].insert().execute(pv_id=info['id'],
-                                                            time=ts,
-                                                            value=dval)
+        self.db.insert(info['data_table'], pv_id=info['id'],
+                       time=ts, value=clean_bytes(val))
 
     def collect(self):
         """ one pass of collecting new values, deciding what to archive"""
         newvals, forced = {},{}
         tnow = time.time()
         dt  =  3.0*(tnow - self.last_collect)
+        new_data = self.cache.get_values(time_ago=dt)
         self.last_collect = tnow
-        for dat in self.cache.get_values(time_ago=dt):
+
+        for dat in new_data:
             name  = dat.pvname
             if name not in self.pvinfo:
                 name  = normalize_pvname(name)
@@ -380,7 +388,7 @@ class Archiver:
         # now look through the "limbo list" and insert the most recent change
         # iff the last insert was longer ago than the deadtime:
         tnow = time.time()
-        # print('====== Collect: ',  len(newvals), len(self.dtime_limbo), time.ctime())
+        # print('====== Collect: ',  len(new_data), len(newvals), len(self.dtime_limbo), time.ctime())
         for name in list(self.dtime_limbo.keys()):
             info = self.pvinfo[name]
             if (info['active'] == 'yes' and
@@ -398,7 +406,7 @@ class Archiver:
                 if p not in self.pvinfo:
                     self.add_pv(p)
             fullcache = {}
-            for row in self.cache.tables['cache'].select().execute().fetchall():
+            for row in self.cache.db.get_rows('cache'):
                 fullcache[row.pvname] = row.ts, row.value
 
             for name, info in self.pvinfo.items():
@@ -423,11 +431,12 @@ class Archiver:
         if limit is set, return as  soon as this limit is seen to be exceeded
         this is useful when checking if any values have been cached.
         """
+        time_ago = time.time()-minutes*60.0
         n = 0
-        whereclause = text("time>%d" % (time.time()-minutes*60.0))
         for i in range(1, 129):
-            q = self.db.tables['pvdat%3.3d' % i].select(whereclause=whereclause)
-            n += len(q.execute().fetchall())
+            tab = self.db.tables['pvdat%3.3d' % i]
+            q = tab.select().where(tab.c.time > time_ago)
+            n += len(self.db.execute(q).fetchall())
         return n
 
     def mainloop(self,verbose=False):
@@ -445,7 +454,7 @@ class Archiver:
         self.log('start archiving to %s ' % self.dbname)
         while collecting:
             try:
-                epics.poll(evt=0.003, iot=1.0)
+                time.sleep(0.002)
                 n1, n2 = self.collect()
                 n_changed = n_changed + n1
                 n_forced  = n_forced  + n2
