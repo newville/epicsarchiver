@@ -5,7 +5,7 @@ import os
 import logging
 from decimal import Decimal
 
-from sqlalchemy import MetaData, create_engine, engine, text
+from sqlalchemy import MetaData, create_engine, engine, text, and_
 import numpy as np
 
 import epics
@@ -34,7 +34,7 @@ def clean_value(val):
 class Archiver:
     MIN_TIME = 100
     sql_insert  = "insert into %s (pv_id,time,value) values (%i,%f,%s)"
-    def __init__(self, envvar='PVARCH_CONFIG', **kws):
+    def __init__(self, envvar='EPICSARCH_CONFIG', **kws):
         self.config = get_config(envar=envvar, **kws)
         self.cache = Cache(envvar=envvar, pvconnect=False, **kws)
         self.log  = self.cache.log
@@ -60,7 +60,7 @@ class Archiver:
         database settings for pvs in the pv table
         may also add pvs to the .pvs dict
         """
-        for pvdata in self.pvtable.select().execute().fetchall():
+        for pvdata in self.db.get_rows('pv'):
             name = pvdata.name
             if name in self.pvinfo:
                 self.pvinfo[name].update(pvdata.items())
@@ -69,21 +69,19 @@ class Archiver:
                 dat.update({'last_ts': 0,'last_value':None,
                             'force_time': get_force_update_time()})
                 self.pvinfo[name] = dat
-                # if name not in self.pvs:
-                #   self.pvs[name] = epics.get_pv(name)
-
 
     def get_pvinfo(self, pvname):
         """return pvinfo data (a dict) for a pv, and also ensures that it
         is in the pvinfo dictionary
         """
         if pvname not in self.pvinfo:
-            query = self.pvtable.select(whereclause=text('name=%s'% pvname))
-            dat = None_or_one(query.execute().fetchall())
+            dat = self.db.select('pv', where={'name': pvname},
+                                 none_if_empty=True)
             if dat is None:
                 self.add_pv(pvname)
-                time.sleep(0.01)
-                dat = None_or_one(query.execute().fetchall())
+                time.sleep(0.05)
+                dat = self.db.select('pv', where={'name': pvname},
+                                     none_if_empty=True)
                 if dat is None:
                     return None
             dat.update({'last_ts': 0,'last_value':None,
@@ -112,22 +110,22 @@ class Archiver:
 
         dbname = self.dbs_for_time(t, t+1)[0]
         db = DatabaseConnection(dbname, self.config)
-        wclause = text("name='%s'" % pvname)
-        row = db.tables['pv'].select(whereclause=wclause).execute().fetchall()
-        if len(row) < 1:
+        pvrow = db.get_rows('pv', where={'name': pvname}, limit_one=True,
+                            none_if_empty=True)
+        if pvrow is None:
             self.log("no data table for  %s" % (pvname), level='warn')
+            return None, None
 
-        row = row[0]
-        dtable = db.tables[row.data_table]
-        query  = dtable.select().where(dtable.c.pv_id==row.id)
-        query  = query.where(dtable.c.time>=Decimal(t-SEC_DAY))
-        query  = query.where(dtable.c.time<=Decimal(t+0.5))
-        query  = query.order_by(dtable.c.time.desc()).limit(100)
-        rows = query.execute().fetchall()
+        dtab = db.tables[pvrow.data_table]
+        query = dtab.select().where(dtab.c.pv_id==row.id)
+        query = query.where(dtab.c.time>=Decimal(t-SEC_DAY))
+        query = query.where(dtab.c.time<=Decimal(t+0.5))
+        query = query.order_by(dtab.c.time.desc()).limit(1000)
+        rows = db.execute(query).fetchall()
         out = None, None
         for row in rows:
             rtime = float(row.time)
-            if rtime < t:
+            if rtime < (t  + 1.e-7):
                 out = rtime, row.value
                 break
         if isinstance(out[1], bytes):
@@ -154,17 +152,19 @@ class Archiver:
         timevals, datavals = [], []
         for dbname in self.dbs_for_time(tmin-SEC_DAY, tmax+5):
             db = DatabaseConnection(dbname, self.config)
-            wclause = text("name='%s'" % pvname)
-            pvrow = db.tables['pv'].select(whereclause=wclause).execute().fetchall()
-            if len(pvrow) < 1:
-                self.log("no data table for %s" % (pvname), level='warn')
+            pvrow = db.get_rows('pv', where={'name': pvname}, limit_one=True,
+                                none_if_empty=True)
+
+            if pvrow is None:
+                self.log("no data table for  %s" % (pvname), level='warn')
                 continue
 
-            dtable = db.tables[pvrow[0].data_table]
-            query  = dtable.select().where(dtable.c.pv_id==pvrow[0].id)
-            query  = query.where(dtable.c.time>=Decimal(tmin-SEC_DAY))
-            query  = query.where(dtable.c.time<=Decimal(tmax+0.5))
-            rows   = query.order_by(dtable.c.time).execute().fetchall()
+            dtab = db.tables[pvrow.data_table]
+            query = dtab.select().where(dtab.c.pv_id==row.id)
+            query = query.where(dtab.c.time>=Decimal(tmin-SEC_DAY))
+            query = query.where(dtab.c.time<=Decimal(tmax+0.5))
+            query = query.order_by(dtab.c.time)
+            rows = db.execute(query).fetchall()
 
             if len(datavals) == 0:  # include 1 datapoint before tmin
                 for row in reversed(rows):
