@@ -118,7 +118,7 @@ class DatabaseConnection:
         self.conn    = self.engine.connect()
         self.tables  = self.metadata.tables
         # self.session = sessionmaker(bind=self.engine)()
-        
+
     def execute(self, query, flush=True):
         """general execute of query"""
         result = None
@@ -127,7 +127,7 @@ class DatabaseConnection:
             if flush:
                 session.flush()
         return result
- 
+
     def sql_execute(self, sql,  flush=True):
         """general execute of SQL"""
         return self.execute(text(sql), flush=flush)
@@ -139,13 +139,13 @@ class DatabaseConnection:
 
     def insert_many(self, tablename, list_of_dicts):
         """make many inserts to a single table with a list of dicts"""
-        
+
         tab = self.tables[tablename]
         with Session(self.engine) as session, session.begin():
             for kws in list_of_dicts:
                 session.execute(tab.insert().values(**kws))
             session.flush()
-    
+
     def flush(self):
         with Session(self.engine) as session, session.begin():
             session.flush()
@@ -156,7 +156,7 @@ class DatabaseConnection:
 
     def table_error(self, message, tablename, funcname):
         raise ValueError(f"{message} for table '{tablename}' in {funcname}()")
-        
+
     def handle_where(self, tablename, where=None, funcname=None, **kws):
         if funcname is None:
             funcname = 'handle_where'
@@ -252,8 +252,6 @@ class DatabaseConnection:
         where       select row to update, either int for id or dict for key/val
 
         kws          values to update
-
-
         """
         tab = self.tables.get(tablename, None)
         if tab is None:
@@ -276,8 +274,13 @@ class DatabaseConnection:
 
         where = self.handle_where(tablename, where=where, funcname='delete')
         self.execute(tab.delete().where(where))
-    
-        
+
+
+def row2dict(row):
+    # {fname: getattr(row, fname) for fname in row._fields}
+    return row._asdict()
+
+
 def None_or_one(result):
     """expect result (as from query.fetchall() to return
     either None or exactly one result
@@ -352,6 +355,7 @@ def get_force_update_time():
     PV is recorded at least once in any 24 hour period.
     """
     return randint(18*3600, 22*3600)
+
 
 def timehash():
     """ generate a simple, 10 character hash of the timestamp:
