@@ -40,13 +40,13 @@ class Config:
         self.pv_deadtime_enum = '1'
         self.cache_alert_period = '15'
         self.cache_report_period = '300'
+        self.cache_update_pvextra = '7200'
         self.archive_report_period = '300'
 
         self.cache_activity_time = '10'
         self.cache_activity_min_updates =  '2'
         self.arch_activity_time = '60'
         self.arch_activity_min_updates = '2'
-
 
         self.web_baseurl = 'https://localhost/'
         self.web_url = 'pvarch'
