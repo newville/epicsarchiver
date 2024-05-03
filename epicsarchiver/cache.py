@@ -62,8 +62,7 @@ class Cache:
         self.data  = {}
         self.pvtypes = {}
         self.get_pvnames()
-        print("GOT PVNAMES")
-        time.sleep(2)
+        time.sleep(0.25)
         self.read_alert_table()
         self.log('cache with %d PVs ready, %.3f sec' % (len(self.pvs),
                                                         time.monotonic()-t0))
@@ -583,13 +582,9 @@ class Cache:
     def process_alerts(self):
         for pvname, alert in self.alert_data.items():
             value = alert.get('last_value', None)
-            if value is None and pvname in self.pvs:
-                value = self.pvs[pvname].value
-
-            if alert['active'] == 'no' or value is None:
+            if (alert['active'] == 'no' or value is None or
+                time.time() < (alert['last_notice'] + alert['timeout'])):
                 continue
-            last_notice = alert.get('last_notice', -1)
-            notify= (time.time() - last_notice) > alert['timeout']
 
             # coerce values to strings or floats for comparisons
             convert = str
@@ -599,32 +594,26 @@ class Cache:
             value     = convert(value)
             trippoint = convert(alert['trippoint'])
             cmp       = OPS[alert['compare']]
+            was_ok    = 'ok' == alert['status']
 
             # compute new alarm status: note form  'value.__ne__(trippoint)'
-            value_ok = not getattr(value, cmp)(trippoint)
-            old_value_ok = 'ok' == alert['status']
-
-            notify = notify and old_value_ok and (not value_ok)
-            msg = [f"alert data: {pvname}", f"ok={value_ok}", f"val={value}",
-                   f"trip={trippoint}", f"notify={notify}"]
-            self.log(','.join(msg))
-
-            status = 'ok' if value_ok else 'alarm'
-
+            now_ok = not getattr(value, cmp)(trippoint)
+            status = 'ok' if now_ok else 'alarm'
             self.db.update('alerts', where={'pvname': pvname}, status=status)
+            alert['status'] = status
+            notify = was_ok and not now_ok
 
-            if notify and (old_value_ok != value_ok):
-                self.send_alert_mail(alert, value)
-
+            msg = [f"check alert: {pvname}", f"status={status}", f"val={value}",
+                   f"trip={trippoint}", f"notify={notify}"]
+            self.log(', '.join(msg))
             if notify:
                 alert['last_notice'] = time.time()
-                aname = alert['name']
-                self.log(f"Alert sent for PV='{pvname}', Label='{aname}'")
-            if value_ok or notify:
-                alert['last_value']  = None
+                self.send_alert_mail(alert, value)
+                self.log(f"Alert sent for PV={pvname}, Label={alert['name']}")
+            # the value has been checked, so we can set 'last_value' to
+            # None so that the alert will not be checked until the value changes.
+            alert['last_value'] = None
 
-            self.log(f"  >>process_alert done {alert['last_notice']}",
-                     level='debug')
 
     def send_alert_mail(self, alert, value):
         """ send an alert email from an alert dict holding
@@ -683,15 +672,14 @@ class Cache:
         url = f"{conf.web_baseurl}{conf.web_url}/plot/1days/now"
         mlines.append(f"See {url}/{pvrow.pvname}")
         message = '\n'.join(mlines)
-        if True: # try:
+        try:
             s = SMTP(conf.mail_server)
             s.sendmail(conf.mail_from, mail_to, message)
             s.quit()
-            self.log(f"send mail from: {self.config.mail_from}, To: {mail_to}")
-            self.log(message)
-        # except:
-        #     self.log("Could not send Alert mail:  mail not configured??",
-        #             level='warn')
+            self.log(f"send alert mail for '{pvname}' to: {mail_to}")
+        except:
+            self.log(f"Could not send Alert mail for '{pvname}'. ",
+                     level='warn')
 
     def process_requests(self):
         " process requests for new PV's to be cached"
@@ -742,7 +730,6 @@ class Cache:
                         msg = 'already added'
             self.log(f'{msg} PV: {pvname}')
         time.sleep(0.01)
-
 
     def read_alert_table(self):
         self.alert_data = {}
