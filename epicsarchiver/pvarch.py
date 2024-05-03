@@ -7,13 +7,14 @@ import os
 import time
 import toml
 from argparse import ArgumentParser
+from tabulate import tabulate
 
 from . import Cache, Archiver, tformat, get_config
 from .schema import initial_sql, apache_config
 
 HELP_MESSAGE = """pvarch: control EpicsArchiver processes
     pvarch -h              shows this message.
-    pvarch status [time]   shows cache and archiving status, some recent statistics. [60]
+    pvarch status [-t time] shows cache and archiving status, some recent statistics. [60]
     pvarch show_config     print configuration
 
     pvarch arch start      start the archiving process, if it is not already running.
@@ -270,14 +271,11 @@ def pvarch_main():
         if nruns == 0:
             nruns = 25
         runs = cache.tables['runs']
-        hline = '+-----------------+-----------------------------------------------+'
-        title = '|     database    |                date range                     |'
-        out = [hline, title, hline]
-        recent = runs.select().order_by(runs.c.id.desc()).limit(nruns)
-        for run in reversed(recent.execute().fetchall()):
-            out.append('|  %13s  | %45s |' % (run.db, run.notes))
-        out.append(hline)
-        print('\n'.join(out))
+        out = [['database', 'date range']]
+        recent = cache.db.get_rows('runs', order_by='id', order_desc=True)
+        for run in reversed(recent[:nruns]):
+            out.append([run.db, run.notes])
+        print(tabulate(out, headers='firstrow', tablefmt='simple_grid'))
 
     elif 'set_runinfo' == cmd:
         nruns = args.nruns
@@ -325,7 +323,6 @@ def pvarch_main():
             print("# PVs in Cache that are currently unconnected:")
             for pvname in unconn:
                 print('   %s' % pvname)
-
 
     else:
         print("pvarch  unknown command '%s'.    Try 'pvarch -h'" % cmd)
