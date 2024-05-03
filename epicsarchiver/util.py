@@ -105,8 +105,6 @@ def get_dbengine(dbname, server='sqlite', create=False,
 class DatabaseConnection:
     def __init__(self, dbname, config):
         self.dbname = dbname
-        print("db " , dbname, config.server, config.host,
-              config.user, config.password)
         self.engine = get_dbengine(dbname,
                                    server=config.server,
                                    user=config.user,
