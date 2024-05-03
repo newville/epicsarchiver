@@ -13,7 +13,7 @@ import psutil
 import numpy as np
 from sqlalchemy.orm import Session
 from epics import get_pv
-
+from tabulate import tabulate
 from .util import (clean_bytes, normalize_pvname, tformat, valid_pvname,
                    clean_mail_message, DatabaseConnection, MAX_EPOCH,
                    get_config, motor_fields, hformat, row2dict)
@@ -23,10 +23,6 @@ from . import schema
 logging.basicConfig(level=logging.INFO,
                     format='%(levelname)s [%(asctime)s]  %(message)s',
                     datefmt='%Y-%b-%d %H:%M:%S')
-
-STAT_MSG = "{process:8s}: {status:8s}, db={db:14s}, pid={pid:7d}, runtime={runtime:s}, {n_new:5d} {action:15s} in past {time:2d} seconds [{datetime:s}]"
-
-
 OPTOKENS = ('ne', 'eq', 'le', 'lt', 'ge', 'gt')
 OPSTRINGS = ('not equal to', 'equal to', 'less than or equal to',
              'less than', 'greater than or equal to', 'greater than')
@@ -216,7 +212,7 @@ class Cache:
         return n
 
     def show_status(self, with_archive=True, cache_time=60, archive_time=60):
-        info = dict(self.get_info(process='cache').items())
+        info = row2dict(self.get_info(process='cache'))
         try:
             proc = psutil.Process(info['pid'])
             tnow = datetime.fromtimestamp(round(time.time()))
@@ -224,14 +220,14 @@ class Cache:
             runtime = str(tnow-tstart)
         except:
             runtime = 'unknown'
-        info.update({'n_new': len(self.get_values(time_ago=cache_time)),
-                     'time': cache_time, 'db': self.db.dbname,
-                     'runtime': runtime,
-                     'process': 'Cache', 'action': 'PVs updated   '})
+        stat_tab = [["Process", "Status", "Database", "PID", "Runtime",
+                     "New Values", "Action", "Time(sec)", "Date"]]
+        stat_tab.append(["Cache", info['status'], self.db.dbname, info['pid'],
+                         runtime, len(self.get_values(time_ago=cache_time)),
+                         'PVs updated', cache_time, info['datetime']])
 
-        print(STAT_MSG.format(**info))
         if with_archive:
-            info = dict(self.get_info(process='archive').items())
+            info = row2dict(self.get_info(process='archive'))
             try:
                 proc = psutil.Process(info['pid'])
                 tnow = datetime.fromtimestamp(round(time.time()))
@@ -239,11 +235,10 @@ class Cache:
                 runtime = str(tnow-tstart)
             except:
                 runtime = 'unknown'
-
-            info.update({'n_new': self.get_narchived(time_ago=archive_time),
-                         'time': archive_time,  'runtime': runtime,
-                         'process': 'Archiver', 'action': 'values archived'})
-            print(STAT_MSG.format(**info))
+            stat_tab.append(["Archive", info['status'], info['db'], info['pid'],
+                             runtime, self.get_narchived(time_ago=archive_time),
+                             'Values archived', archive_time, info['datetime']])
+        print(tabulate(stat_tab, headers='firstrow', tablefmt='simple_grid'))
 
     def set_runinfo(self, dbname=None):
         """set timerange for an archive run"""
@@ -507,7 +502,6 @@ class Cache:
 
         idicts = []
         all_pairs = [[p.pvname for p in pvs_to_add]]
-        print("PVS to Add ", pvs_to_add)
         for pv in pvs_to_add:
             out = make_insertfields(pv)
             idicts.append(out)
@@ -678,7 +672,7 @@ class Cache:
             s.quit()
             self.log(f"send alert mail for '{pvname}' to: {mail_to}")
         except:
-            self.log(f"Could not send Alert mail for '{pvname}'. ",
+            self.log(f"Could not send alert mail for '{pvname}'.",
                      level='warn')
 
     def process_requests(self):
