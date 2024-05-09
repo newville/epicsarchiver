@@ -6,6 +6,7 @@ import logging
 from decimal import Decimal
 
 from sqlalchemy import MetaData, create_engine, engine, text, and_
+from sqlalchemy.orm import Session
 import numpy as np
 import hashlib, base64
 import epics
@@ -421,8 +422,38 @@ class Archiver:
                     info['force_time'] = get_force_update_time()
                     n_forced = n_forced + 1
 
+        #for name, data in newvals.items():
+        #    self.update_value(name, data[0], data[1])
+
+        if len(newvals) > 0:
+            with Session(self.db.engine) as session, session.begin():
+                ex = session.execute
+                for name, data in newvals.items():
+                    ts, val = data
+                    if val is None or name not in self.pvinfo:
+                        continue
+                    if ts is None or ts < self.MIN_TIME:
+                        ts = time.time()
+
+                    info = self.pvinfo[name]
+                    self.pvinfo[name]['last_ts'] =  float(ts)
+                    self.pvinfo[name]['last_value'] =  val
+
+                    info = self.pvinfo[name]
+                    dtab = self.db.tables[info['data_table']]
+                    pv_id = info['id']
+                    ex(dtab.insert().values(pv_id=info['id'],
+                                            time=ts, value=clean_bytes(val)))
+                session.flush()
+            time.sleep(1.e-5)
+        #
+        needs_pvinfo = False
         for name, data in newvals.items():
-            self.update_value(name, data[0], data[1])
+            if name not in self.pvinfo:
+                needs_pvinfo = True
+        if needs_pvinfo:
+            self.refresh_pvinfo()
+
         return n_new, n_forced
 
 
