@@ -221,7 +221,7 @@ class Cache:
         except:
             runtime = 'unknown'
         stat_tab = [["Process", "Status", "Database", "PID", "Runtime",
-                     "New Values", "Action", "Time(sec)", "Date"]]
+                     "New Values", "Action", "Time(sec)", "Last TimeStamp"]]
         stat_tab.append(["Cache", info['status'], self.db.dbname, info['pid'],
                          runtime, len(self.get_values(time_ago=cache_time)),
                          'PVs updated', cache_time, info['datetime']])
