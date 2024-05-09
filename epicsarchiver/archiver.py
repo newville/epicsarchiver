@@ -58,11 +58,8 @@ class Archiver:
             dbname = self.cache.get_info(process='archive').db
         self.dbname = dbname
         self.db = DatabaseConnection(self.dbname, self.config)
-        self.pvtable = self.db.tables['pv']
-        # self.pvs    = {k: v for k,v in self.cache.pvs.items()}
         self.pvinfo = {}
         self.refresh_pvinfo()
-        # print("using ArchiveDB ", dbname, len(self.pvinfo))
 
     def refresh_pvinfo(self):
         """
@@ -345,10 +342,11 @@ class Archiver:
         """ one pass of collecting new values, deciding what to archive"""
         newvals, forced = {},{}
         tnow = time.time()
-        dt  =  3.0*(tnow - self.last_collect)
-        new_data = self.cache.get_values(time_ago=dt)
+        dt  =  5.0*(tnow - self.last_collect)
+        ctab = self.cache.tables['cache']
+        new_data = self.cache.db.execute(ctab.select().where(
+                      ctab.c.ts>Decimal(tnow-dt))).fetchall()
         self.last_collect = tnow
-
         for dat in new_data:
             name  = dat.pvname
             if name not in self.pvinfo:
@@ -388,8 +386,6 @@ class Archiver:
 
         # now look through the "limbo list" and insert the most recent change
         # iff the last insert was longer ago than the deadtime:
-        tnow = time.time()
-        # print('====== Collect: ',  len(new_data), len(newvals), len(self.dtime_limbo), time.ctime())
         for name in list(self.dtime_limbo.keys()):
             info = self.pvinfo[name]
             if (info['active'] == 'yes' and
@@ -424,7 +420,6 @@ class Archiver:
 
         #for name, data in newvals.items():
         #    self.update_value(name, data[0], data[1])
-
         if len(newvals) > 0:
             with Session(self.db.engine) as session, session.begin():
                 ex = session.execute
@@ -445,7 +440,6 @@ class Archiver:
                     ex(dtab.insert().values(pv_id=info['id'],
                                             time=ts, value=clean_bytes(val)))
                 session.flush()
-            time.sleep(1.e-5)
         #
         needs_pvinfo = False
         for name, data in newvals.items():
@@ -484,9 +478,15 @@ class Archiver:
         last_info = 0
         msg = "%d new values, %d forced entries since last notice. %d loops"
         self.log('start archiving to %s ' % self.dbname)
+        t0 = time.time()
         while collecting:
             try:
-                time.sleep(0.002)
+                # sleep time hand-tuned to keep CPU usage to
+                # ~ 40% for mariadb
+                # ~ 30% for this archiving process
+                # (note that caching process is ~10%)
+                # which then means about 50 loops per second
+                time.sleep(0.005)
                 n1, n2 = self.collect()
                 n_changed = n_changed + n1
                 n_forced  = n_forced  + n2
