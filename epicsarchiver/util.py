@@ -346,11 +346,11 @@ def clean_mail_message(s):
 
 def get_force_update_time():
     """ inserts will be forced into the Archives for stale values
-    between 18 and 22 hours after last insert.
+    between 13 and 21 hours after last insert.
     This will spread out forced inserts, but still mean that each
     PV is recorded at least once in any 24 hour period.
     """
-    return randint(18*3600, 22*3600)
+    return randint(13*3600, 21*3600)
 
 
 def timehash():

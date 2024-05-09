@@ -302,7 +302,7 @@ class Archiver:
         self.log('Archiver adding PV: %s, table: %s' % (pvname,table))
 
         pvtab = self.pvtable
-        print("Add PV ", pvname, dtype, description, table, deadtime, deadband, gr)
+        # print("Add PV ", pvname, dtype, description, table, deadtime, deadband, gr)
 
         self.db.add_row('pv', name=pvname,
                         type=dtype,
@@ -418,6 +418,7 @@ class Archiver:
                     force = False
                 if force and name in fullcache and name not in newvals:
                     newvals[name] = time.time(), fullcache[name][1]
+                    info['force_time'] = get_force_update_time()
                     n_forced = n_forced + 1
 
         for name, data in newvals.items():
