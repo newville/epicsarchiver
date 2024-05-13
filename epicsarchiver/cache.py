@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-
+"""
+Cache class for interacting with main database and cache table
+"""
 import os
 import re
 import json
@@ -87,7 +89,7 @@ class Cache:
                 raise ValueError(f'cannot database index: {current_dbname}')
 
         dbname = conf.dat_format % (conf.dat_prefix, current_index+1)
-        self.log("creating database %s" % dbname)
+        self.log(f"creating database {dbname}")
         for sql_cmd in (f"drop database if exists {dbname:s};",
                         f"create database {dbname:s};",
                         f"use {dbname:s};",
@@ -121,7 +123,7 @@ class Cache:
         # update run info
         # add this new run to the runs table
         tnow = time.time()
-        notes = "%s to %s" % (tformat(tnow), tformat(MAX_EPOCH))
+        notes = f"{tformat(tnow)} to {tformat(MAX_EPOCH)}"
         self.db = DatabaseConnection(self.config.cache_db, self.config)
         self.db.insert('runs', db=dbname, notes=notes,
                        start_time=tnow, stop_time=MAX_EPOCH)
@@ -205,7 +207,7 @@ class Cache:
 
         start_time = Decimal(time.time() - time_ago)
         for i in range(1, 129):
-            tab = archdb.tables['pvdat%3.3d' % i]
+            tab = archdb.tables[f'pvdat{i:03}']
             q = tab.select().where(tab.c.time > start_time)
             n += len(archdb.execute(q).fetchall())
         return n
@@ -250,7 +252,7 @@ class Cache:
             tmax = MAX_EPOCH - 1.0
         archdb = DatabaseConnection(dbname, self.config)
         for i in range(1, 129):
-            tabname = 'pvdat%3.3d' % i
+            tabname = f'pvdat{i:03}'
             oldest = archdb.get_rows(tabname, order_by='time',
                                      order_desc=False, limit_one=True)
             newest = archdb.get_rows(tabname, order_by='time',
@@ -266,11 +268,11 @@ class Cache:
         tmax = max(1, min(tmax, MAX_EPOCH-1))
 
         if dbname == current_dbname:
-            notes = "%s to %s" % (tformat(tmin), '<currently running> ')
+            notes = f"{tformat(tmin)} to <currently running>"
         else:
-            notes = "%s to %s" % (tformat(tmin), tformat(tmax))
+            notes = f"{tformat(tmin)} to {tformat(tmax)}"
 
-        logging.info(("set run info for %s: %s" %  (dbname, notes)))
+        logging.info(f"set run info for {dbname}: {notes}")
 
         self.db.update('runs', where={'db': dbname},
                        notes=notes, start_time=tmin, stop_time=tmax)
@@ -292,7 +294,7 @@ class Cache:
                         self.alert_data[pvname]['last_value'] = pv.value
                         self.alert_data[pvname]['last_notice'] = time.time() - 30.0
         # self.update_pvextra()
-        self.log("connect to pvs: %.3f sec, %d new entries" % (time.time()-t0, nnew))
+        self.log(f"connect to pvs: {time.time()-t0:.3f} sec, {nnew} new entries")
         return nnew
 
     def onChanges(self, pvname=None, value=None, char_value=None, timestamp=None, **kws):
@@ -303,26 +305,25 @@ class Cache:
             if pvname in self.alert_data:
                 self.alert_data[pvname]['last_value'] = value
 
-    def mainloop(self, npvs=None):
+    def mainloop(self):
         "main loop"
         if not self.pvconnect:
             raise ValueError('cannot run mainloop with pvconnect=False')
 
         self.pid = os.getpid()
-        self.log('Starting Epics PV Caching: pid = %d' % self.pid)
+        self.log(f'Starting Epics PV Caching: pid = {self.pid}')
         t0 = time.time()
         self.set_info(process='cache', status='running', pid=self.pid, ts=t0,
                       datetime=tformat(t0))
 
-        fout = open(self.pidfile, 'w')
-        fout.write('%i\n' % self.pid)
-        fout.close()
+        with open(self.pidfile, 'w') as fout:
+            fout.write(f'{self.pid}\n')
 
         nconn = self.connect_pvs()
         self.update_pvextra()
 
-        fmt = '%d/%d pvs connected, ready to run. Cache Process ID= %d'
-        self.log(fmt % (nconn, len(self.pvs), self.pid))
+        msg = '{nconn}/{len(self.pvs}} pvs connected, ready to run.'
+        self.log(f'{msg} Cache Process ID= {self.pid}')
 
         for alert in self.alert_data.values():
             if alert['last_value'] is None and alert['pvname'] in self.pvs:
@@ -331,7 +332,7 @@ class Cache:
                     alert['last_value'] = pv.value
 
         for name, alert in self.alert_data.items():
-            self.log('Add Alert: %s / %s' % (name,  alert['pvname']), level='debug')
+            self.log(f"Add Alert: {name} / {alert['pvname']}", level='debug')
 
         status_str = '%d values cached since last notice %d loops (%.1f sec)'
         ncached, nloop, last_report, last_info, last_request_process = 0, 0, 0, 0, 0
@@ -356,7 +357,7 @@ class Cache:
                 if status in ('stopping', 'offline') or  pid != self.pid:
                     self.log('no longer main cache program, exiting.')
                     collecting = False
-                    last_report = last_request = time.time() + 1
+                    last_report = last_request_process = time.time() + 1
             # process alerts every 15 seconds:
             if time.time() > last_request_process + float(self.config.cache_alert_period):
                 self.process_requests()
@@ -391,7 +392,7 @@ class Cache:
         self.get_pvnames()
         if add and self.pvconnect and pvname not in self.pvs:
             self.add_pv(pvname)
-            self.log('adding PV  %s ' % pvname, level='debug')
+            self.log(f'adding PV: {pvname}', level='debug')
             time.sleep(0.1)
             return self.get_full(pvname, add=False)
         return self.db.get_rows('cache', where={'pvname': pvname},
@@ -545,9 +546,9 @@ class Cache:
         """read a file that lists pvnames and add them  to the PV cache
         PVs listed on the same line will be considered 'pairs'
         """
-        with  open(fname,'r') as fh:
+        with  open(fname, 'r') as fh:
             lines = fh.readlines()
-        self.logger.info('Adding PVs listed in file: %s ' % fname)
+        self.logger.info(f'Adding PVs listed in file: {fname}')
 
         for line in lines:
             line = line[:-1].strip()
@@ -573,6 +574,7 @@ class Cache:
             self.data.pop(pvname)
 
     def process_alerts(self):
+        "handling alerts"
         for pvname, alert in self.alert_data.items():
             value = alert.get('last_value', None)
             if (alert['active'] == 'no' or value is None or
@@ -626,7 +628,7 @@ class Cache:
         trippoint = alert['trippoint']
         if isinstance(trippoint, bytes):
             trippoint = trippoint.decode('utf-8')
-        subject   = "[Epics Alert] %s" % (label)
+        subject   = f"[Epics Alert] {label}"
 
         if msg in ('', None):
             msg = "error message"
@@ -680,7 +682,7 @@ class Cache:
         if len(req) == 0:
             return
 
-        self.log("processing %d requests" % len(req) )
+        self.log(f"processing {len(req)} requests")
         for row in req:
             pvname, action = row.pvname, row.action
             msg = 'could not process request for'
@@ -704,7 +706,6 @@ class Cache:
                         pv = get_pv(pvname)
                         conn = pv.wait_for_connection(timeout=3.0)
                         if conn:
-                            needs_connect_pvs = True
                             self.pvs[pv.pvname] = pv
                             cval = pv.get(as_string=True)
                             val = pv.value
@@ -767,7 +768,7 @@ class Cache:
             other = row.pv1 if row.pv2 == pvname else row.pv2
             out[other] = row.score
         # sort by score descending
-        out = {k:v for k, v in sorted(out.items(), key=lambda i: -i[1])}
+        out = dict(sorted(out.items(), key=lambda i: -i[1]))
 
         # maybe limit to top scores
         if limit is not None and limit < len(out):
