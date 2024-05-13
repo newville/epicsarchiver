@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """
 text values for creating epicsarchiver databases
-
 """
 
 pvdat_init_pv = """create table pv(
@@ -16,18 +15,11 @@ pvdat_init_pv = """create table pv(
   graph_type   enum('normal','log','discrete') default null,
   type         enum('int','double','string','enum') not null,
   active       enum('yes','no') default 'yes',
-  primary key (id),
-  unique key name (name),
-  key name_idx (name)
-) default charset=latin1;
+  primary key (id), unique key name (name),   key name_idx (name));
 """
 
-pvdat_init_dat = """create table pvdat{idat:03d} (
-  time double not null,
-  pv_id int(10) unsigned not null,
-  value varchar(4096),
-  key pv_idx (pv_id)
-) default charset=latin1;
+pvdat_init_dat = """create table pvdat{idat:03d} (time double not null,  pv_id int(10) unsigned not null,
+                                   value varchar(4096),  key pv_idx (pv_id));
 """
 
 create_cachedb = """
@@ -46,7 +38,7 @@ create table alerts (
   status    enum('alarm','ok') not null default 'ok',
   active    enum('yes','no') not null default 'yes',
   primary key (id)
-  ) default charset=latin1;
+  );
 
 create table cache (
   id        int(10) unsigned not null auto_increment,
@@ -58,7 +50,7 @@ create table cache (
   active    enum('yes','no') not null default 'yes',
   primary key (id),
   key pvname_id (pvname)
-  ) default charset=latin1;
+  );
 
 create table info (
   id        int(10) unsigned not null auto_increment,
@@ -70,7 +62,7 @@ create table info (
   pid       int(10) unsigned not null default '0',
   primary key (id),
   unique key process (process(1))
-  ) default charset=latin1;
+  );
 
 insert into info values (1,'cache',   'offline','','',0, 0);
 insert into info values (2,'archive', 'offline','','',0, 0);
@@ -83,7 +75,7 @@ create table pairs (
   score     int(10) unsigned not null default '1',
   primary key (id),
   key pair_idx (pv1,pv2)
-  ) default charset=latin1;
+  );
 
 create table pvextra (
   id        int(10) unsigned not null auto_increment,
@@ -91,7 +83,7 @@ create table pvextra (
   notes     varchar(512) default null,
   data      varchar(4096) default null,
   primary key(id)
-  ) default charset=latin1;
+  );
 
 create table requests (
   id        int(10) unsigned not null auto_increment,
@@ -99,7 +91,7 @@ create table requests (
   ts        double default '0',
   action    enum('add','drop','suspend','ignore') not null default 'add',
   primary key (id)
-  ) default charset=latin1;
+  ); ;
 
 create table runs (
   id        int(10) unsigned not null auto_increment,
@@ -109,7 +101,7 @@ create table runs (
   stop_time  double not null default '0',
   primary key (id),
   unique key db (db)
-  )  default charset=latin1;
+  )  ;
 """
 
 apache_config = """# apache wsgi configuration
