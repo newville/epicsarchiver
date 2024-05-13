@@ -58,10 +58,10 @@ class Cache:
         self.data  = {}
         self.pvtypes = {}
         self.get_pvnames()
-        time.sleep(0.25)
+        time.sleep(0.01)
         self.read_alert_table()
-        self.log('cache with %d PVs ready, %.3f sec' % (len(self.pvs),
-                                                        time.monotonic()-t0))
+        self.init_time = time.monotonic() - t0
+        self.log(f"Cache: {len(self.pvs)} PVs ready ({self.init_time:.2f}s)")
 
     def log(self, message, level='info'):
         writer = self.log_writers.get(level, self.logger.info)
@@ -87,23 +87,16 @@ class Cache:
                 raise ValueError(f'cannot database index: {current_dbname}')
 
         dbname = conf.dat_format % (conf.dat_prefix, current_index+1)
-        sql = ['create database {dbname:s}; use {dbname:s};'.format(dbname=dbname),
-               schema.pvdat_init_pv]
-        for idat in range(1, 129):
-            sql.append(schema.pvdat_init_dat.format(idat=idat))
-
         self.log("creating database %s" % dbname)
+        for sql_cmd in (f"drop database if exists {dbname:s};",
+                        f"create database {dbname:s};",
+                        f"use {dbname:s};",
+                        schema.pvdat_init_pv ):
+            self.db.sql_execute(sql_cmd)
+        for idat in range(1, 129):
+            self.db.sql_execute(schema.pvdat_init_dat.format(idat=idat))
 
-        # add this new run to the runs table
-        tnow = time.time()
-        notes = "%s to %s" % (tformat(tnow), tformat(MAX_EPOCH))
-
-        self.db.insert('runs', db=dbname, notes=notes,
-                       start_time=tnow, stop_time=MAX_EPOCH)
-
-        self.db.sql_execute('\n'.join(sql))
-        self.db.flush()
-        time.sleep(0.5)
+        time.sleep(0.25)
         if copy_pvs and current_dbname is not None:
             print("copy pvs from ", current_dbname)
             archdb = DatabaseConnection(current_dbname, self.config)
@@ -126,7 +119,13 @@ class Cache:
                 nextdb.execute(q)
 
         # update run info
+        # add this new run to the runs table
+        tnow = time.time()
+        notes = "%s to %s" % (tformat(tnow), tformat(MAX_EPOCH))
         self.db = DatabaseConnection(self.config.cache_db, self.config)
+        self.db.insert('runs', db=dbname, notes=notes,
+                       start_time=tnow, stop_time=MAX_EPOCH)
+
         self.tables  = self.db.tables
         itab = self.db.tables['info']
         self.db.execute(itab.update().where(
@@ -256,8 +255,7 @@ class Cache:
                                      order_desc=False, limit_one=True)
             newest = archdb.get_rows(tabname, order_by='time',
                                      order_desc=True, limit_one=True)
-            print("Run info oldest ", oldest)
-            print("Run info newest ", newest)
+            print("  info: ", dbname, i, tformat(oldest[0]), tformat(newest[0]))
             try:
                 tmin = min(tmin, float(oldest.time))
                 tmax = max(tmax, float(newest.time))
@@ -273,6 +271,7 @@ class Cache:
             notes = "%s to %s" % (tformat(tmin), tformat(tmax))
 
         logging.info(("set run info for %s: %s" %  (dbname, notes)))
+
         self.db.update('runs', where={'db': dbname},
                        notes=notes, start_time=tmin, stop_time=tmax)
 
