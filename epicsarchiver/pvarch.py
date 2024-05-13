@@ -200,10 +200,11 @@ def pvarch_main():
             archiver.mainloop()
 
         elif action == 'next':
+            new_dbname = cache.create_next_archive()
+            print("Created New DB ", new_dbname)
             cache.set_info(process='archive', status='stopping')
             time.sleep(1)
             # cache.set_runinfo()
-            new_dbname = cache.create_next_archive()
             cache.set_info(process='archive', db=new_dbname)
             time.sleep(1)
             # this requires remaking the Archiver and Cache as
@@ -281,9 +282,8 @@ def pvarch_main():
         nruns = args.nruns
         if nruns == 0:
             nruns = 2
-        runs = cache.tables['runs']
-        recent = runs.select().order_by(runs.c.id.desc()).limit(nruns)
-        for run in recent.execute().fetchall():
+        recent = cache.db.get_rows('runs', order_by='id', order_desc=True)
+        for run in reversed(recent[:nruns]):
             cache.set_runinfo(run.db)
 
     elif cmd in ('add_pv', 'add_pvfile', 'drop_pv', 'unconnected_pvs'):
