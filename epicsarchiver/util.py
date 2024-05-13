@@ -363,7 +363,7 @@ def timehash():
 def tformat(t=None,format="%Y-%b-%d %H:%M:%S"):
     """ time formatting"""
     if t is None: t = time.time()
-    return time.strftime(format, time.localtime(t))
+    return time.strftime(format, time.localtime(int(t)))
 
 def time_sec2str(sec=None):
     return tformat(t=sec,format="%Y-%m-%d %H:%M:%S")
