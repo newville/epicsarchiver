@@ -167,7 +167,7 @@ class Archiver:
                 continue
 
             dtab = db.tables[pvrow.data_table]
-            query = dtab.select().where(dtab.c.pv_id==row.id)
+            query = dtab.select().where(dtab.c.pv_id==pvrow.id)
             query = query.where(dtab.c.time>=Decimal(tmin-SEC_DAY))
             query = query.where(dtab.c.time<=Decimal(tmax+0.5))
             query = query.order_by(dtab.c.time)
