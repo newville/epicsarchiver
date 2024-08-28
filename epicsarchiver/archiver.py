@@ -299,7 +299,7 @@ class Archiver:
 
         self.log('Archiver adding PV: %s, table: %s' % (pvname,table))
 
-        pvtab = self.pvtable
+        # pvtab = self.pvtable
         # print("Add PV ", pvname, dtype, description, table, deadtime, deadband, gr)
 
         self.db.add_row('pv', name=pvname,
