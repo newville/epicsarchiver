@@ -322,7 +322,7 @@ class Cache:
         nconn = self.connect_pvs()
         self.update_pvextra()
 
-        msg = '{nconn}/{len(self.pvs}} pvs connected, ready to run.'
+        msg = f'{nconn}/{len(self.pvs}} pvs connected, ready to run.'
         self.log(f'{msg} Cache Process ID= {self.pid}')
 
         for alert in self.alert_data.values():
