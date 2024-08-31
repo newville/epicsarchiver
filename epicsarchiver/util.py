@@ -88,12 +88,10 @@ def get_dbengine(dbname, server='sqlite', create=False,
             port = 3306
         return create_engine(conn_str % (user, password, host, port, dbname))
     elif server == 'mysql':
-        #conn_str= 'mysql+mysqldb://%s:%s@%s:%d/%s'
+        conn_str= 'mysql+pymysql://%s:%s@%s:%d/%s'
         if port is None:
             port = 3306
-        print("FAIL " , server)
-        raise ValueError("no mysql")
-        # return create_engine(conn_str % (user, password, host, port, dbname))
+        return create_engine(conn_str % (user, password, host, port, dbname))
 
     elif server.startswith('p'):
         conn_str= 'postgresql://%s:%s@%s:%d/%s'
@@ -110,7 +108,8 @@ class DatabaseConnection:
                                    user=config.user,
                                    password=config.password,
                                    host=config.host)
-
+        self.engine.connect()
+        time.sleep(0.025)
         self.metadata = MetaData()
         self.metadata.reflect(self.engine)
         self.tables  = self.metadata.tables
