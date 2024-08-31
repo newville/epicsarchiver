@@ -30,7 +30,7 @@ HELP_MESSAGE = """pvarch: control EpicsArchiver processes
 
     pvarch list    [n]     prints a list of recent data archives  [10]
     pvarch set_runinfo [n] set the run information for the most recent run [10]
-    pvarch save [folder]   save sql for cache and 2 most recent data archives [.]
+    pvarch save [folder] [n]  save sql for cache and 2 most recent data archives [., 1]
 
     pvarch unconnected_pvs show unconnected PVs in cache
     pvarch add_pv          add a PV to the cache and archive
@@ -250,18 +250,17 @@ def pvarch_main():
             print("    Try 'pvarch -h' ")
 
     elif 'save' == cmd:
+        folder = '.'
+        nruns = 1
         if len(args.options) > 0:
             folder = args.options.pop(0)
-        else:
-            folder = '.'
+        if len(args.options) > 1:
+            nruns = args.options.pop(1)
 
         config['folder'] = os.path.abspath(folder)
         dbnames = [cache.db.dbname]
-        runs = cache.get_runs()
-        if len(runs) > 0:
-            dbnames.append(runs[-1].db)
-        if len(runs) > 1:
-            dbnames.append(runs[-2].db)
+        dbnames.extend([run.db for run in cache.get_runs()[-nruns:])
+
         for dbname in dbnames:
             config['dbname'] = dbname
             os.system(DUMP_COMMAND.format(**config))
