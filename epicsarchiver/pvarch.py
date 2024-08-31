@@ -259,7 +259,7 @@ def pvarch_main():
 
         config['folder'] = os.path.abspath(folder)
         dbnames = [cache.db.dbname]
-        dbnames.extend([run.db for run in cache.get_runs()[-nruns:])
+        dbnames.extend([run.db for run in cache.get_runs()[-nruns:]])
 
         for dbname in dbnames:
             config['dbname'] = dbname
