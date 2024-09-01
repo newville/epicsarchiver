@@ -2,10 +2,11 @@
 
 # main pvarch application
 
-import sys
 import os
 import time
 import toml
+import subprocess
+from pathlib import Path
 from argparse import ArgumentParser
 from tabulate import tabulate
 
@@ -52,7 +53,7 @@ will need to be able to create and modify databases. You may need to do
    mysql> flush privileges;
 
 as a mysql administrator.  Also, check that these settings match the
-configuration file named in the environmental variable PVARCH_CONFIG.
+configuration file named in the environmental variable EPICSARCH_CONFIG.
 """
 
 WEB_INIT_MESSAGE = """
@@ -141,8 +142,8 @@ def pvarch_main():
         config['server_root'] = s_root
         with open(fname, 'w') as fh:
             fh.write(apache_config.format(**config))
-        if os.path.exists('wsgi'):
-            cfile = os.path.join('wsgi', 'config.toml')
+        if Path('wsgi').exists():
+            cfile = Path('wsgi', 'config.toml').absolute().as_posix()
             with open(cfile, 'w') as fh:
                 toml.dump(config, fh)
 
@@ -151,10 +152,10 @@ def pvarch_main():
 
     elif cmd == 'show_config':
         msg = ["#pvarch configuration:"]
-        if 'PVARCH_CONFIG' in os.environ:
-            msg.append("#PVARCH_CONFIG='%s'" %os.environ['PVARCH_CONFIG'])
+        if 'EPICSARCH_CONFIG' in os.environ:
+            msg.append("#EPICSARCH_CONFIG='%s'" %os.environ['EPICSARCH_CONFIG'])
         else:
-            msg.append("#No variable PVARCH_CONFIG found")
+            msg.append("#No variable EPICSARCH_CONFIG found")
 
         for key, val in get_config().asdict().items():
             msg.append("%s = '%s'" % (key, val))
@@ -257,14 +258,16 @@ def pvarch_main():
         if len(args.options) > 1:
             nruns = args.options.pop(1)
 
-        config['folder'] = os.path.abspath(folder)
+
         dbnames = [cache.db.dbname]
         dbnames.extend([run.db for run in cache.get_runs()[-nruns:]])
 
+        sqldump = '{sql_dump:} -p{password:s} -u{user:s}'.format(**config)
         for dbname in dbnames:
-            config['dbname'] = dbname
-            os.system(DUMP_COMMAND.format(**config))
-            print("wrote {folder:s}/{dbname:s}.sql".format(**config))
+            cmds = f'{sqldump} {dbname}'.split()
+            outfile = Path(folder, f'{dbname}.sql').absolute().as_posix()
+            subprocess.run(cmds, stdout=open(outfile, 'w'))
+            subprocess.run(['gzip', '-f', outfile])
 
     elif 'list' == cmd:
         nruns = args.nruns
