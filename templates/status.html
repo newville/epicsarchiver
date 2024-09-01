@@ -1,0 +1,32 @@
+{% include "header_include.html" %}
+{% include "pagelist_include.html" %}
+{% block body %}
+<body>
+
+  <p>
+    <table border=0>
+    <style>
+     th, td {
+          padding: 5px;
+      border: 1px solid blue;
+     }
+    </style>
+
+    <tr><th>Process</th><th>DB Name</th>
+        <th>Status</th><th>Activity</th></tr>
+      <tr>
+        <td>Cache:</td>
+        <td> {{ cache_db }}</td>
+        <td> {{ cache_status }}</td>
+        <td> {{ cache_nnew}} PVs updated in {{etime}} seconds</td>
+      </tr>
+      <tr>
+        <td>Archiver:</td>
+        <td> {{ arch_db }}</td>
+        <td> {{ arch_status }}</td>
+        <td> {{ arch_nnew }} Values archived in {{etime}} seconds</td>
+      </tr>
+    </table>
+</body>
+{% endblock %}
+{% include "footer_include.html" %}

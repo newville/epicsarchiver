@@ -1,0 +1,15 @@
+<div>
+  <ul id='tabmenu'>
+    <li><a href="{{ url_for('index') }}">Main Page </a> </li>
+    {% for title, page in config.web_pages  %}
+        <li><a href="{{ url_for('show', page=page)}}">{{title}}</a></li>
+    {% endfor %}
+    <li><a href="{{ url_for('status') }}"> Status </a> </li>
+    <li><a href="{{ url_for('alerts') }}">Alerts</a></li>
+    <li><a href="{{ url_for('help') }}"> Help </a> </li>
+
+<!--
+    <li><a href="{{ url_for('login') }}">Login</a></li>
+-->
+  </ul>
+</div>
