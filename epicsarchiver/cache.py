@@ -81,7 +81,7 @@ class Cache:
         This checks carefully for the case of "no archive yet".
         """
         conf = self.config
-        arch_row = self.get_info(process='archive')
+        arch_row = self.get_info('archive')
         current_dbname = None
         current_index = 0
         if arch_row is not None:
@@ -319,7 +319,7 @@ class Cache:
         self.log(f'Starting Epics PV Caching: pid = {self.pid}')
         t0 = time.time()
         self.set_info(process='cache', status='running', pid=self.pid, ts=t0,
-                      datetime=tformat(t0))
+                      db=self.config.cache_db,  datetime=tformat(t0))
 
         with open(self.pidfile, 'w') as fout:
             fout.write(f'{self.pid}\n')
