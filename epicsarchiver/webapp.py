@@ -116,8 +116,8 @@ def rawdata():
 @app.route('/status')
 def status():
     update_data(session)
-    cinfo = dict(cache.get_info(process='cache').items())
-    ainfo = dict(cache.get_info(process='archive').items())
+    cinfo = cache.get_info('cache')
+    ainfo = cache.get_info('archive')
     return render_template('status.html',
                            config=pvarch_config,
                            etime=60,
