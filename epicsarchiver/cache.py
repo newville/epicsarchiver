@@ -59,11 +59,16 @@ class Cache:
         self.pvs   = {}
         self.data  = {}
         self.pvtypes = {}
-        self.get_pvnames()
+        pvnames = self.get_pvnames()
         time.sleep(0.01)
         self.read_alert_table()
         self.init_time = time.monotonic() - t0
-        self.log(f"Cache: {len(self.pvs)} PVs ready ({self.init_time:.2f}s)")
+        if pvconnect:
+            self.connect_pvs()
+            connected = [p for p in self.pvs.values() if p.connected]
+            self.log(f"Cache: {len(pvnames)} PVs, ({len(connected)} connected) ({self.init_time:.2f}s)")
+        else:
+            self.log(f"Cache: {len(pvnames)} PVs, (not connected) ({self.init_time:.2f}s)")
 
     def log(self, message, level='info'):
         writer = self.log_writers.get(level, self.logger.info)
