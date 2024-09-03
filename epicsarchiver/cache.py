@@ -157,8 +157,9 @@ class Cache:
         """ generate self.pvnames: a list of pvnames in the cache"""
         pvnames = []
         for row in self.db.get_rows('cache'):
-            pvnames.append(row.pvname)
-            self.pvtypes[row.pvname] = row.type
+            if row.pvname not in pvnames:
+                pvnames.append(row.pvname)
+                self.pvtypes[row.pvname] = row.type
             if row.pvname not in self.pvs and self.pvconnect:
                 self.pvs[row.pvname] = get_pv(row.pvname)
         return pvnames
