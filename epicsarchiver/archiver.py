@@ -4,13 +4,16 @@ import sys
 import os
 import logging
 from decimal import Decimal
-
+from pathlib import Path
 from sqlalchemy import MetaData, create_engine, engine, text, and_
 from sqlalchemy.orm import Session
 import numpy as np
 import hashlib, base64
 import epics
+from epics.utils import str2bytes
 
+import zarr
+    
 from .util import (normalize_pvname, get_force_update_time, tformat,
                    clean_bytes, clean_string, SEC_DAY,
                    DatabaseConnection, None_or_one,
@@ -115,31 +118,15 @@ class Archiver:
         if pvname not in self.pvinfo:
             self.log("pv %s not found" % (pvname), level='warn')
 
-        dbname = self.dbs_for_time(t, t+1)[0]
-        db = DatabaseConnection(dbname, self.config)
-        pvrow = db.get_rows('pv', where={'name': pvname}, limit_one=True,
-                            none_if_empty=True)
-        if pvrow is None:
-            self.log("no data table for  %s" % (pvname), level='warn')
-            return None, None
+        tdat, vdat = self.get_data(pvname, tmin=(t-60), tmax=(t+1))
+        print("Get Value At Time ", t, len(tdat))
+        for tout, vout in zip(tdat, vdat):
+            if tout < t+1.e-4:
+                if isinstance(vout, bytes):
+                    vout = clean_value(vout)
+        return tout, vout
 
-        dtab = db.tables[pvrow.data_table]
-        query = dtab.select().where(dtab.c.pv_id==row.id)
-        query = query.where(dtab.c.time>=Decimal(t-SEC_DAY))
-        query = query.where(dtab.c.time<=Decimal(t+0.5))
-        query = query.order_by(dtab.c.time.desc()).limit(1000)
-        rows = db.execute(query).fetchall()
-        out = None, None
-        for row in rows:
-            rtime = float(row.time)
-            if rtime < (t  + 1.e-7):
-                out = rtime, row.value
-                break
-        if isinstance(out[1], bytes):
-            out = (out[0], clean_value(out[1]))
-        return out
-
-    def get_data(self, pvname, tmin=None, tmax=None, with_current=None):
+    def get_data(self, pvname, tmin=None, tmax=None, with_current=None, use_zarr=True):
         """
         get data for a PV over a time range, optionally including the current value
         """
@@ -156,37 +143,66 @@ class Archiver:
                 with_current = True
         if with_current is None:
             with_current = False
+            
         timevals, datavals = [], []
-        for dbname in self.dbs_for_time(tmin-SEC_DAY, tmax+5):
-            db = DatabaseConnection(dbname, self.config)
-            pvrow = db.get_rows('pv', where={'name': pvname}, limit_one=True,
-                                none_if_empty=True)
+        dbnames = self.dbs_for_time(tmin-SEC_DAY, tmax+5)
+        for dbname in dbnames:
+            has_data = False
+            zpath = Path(self.config.zarrdir, f'{dbname}_zarr.zip').absolute()
+            if use_zarr and zpath.exists():
+                try:
+                    zroot = zarr.open(zpath.as_posix(), mode='r')
+                    time_all = zroot[f'pvarch/{pvname}/ts'][()]
+                    torder   = time_all.argsort()
+                    time_all = time_all[torder]
+                    data_all = zroot[f'pvarch/{pvname}/data'][torder]
+                    try:
+                        i0 = max(np.where(time_all<tmin)[0])
+                    except:
+                        i0 = 1
+                    if i0 > 0:
+                        i0 -= 1
+                    try:
+                        i1 = max(np.where(time_all<tmax)[0])
+                    except:
+                        i1 = len(time_all)
+                            
+                    timevals.extend(time_all[i0:i1+1].tolist())
+                    datavals.extend(data_all[i0:i1+1].tolist())
+                    has_data = True
+                except:
+                    has_data = False
 
-            if pvrow is None:
-                self.log("no data table for  %s" % (pvname), level='warn')
-                continue
+            if not has_data:
+                db = DatabaseConnection(dbname, self.config)
+                pvrow = db.get_rows('pv', where={'name': pvname}, limit_one=True,
+                                    none_if_empty=True)
 
-            dtab = db.tables[pvrow.data_table]
-            query = dtab.select().where(dtab.c.pv_id==pvrow.id)
-            query = query.where(dtab.c.time>=Decimal(tmin-SEC_DAY))
-            query = query.where(dtab.c.time<=Decimal(tmax+0.5))
-            query = query.order_by(dtab.c.time)
-            rows = db.execute(query).fetchall()
+                if pvrow is None:
+                    self.log("no data table for  %s" % (pvname), level='warn')
+                    continue
 
-            if len(datavals) == 0:  # include 1 datapoint before tmin
-                for row in reversed(rows):
+                dtab = db.tables[pvrow.data_table]
+                query = dtab.select().where(dtab.c.pv_id==pvrow.id)
+                query = query.where(dtab.c.time>=Decimal(tmin-SEC_DAY))
+                query = query.where(dtab.c.time<=Decimal(tmax+0.5))
+                query = query.order_by(dtab.c.time)
+                rows = db.execute(query).fetchall()
+
+                if len(datavals) == 0:  # include 1 datapoint before tmin
+                    for row in reversed(rows):
+                        rtime = float(row.time)
+                        if rtime <= tmin:
+                            timevals = [rtime]
+                            datavals = [clean_value(row.value)]
+                            break
+                    if len(timevals) == 0:
+                        logging.warn("could not get 'early value' for %s" % pvname)
+                for row in rows:
                     rtime = float(row.time)
-                    if rtime <= tmin:
-                        timevals = [rtime]
-                        datavals = [clean_value(row.value)]
-                        break
-                if len(timevals) == 0:
-                    logging.warn("could not get 'early value' for %s" % pvname)
-            for row in rows:
-                rtime = float(row.time)
-                if rtime >= tmin and rtime <= tmax:
-                    timevals.append(float(row.time))
-                    datavals.append(clean_value(row.value))
+                    if rtime >= tmin and rtime <= tmax:
+                        timevals.append(float(row.time))
+                        datavals.append(clean_value(row.value))
         if with_current:
             cur = self.cache.get_full(pvname)
             if cur is None:
@@ -517,3 +533,61 @@ class Archiver:
 
     def shutdown(self):
         self.cache.set_info(process='archive', status='stopping')
+
+    def save_zarr(self, dbname=None):
+        """save database to zipped zarr file for 
+        simpler and faster data extraction"""
+        if dbname is None:
+            dbname = self.dbname
+        db = DatabaseConnection(dbname, self.config)
+        
+        zfile = Path(self.config.zarrdir, f'{dbname}_zarr.zip').absolute().as_posix()
+
+        store = zarr.ZipStore(zfile, mode='w')
+        zroot = zarr.group(store=store)
+        zpv = zroot.create_group('pvarch')
+
+        for pvrow in db.get_rows('pv'): 
+            grp = zpv.create_group(pvrow.name)
+            try:
+                graph_hi = float(pvrow.graph_hi)
+            except:
+                graph_hi = ''
+            try:
+                graph_lo = float(pvrow.graph_lo)
+            except:
+                graph_lo = ''
+
+            grp.attrs.update( {'description': pvrow.description,
+                               'type': pvrow.type,              
+                               'deadtime': float(pvrow.deadtime), 
+                               'deadband': float(pvrow.deadband),
+                               'graph_hi': graph_hi, 
+                               'graph_lo': graph_lo, 
+                               'graph_type': pvrow.graph_type})
+
+            dbvals = db.get_rows(pvrow.data_table, where={'pv_id': pvrow.id})
+            times, values = [], []
+            is_float = True
+
+            for tx, pid, vx in dbvals:
+                times.append(float(tx))
+                if is_float:
+                    try:
+                        val = float(vx)
+                    except ValueError:
+                        is_float = False
+                        val = str2bytes(vx)
+                else:
+                    val = str2bytes(vx)            
+                values.append(val)
+            times = np.array(times)
+            values = np.array(values)
+            ndat = len(times)
+            grp.create_dataset('ts', data=times,  compression='gzip')
+            grp.create_dataset('data', data=values, compression='gzip')    
+            print(pvrow.name, pvrow.data_table, len(times))
+            
+        # zroot.close()
+        print(f"wrote {zfile}")
+            

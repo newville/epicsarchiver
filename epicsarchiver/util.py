@@ -5,10 +5,6 @@ import toml
 import time
 from math import log10
 from random import randint
-try:
-    from MySQLdb import string_literal
-except:
-    string_literal = str
 
 from sqlalchemy import MetaData, create_engine, engine, text, and_
 from sqlalchemy.orm import sessionmaker, Session
@@ -24,12 +20,13 @@ valid_pvstr = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._
 class Config:
     def __init__(self, **kws):
         self.logdir =  '/var/log/pvarch'
+        self.zarrdir = '/var/data/pvarch'
 
         self.server = 'mariadb'
         self.host = 'localhost'
         self.user = 'epics'
         self.password = 'change_this_password!'
-        self.sql_dump = '/usr/bin/mysqldump'
+        self.sql_dump = '/usr/bin/mariadb-dump'
 
         self.mail_server =  'localhost'
         self.mail_from = 'gsecars@millenia.aps.anl.gov'
@@ -310,7 +307,7 @@ def clean_string(x, maxlen=4090):
     return clean_bytes(x, maxlen=maxlen).decode('utf-8')
 
 def safe_string(x):
-    return  string_literal(x)
+    return str(x)
 
 def clean_mail_message(s):
     "cleans a stored escaped mail message for real delivery"

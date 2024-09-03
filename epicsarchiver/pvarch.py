@@ -262,6 +262,8 @@ def pvarch_main():
         dbnames = [cache.db.dbname]
         dbnames.extend([run.db for run in cache.get_runs()[-nruns:]])
 
+        zarr_folder = Path(config['zarrdir']).absolute().as_posix()
+        
         sqldump = '{sql_dump:} -p{password:s} -u{user:s}'.format(**config)
         for dbname in dbnames:
             cmds = f'{sqldump} {dbname}'.split()
@@ -269,6 +271,13 @@ def pvarch_main():
             subprocess.run(cmds, stdout=open(outfile, 'w'))
             subprocess.run(['gzip', '-f', outfile])
 
+            if zarr_folder.exists():
+                try:
+                    archiver.save_zarr(dbname)
+                except:
+                    print(f"could not save Zipped Zarr file for {dname} to {config['zarrdir'}")
+
+            
     elif 'list' == cmd:
         nruns = args.nruns
         if nruns == 0:
