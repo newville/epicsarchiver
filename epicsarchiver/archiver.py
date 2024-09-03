@@ -534,20 +534,27 @@ class Archiver:
     def shutdown(self):
         self.cache.set_info(process='archive', status='stopping')
 
-    def save_zarr(self, dbname=None):
+    def save_zarr(self, dbname=None, install=False):
         """save database to zipped zarr file for 
         simpler and faster data extraction"""
         if dbname is None:
             dbname = self.dbname
         db = DatabaseConnection(dbname, self.config)
         
-        zfile = Path(self.config.zarrdir, f'{dbname}_zarr.zip').absolute().as_posix()
+        if install:
+            zfile = Path(self.config.zarrdir, f'{dbname}_zarr.zip').absolute().as_posix()
+        else:
+            zfile = Path(f'{dbname}_zarr.zip').absolute().as_posix()
 
         store = zarr.ZipStore(zfile, mode='w')
         zroot = zarr.group(store=store)
         zpv = zroot.create_group('pvarch')
 
-        for pvrow in db.get_rows('pv'): 
+        pvrows = db.get_rows('pv')
+        nreport = 250
+        for i, pvrow in enumerate(pvrows):
+            if i > 10 and (i % nreport  == 0):
+                print(f" --> {zfile}: {i}/{len(pvrows)} pvs")
             grp = zpv.create_group(pvrow.name)
             try:
                 graph_hi = float(pvrow.graph_hi)
@@ -586,7 +593,6 @@ class Archiver:
             ndat = len(times)
             grp.create_dataset('ts', data=times,  compression='gzip')
             grp.create_dataset('data', data=values, compression='gzip')    
-            print(pvrow.name, pvrow.data_table, len(times))
             
         # zroot.close()
         print(f"wrote {zfile}")

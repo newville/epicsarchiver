@@ -31,7 +31,8 @@ HELP_MESSAGE = """pvarch: control EpicsArchiver processes
 
     pvarch list    [n]     prints a list of recent data archives  [10]
     pvarch set_runinfo [n] set the run information for the most recent run [10]
-    pvarch save [folder] [n]  save sql for cache and 2 most recent data archives [., 1]
+    pvarch save [folder] [n]  save sql for cache and most recent data archives(s) [., 1]
+    pvarch save_zarr [n]   save zarray zip file for recent, not-current data archives(s) [1]
 
     pvarch unconnected_pvs show unconnected PVs in cache
     pvarch add_pv          add a PV to the cache and archive
@@ -258,7 +259,6 @@ def pvarch_main():
         if len(args.options) > 1:
             nruns = args.options.pop(1)
 
-
         dbnames = [cache.db.dbname]
         dbnames.extend([run.db for run in cache.get_runs()[-nruns:]])
 
@@ -271,12 +271,29 @@ def pvarch_main():
             subprocess.run(cmds, stdout=open(outfile, 'w'))
             subprocess.run(['gzip', '-f', outfile])
 
-            if zarr_folder.exists():
-                try:
-                    archiver.save_zarr(dbname)
-                except:
-                    print(f"could not save Zipped Zarr file for {dname} to {config['zarrdir'}")
+    elif 'save_zarr' == cmd:
+        nruns = 1
+        if len(args.options) > 0:
+            nruns =int(args.options.pop(0))
 
+        dbnames = [run.db for run in cache.get_runs()[-(nruns+5):]]
+        
+        zarr_folder = Path(config['zarrdir']).absolute()
+        
+        if not zarr_folder.exists():
+            print(f"Zarr folder does not exist: {config['zarrdir']}")
+        else:
+            nsaved = 0
+            for dbname in reversed(dbnames):
+                if dbname == archiver.dbname:
+                    continue                
+                archiver.save_zarr(dbname)
+                nsaved += 1
+                #except:
+                #    print(f"Could not save zarr file for {dbname} to {config['zarrdir']}")
+                if nsaved >= nruns:
+                    break
+                    
             
     elif 'list' == cmd:
         nruns = args.nruns
