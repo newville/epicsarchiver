@@ -344,14 +344,18 @@ class Cache:
         ncached, nloop, last_report, last_info, last_request_process = 0, 0, 0, 0, 0
         collecting = True
         while collecting:
+            time.sleep(0.002)
             try:
-                time.sleep(0.002)
                 n = self.update_cache()
             except KeyboardInterrupt:
-                self.log('Interrupted by user.', level='warn')
+                self.log('Interrupted by user.')
                 self.set_info(process='info', status='offline')
                 collecting = False
                 break
+            except Exception as exc:
+                self.log("Exception while updating cache")
+                self.log(f"{exc}")
+
             ncached +=  n
             nloop   +=  1
 
@@ -387,6 +391,7 @@ class Cache:
                 #self.get_pvnames()
                 print("$ got pvs ", len(self.pvs), len(self.pvtypes))
         self.set_info(process='cache', status='offline')
+        self.log("Cache is offline")
         time.sleep(1)
 
     def shutdown(self):
@@ -606,7 +611,7 @@ class Cache:
 
             msg = [f"check alert: {pvname}", f"status={status}", f"val={value}",
                    f"trip={trippoint}", f"notify={notify}"]
-            self.log(', '.join(msg))
+            # self.log(', '.join(msg))
             if notify:
                 alert['last_notice'] = time.time()
                 self.send_alert_mail(alert, value)
@@ -614,7 +619,6 @@ class Cache:
             # the value has been checked, so we can set 'last_value' to
             # None so that the alert will not be checked until the value changes.
             alert['last_value'] = None
-
 
     def send_alert_mail(self, alert, value):
         """ send an alert email from an alert dict holding
