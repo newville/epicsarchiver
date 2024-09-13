@@ -283,14 +283,17 @@ class Cache:
         self.db.update('runs', where={'db': dbname},
                        notes=notes, start_time=tmin, stop_time=tmax)
 
-    def connect_pvs(self):
+    def connect_pvs(self, verbose=False):
         """connect to unconnected PVs, make sure callback is defined"""
         nnew = 0
         if not self.pvconnect:
             return 0
         t0 = time.time()
+        nall = len(self.pvs)
+        nconn = 0
         for pvname, pv in self.pvs.items():
             if pv.connected:
+                nconn += 1
                 if len(pv.callbacks) < 1:
                     nnew += 1
                     cval = pv.get(as_string=True)
@@ -300,7 +303,8 @@ class Cache:
                         self.alert_data[pvname]['last_value'] = pv.value
                         self.alert_data[pvname]['last_notice'] = time.time() - 30.0
         # self.update_pvextra()
-        self.log(f"connect to pvs: {time.time()-t0:.3f} sec, {nnew} new entries")
+        if nnew > 0 or verbose:
+            self.log(f"connect to pvs: {(time.time()-t0):.3f} sec, {nnew} new connection, ({nconn}/{nall}) PVs")
         return nnew
 
     def onChanges(self, pvname=None, value=None, char_value=None, timestamp=None, **kws):
@@ -344,9 +348,13 @@ class Cache:
         ncached, nloop, last_report, last_info, last_request_process = 0, 0, 0, 0, 0
         collecting = True
         while collecting:
-            time.sleep(0.002)
             try:
-                n = self.update_cache()
+                if len(self.data) == 0:
+                    n = 0
+                else:
+                    n = self.update_cache()
+                time.sleep(0.001)
+
             except KeyboardInterrupt:
                 self.log('Interrupted by user.')
                 self.set_info(process='info', status='offline')
@@ -355,6 +363,7 @@ class Cache:
             except Exception as exc:
                 self.log("Exception while updating cache")
                 self.log(f"{exc}")
+
 
             ncached +=  n
             nloop   +=  1
@@ -392,7 +401,7 @@ class Cache:
                 print("$ got pvs ", len(self.pvs), len(self.pvtypes))
         self.set_info(process='cache', status='offline')
         self.log("Cache is offline")
-        time.sleep(1)
+        time.sleep(0.25)
 
     def shutdown(self):
         self.set_info(process='cache', status='stopping')
@@ -404,7 +413,7 @@ class Cache:
         if add and self.pvconnect and pvname not in self.pvs:
             self.add_pv(pvname)
             self.log(f'adding PV: {pvname}', level='debug')
-            time.sleep(0.1)
+            time.sleep(0.01)
             return self.get_full(pvname, add=False)
         return self.db.get_rows('cache', where={'pvname': pvname},
                                 none_if_empty=True, limit_one=True)
@@ -489,9 +498,10 @@ class Cache:
         for pvname in pvlist:
             thispv = self.pvs[pvname]
             if not thispv.connected:
+                time.sleep(0.01)
                 for i in range(20):
                     if not thispv.connected:
-                        time.sleep(0.1)
+                        time.sleep(0.01 + i/100.0)
             if (thispv.connected and pvname not in current_pvnames and
                 pvname not in pvs_to_add):
                 pvs_to_add.append(thispv)
@@ -532,7 +542,7 @@ class Cache:
                 out['type'] == 'double'):
                 prefix = prefix[:-4]
                 rtype = get_pv(f"{prefix}.RTYP")
-                time.sleep(0.010)
+                time.sleep(0.01)
                 if 'motor' == rtype.get():
                     m_names = [f"{prefix}{i}" for i in motor_fields]
                     m_names.extend([f"{prefix}.DESC"])
@@ -549,7 +559,7 @@ class Cache:
         for pairs in all_pairs:
             self.set_all_pairs(pairs, score=10)
         self.db.flush()
-        self.connect_pvs()
+        self.connect_pvs(verbose=True)
         self.update_pvextra()
 
 
