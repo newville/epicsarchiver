@@ -8,6 +8,7 @@ import json
 import time
 import logging
 from smtplib import SMTP
+from email.mime.text import MIMEText
 from decimal import Decimal
 from datetime import datetime
 
@@ -668,8 +669,7 @@ class Cache:
 
         pvrow = self.get_full(pvname, add=False)
 
-        mlines = [f"Subject: {subject}", ""]
-        mlines.extend(msg.split('\n'))
+        mlines = msg.split('\n')
 
         # replace %PV(XX)%
         re_showpv = re.compile(r".*%PV\((.*)\)%.*").match
@@ -686,11 +686,15 @@ class Cache:
 
         url = f"{conf.web_baseurl}{conf.web_url}/plot/1days/now"
         mlines.append(f"See {url}/{pvrow.pvname}")
-        message = '\n'.join(mlines)
+
+        mail_msg = MIMEText('\n'.join(mlines))
+        mail_msg["Subject"] = subject
+        mail_msg["From"] = conf.mail_from
+        mail_msg["To"] = mail_to
+
         try:
-            s = SMTP(conf.mail_server)
-            s.sendmail(conf.mail_from, mail_to, message)
-            s.quit()
+            with SMTP(conf.mail_server, 25) as mailserver:
+                mailserver.send_message(mail_msg)
             self.log(f"send alert mail for '{pvname}' to: {mail_to}")
         except:
             self.log(f"Could not send alert mail for '{pvname}'.",
