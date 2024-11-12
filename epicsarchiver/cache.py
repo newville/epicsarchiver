@@ -825,13 +825,14 @@ class Cache:
             for row in rows:
                 score = max(score, row.score)
 
-        score = max(1, min(MAX_PAIR_SCORE, score))
-        if len(rows) > 1:
-            self.db.delete_rows('pairs', where={'pv1': pvname1, 'pv2': pvname2})
-            self.db.insert('pairs', pv1=pvname1, pv2=pvname2, score=score)
-        else:
-            self.db.update('pairs', where={'pv1': pvname1, 'pv2': pvname2},
-                           score=score)
+        score = min(MAX_PAIR_SCORE, score)
+        if score > 0:
+            if len(rows) > 1:
+                self.db.delete_rows('pairs', where={'pv1': pvname1, 'pv2': pvname2})
+                self.db.insert('pairs', pv1=pvname1, pv2=pvname2, score=score)
+            else:
+                self.db.update('pairs', where={'pv1': pvname1, 'pv2': pvname2},
+                               score=score)
         return score
 
     def set_pair_score(self, pvname1, pvname2, score=None, increment=1):
@@ -841,16 +842,16 @@ class Cache:
         if pvname1 == pvname2:
             self.log(f"Cannot set pair score for PV with itself '{pvname1}'",
                      level='warn')
-        if pvname1 not in self.pvs or pvname2 not in self.pvs:
-            self.log(f"Cannot set pair score for unknown PVS '{pvname1}' and '{pvname2}",
-                     level='warn')
+        #if pvname1 not in self.pvs or pvname2 not in self.pvs:
+        #    self.log(f"Cannot set pair score for unknown PVS '{pvname1}' and '{pvname2}",
+        #             level='warn')
 
         pvname1, pvname2 = sorted([pvname1, pvname2])
         current_score = self.get_pair_score(pvname1, pvname2)
         if score is None:
             score = increment + current_score
 
-        score = max(1, min(MAX_PAIR_SCORE, score))
+        score = min(MAX_PAIR_SCORE, score)
         if current_score > 0:
             self.db.update('pairs', where={'pv1': pvname1, 'pv2': pvname2},
                            score=score)
