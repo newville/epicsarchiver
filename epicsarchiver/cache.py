@@ -26,12 +26,15 @@ from . import schema
 logging.basicConfig(level=logging.INFO,
                     format='%(levelname)s [%(asctime)s]  %(message)s',
                     datefmt='%Y-%b-%d %H:%M:%S')
+
+MAX_PAIR_SCORE = 500000
 OPTOKENS = ('ne', 'eq', 'le', 'lt', 'ge', 'gt')
 OPSTRINGS = ('not equal to', 'equal to', 'less than or equal to',
              'less than', 'greater than or equal to', 'greater than')
 
 OPS = {'eq':'__eq__', 'ne':'__ne__',  'le':'__le__',
        'lt':'__lt__', 'ge':'__ge__', 'gt':'__gt__'}
+
 
 class Cache:
     """interface to main/master pvarch database,
@@ -833,6 +836,7 @@ class Cache:
         if score is None:
             score = increment + current_score
 
+        score = max(1, min(MAX_PAIR_SCORE, score))
         if current_score > 0:
             self.db.update('pairs', where={'pv1': pvname1, 'pv2': pvname2},
                            score=score)
