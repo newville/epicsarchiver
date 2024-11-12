@@ -806,24 +806,38 @@ class Cache:
         "get pair score for 2 pvnames"
         score = 0
         nrows = 0
+        pvname1 = normalize_pvname(pvname1)
+        pvname2 = normalize_pvname(pvname2)
         if pvname1 == pvname2:
             return 0
         pvname1, pvname2 = sorted([pvname1, pvname2])
-        for where in ({'pv1': pvname1, 'pv2': pvname2},
-                      {'pv1': pvname2, 'pv2': pvname1}):
-            rows = self.db.get_rows('pairs', where=where)
-            if len(rows) > 0:
-                for row in rows:
-                    score += row.score
-                    nrows += 1
-        if nrows > 1:
-            self.db.delete_rows('pairs', where={'pv1': pvname2, 'pv2': pvname1})
+
+        # check reverse order, and then purge these
+        rows = self.db.get_rows('pairs', where={'pv1': pvname2, 'pv2': pvname1})
+        if len(rows) > 0:
+            for row in rows:
+                score = max(score, row.score)
+        self.db.delete_rows('pairs', where={'pv1': pvname2, 'pv2': pvname1})
+
+        # correct order
+        rows = self.db.get_rows('pairs', where={'pv1': pvname1, 'pv2': pvname2})
+        if len(rows) > 0:
+            for row in rows:
+                score = max(score, row.score)
+
+        score = max(1, min(MAX_PAIR_SCORE, score))
+        if len(rows) > 1:
+            self.db.delete_rows('pairs', where={'pv1': pvname1, 'pv2': pvname2})
+            self.db.insert('pairs', pv1=pvname1, pv2=pvname2, score=score)
+        else:
             self.db.update('pairs', where={'pv1': pvname1, 'pv2': pvname2},
                            score=score)
         return score
 
     def set_pair_score(self, pvname1, pvname2, score=None, increment=1):
         "set pair score for 2 pvnames"
+        pvname1 = normalize_pvname(pvname1)
+        pvname2 = normalize_pvname(pvname2)
         if pvname1 == pvname2:
             self.log(f"Cannot set pair score for PV with itself '{pvname1}'",
                      level='warn')
