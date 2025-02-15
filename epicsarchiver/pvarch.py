@@ -284,13 +284,12 @@ def pvarch_main():
             print(f"Zarr folder does not exist: {config['zarrdir']}")
         else:
             nsaved = 0
+            print(f"Will save {nruns} zarr files to {zarr_folder}")
             for dbname in reversed(dbnames):
                 if dbname == archiver.dbname:
                     continue                
-                archiver.save_zarr(dbname)
+                archiver.save_zarr(dbname, install=True)
                 nsaved += 1
-                #except:
-                #    print(f"Could not save zarr file for {dbname} to {config['zarrdir']}")
                 if nsaved >= nruns:
                     break
                     
