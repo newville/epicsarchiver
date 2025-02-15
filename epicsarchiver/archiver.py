@@ -542,19 +542,22 @@ class Archiver:
         db = DatabaseConnection(dbname, self.config)
         
         if install:
-            zfile = Path(self.config.zarrdir, f'{dbname}_zarr.zip').absolute().as_posix()
+            tfile = Path(self.config.zarrdir, f'tmp_zarr.zip').absolute()
+            zfile = Path(self.config.zarrdir, f'{dbname}_zarr.zip').absolute()
         else:
-            zfile = Path(f'{dbname}_zarr.zip').absolute().as_posix()
+            tfile = Path(f'tmp_zarr.zip').absolute()
+            zfile = Path(f'{dbname}_zarr.zip').absolute()
 
-        store = zarr.ZipStore(zfile, mode='w')
+        store = zarr.ZipStore(tfile.as_posix(), mode='w')
         zroot = zarr.group(store=store)
         zpv = zroot.create_group('pvarch')
 
         pvrows = db.get_rows('pv')
-        nreport = 250
+        nreport = 500
+        print(f" writing to file {tfile}: {len(pvrows)} pvs")
         for i, pvrow in enumerate(pvrows):
             if i > 10 and (i % nreport  == 0):
-                print(f" --> {zfile}: {i}/{len(pvrows)} pvs")
+                print(f"{i}", end=", ", flush=True)
             grp = zpv.create_group(pvrow.name)
             try:
                 graph_hi = float(pvrow.graph_hi)
@@ -593,7 +596,9 @@ class Archiver:
             ndat = len(times)
             grp.create_dataset('ts', data=times,  compression='gzip')
             grp.create_dataset('data', data=values, compression='gzip')    
-            
+        # finally, rename to the final file name
+        print(" done")
+        tfile.rename(zfile)
         # zroot.close()
         print(f"wrote {zfile}")
             
