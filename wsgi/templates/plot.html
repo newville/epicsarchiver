@@ -6,6 +6,7 @@
 
 <!--
     <a href="{{ url_for('static', filename='style.css') }}"/>stylesheet </a>
+    <script src="{{url_for('static', filename= 'plotly-2021.js') }}" ></script>
 -->
 
 <form action="{{ url_for('formplot') }}" method=post>
@@ -86,7 +87,10 @@
   {% if fig is not none %}
   <tr>
     <td colspan=4>
+      <script src="{{url_for('static', filename= 'plotly-2021.js') }}" ></script>
+      <!-- 
       <script src="https://cdn.plot.ly/plotly-latest.min.js" charset="utf-8"></script>
+      -->
       <div id='pv_plot'>
 	<script  type="text/javascript">
 	  var graph = {{fig | safe}};
