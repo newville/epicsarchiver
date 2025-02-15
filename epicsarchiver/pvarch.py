@@ -263,7 +263,7 @@ def pvarch_main():
         dbnames.extend([run.db for run in cache.get_runs()[-nruns:]])
 
         zarr_folder = Path(config['zarrdir']).absolute().as_posix()
-        
+
         sqldump = '{sql_dump:} -p{password:s} -u{user:s}'.format(**config)
         for dbname in dbnames:
             cmds = f'{sqldump} {dbname}'.split()
@@ -277,9 +277,9 @@ def pvarch_main():
             nruns =int(args.options.pop(0))
 
         dbnames = [run.db for run in cache.get_runs()[-(nruns+5):]]
-        
+
         zarr_folder = Path(config['zarrdir']).absolute()
-        
+
         if not zarr_folder.exists():
             print(f"Zarr folder does not exist: {config['zarrdir']}")
         else:
@@ -287,13 +287,13 @@ def pvarch_main():
             print(f"Will save {nruns} zarr files to {zarr_folder}")
             for dbname in reversed(dbnames):
                 if dbname == archiver.dbname:
-                    continue                
+                    continue
                 archiver.save_zarr(dbname, install=True)
                 nsaved += 1
                 if nsaved >= nruns:
                     break
-                    
-            
+
+
     elif 'list' == cmd:
         nruns = args.nruns
         if nruns == 0:
@@ -320,7 +320,7 @@ def pvarch_main():
             for pv in args.options:
                 cache.add_pv(pv)
                 if len(args.options)>1:
-                    cache.set_allpairs(args.options)
+                    cache.set_all_pairs(args.options)
 
         elif 'add_pvfile' == cmd:
             for pvfile in args.options:
