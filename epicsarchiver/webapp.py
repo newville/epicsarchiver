@@ -387,10 +387,12 @@ def plot(date1, date2=None, pv1='', pv2='', pv3='', pv4='', time_ago=None):
 
     if len(plotdata) > 1:
         tmp = [p.pvname for p in plotdata]
-        while len(tmp) > 1:
-            o1 = tmp.pop(0)
-            for o2 in tmp:
-                cache.increment_pair_score(o1, o2)
+        nvars = len(tmp)
+        print("INCRE PAAIR SCORES for ", tmp)
+        for i in range(nvars):
+            pni = tmp[i]
+            for j in range(i+1, nvars):
+                cache.increment_pair_score(pni, tmp[j])
 
     # now fix related to be list of (pvname, pvid) and so that we have the top 3
     # scores for each PV and then order by total scores, up to 20:
