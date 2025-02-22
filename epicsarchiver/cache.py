@@ -817,7 +817,7 @@ class Cache:
         if len(rows) > 0:
             for row in rows:
                 score = max(score, row.score)
-        self.db.delete_rows('pairs', where={'pv1': pvname2, 'pv2': pvname1})
+            self.db.delete_rows('pairs', where={'pv1': pvname2, 'pv2': pvname1})
 
         # correct order
         rows = self.db.get_rows('pairs', where={'pv1': pvname1, 'pv2': pvname2})
