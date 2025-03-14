@@ -116,17 +116,16 @@ def auto_ylog(vals):
     this removes values very nearly 0 (<1.e-150) and then sees whether
     the 1 to 99th percentiles varies by more than a factor of 200.0
     """
-    x = np.array(vals)
-
-    xmin = x.min()
-    if xmin < 0:
-        return False
-
-    try:
-        x01, x99 = np.percentile(x[np.where(x>1.e-150)], [1, 99])
-    except:
-        return False
-    return (x99 > 200*x01)
+    return False
+#   x = np.array(vals)
+#    xmin = x.min()
+#    if xmin < 0:
+#        return False
+#    try:
+#        x01, x99 = np.percentile(x[np.where(x>1.e-150)], [1, 99])
+#    except:
+#        return False
+#    return (x99 > 200*x01)
 
 
 def cull_data(x, y, sample=3, percent=15):
