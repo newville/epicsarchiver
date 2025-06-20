@@ -601,9 +601,9 @@ class Cache:
     def process_alerts(self):
         "handling alerts"
         for pvname, alert in self.alert_data.items():
+            now = time.time()
             value = alert.get('last_value', None)
-            if (alert['active'] == 'no' or value is None or
-                time.time() < (alert['last_notice'] + alert['timeout'])):
+            if alert['active'] == 'no' or value is None:
                 continue
 
             # coerce values to strings or floats for comparisons
@@ -621,17 +621,12 @@ class Cache:
             status = 'ok' if now_ok else 'alarm'
             self.db.update('alerts', where={'pvname': pvname}, status=status)
             alert['status'] = status
-            notify = was_ok and not now_ok
-
-            msg = [f"check alert: {pvname}", f"status={status}", f"val={value}",
-                   f"trip={trippoint}", f"notify={notify}"]
-            # self.log(', '.join(msg))
-            if notify:
-                alert['last_notice'] = time.time()
+            if (was_ok and not now_ok and now > (alert['timeout'] + alert['last_notice'])):
                 self.send_alert_mail(alert, value)
                 self.log(f"Alert sent for PV={pvname}, Label={alert['name']}")
-            # the value has been checked, so we can set 'last_value' to
-            # None so that the alert will not be checked until the value changes.
+                # an alter has been checked, so we can set 'last_value' to
+                # None so that the alert will not be checked until the value changes.
+                alert['last_notice'] = now
             alert['last_value'] = None
 
     def send_alert_mail(self, alert, value):
