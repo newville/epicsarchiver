@@ -13,7 +13,7 @@ import epics
 from epics.utils import str2bytes
 
 import zarr
-    
+
 from .util import (normalize_pvname, get_force_update_time, tformat,
                    clean_bytes, clean_string, SEC_DAY,
                    DatabaseConnection, None_or_one,
@@ -85,13 +85,13 @@ class Archiver:
         is in the pvinfo dictionary
         """
         if pvname not in self.pvinfo:
-            dat = self.db.select('pv', where={'name': pvname},
+            dat = self.db.get_rows('pv', where={'name': pvname},
                                  none_if_empty=True)
             if dat is None:
                 self.add_pv(pvname)
                 time.sleep(0.05)
-                dat = self.db.select('pv', where={'name': pvname},
-                                     none_if_empty=True)
+                dat = self.db.get_rows('pv', where={'name': pvname},
+                                       none_if_empty=True)
                 if dat is None:
                     return None
             dat.update({'last_ts': 0,'last_value':None,
@@ -143,7 +143,7 @@ class Archiver:
                 with_current = True
         if with_current is None:
             with_current = False
-            
+
         timevals, datavals = [], []
         dbnames = self.dbs_for_time(tmin-SEC_DAY, tmax+5)
         for dbname in dbnames:
@@ -166,7 +166,7 @@ class Archiver:
                         i1 = max(np.where(time_all<tmax)[0])
                     except:
                         i1 = len(time_all)
-                            
+
                     timevals.extend(time_all[i0:i1+1].tolist())
                     datavals.extend(data_all[i0:i1+1].tolist())
                     has_data = True
@@ -535,12 +535,12 @@ class Archiver:
         self.cache.set_info(process='archive', status='stopping')
 
     def save_zarr(self, dbname=None, install=False):
-        """save database to zipped zarr file for 
+        """save database to zipped zarr file for
         simpler and faster data extraction"""
         if dbname is None:
             dbname = self.dbname
         db = DatabaseConnection(dbname, self.config)
-        
+
         if install:
             tfile = Path(self.config.zarrdir, f'tmp_zarr.zip').absolute()
             zfile = Path(self.config.zarrdir, f'{dbname}_zarr.zip').absolute()
@@ -569,11 +569,11 @@ class Archiver:
                 graph_lo = ''
 
             grp.attrs.update( {'description': pvrow.description,
-                               'type': pvrow.type,              
-                               'deadtime': float(pvrow.deadtime), 
+                               'type': pvrow.type,
+                               'deadtime': float(pvrow.deadtime),
                                'deadband': float(pvrow.deadband),
-                               'graph_hi': graph_hi, 
-                               'graph_lo': graph_lo, 
+                               'graph_hi': graph_hi,
+                               'graph_lo': graph_lo,
                                'graph_type': pvrow.graph_type})
 
             dbvals = db.get_rows(pvrow.data_table, where={'pv_id': pvrow.id})
@@ -589,16 +589,15 @@ class Archiver:
                         is_float = False
                         val = str2bytes(vx)
                 else:
-                    val = str2bytes(vx)            
+                    val = str2bytes(vx)
                 values.append(val)
             times = np.array(times)
             values = np.array(values)
             ndat = len(times)
             grp.create_dataset('ts', data=times,  compression='gzip')
-            grp.create_dataset('data', data=values, compression='gzip')    
+            grp.create_dataset('data', data=values, compression='gzip')
         # finally, rename to the final file name
         print(" done")
         tfile.rename(zfile)
         # zroot.close()
         print(f"wrote {zfile}")
-            
