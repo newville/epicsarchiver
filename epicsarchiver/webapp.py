@@ -271,8 +271,9 @@ def data(date1=None, date2=None, pv=None, fname=None):
                               tmin=tmin, tmax=tmax)
 
     pvinfo  = archiver.get_pvinfo(pv)
-    pvinfo.update(dict(stmin=tformat(tmin), stmax=tformat(tmax),
-                       now=tformat(time()), npts=len(y)))
+    if pvinfo is not None:
+        pvinfo.update(dict(stmin=tformat(tmin), stmax=tformat(tmax),
+                           now=tformat(time()), npts=len(y)))
     buff = ['''# Data for {name:s}
 # Description: {description:s}
 # Start Time:  {stmin:s}
@@ -360,9 +361,16 @@ def plot(date1, date2=None, pv1='', pv2='', pv3='', pv4='', time_ago=None):
             enum_labels = None
 
         force_ylog   = pvinfo['graph_type'].startswith('log')
-        t, y =  archiver.get_data(pv, with_current=with_current,
-                                  tmin=dt1.timestamp(),
-                                  tmax=dt2.timestamp())
+        try:
+            t, y =  archiver.get_data(pv, with_current=with_current,
+                                      tmin=dt1.timestamp(),
+                                      tmax=dt2.timestamp())
+        except:
+            time.sleep(0.25)
+            t, y =  archiver.get_data(pv, with_current=with_current,
+                                      tmin=dt1.timestamp(),
+                                      tmax=dt2.timestamp())
+            
         if dtype == 'string' and table is None: # only show table of 1st string PV
             table = []
             tablepv = pv

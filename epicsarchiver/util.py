@@ -106,9 +106,14 @@ class DatabaseConnection:
                                    password=config.password,
                                    host=config.host)
         self.engine.connect()
-        time.sleep(0.025)
         self.metadata = MetaData()
-        self.metadata.reflect(self.engine)
+        try:
+            time.sleep(0.05)
+            self.metadata.reflect(self.engine)
+        except:
+            time.sleep(0.25)
+            self.metadata.reflect(self.engine)
+            
         self.tables  = self.metadata.tables
 
     def execute(self, query, flush=True):
