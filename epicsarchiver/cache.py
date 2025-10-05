@@ -676,7 +676,6 @@ class Cache:
             match = re_showpv(line)
             while match is not None and nmatch<25:
                 pvn = match.groups()[0]
-                line = line.replace(f'%PV({pvn})%', self.get(pvn))
                 try:
                     line = line.replace(f'%PV({pvn})%', self.get(pvn))
                 except:
