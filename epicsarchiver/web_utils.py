@@ -25,7 +25,7 @@ def ts2iso(ts):
     "timestamp to iso format"
     tfrac, tint = modf(ts)
     sfrac = "{0:03d}".format(round(tfrac*1000))
-    out = "%s.%s" % (strftime("%Y-%m-%dT%H:%M:%S", localtime(tint)), sfrac)
+    out = "%s.%s" % (strftime("%Y-%m-%d %H:%M:%S", localtime(tint)), sfrac)
     return out
 
 def parse_times(date1, date2):
