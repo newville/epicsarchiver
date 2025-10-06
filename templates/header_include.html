@@ -4,15 +4,15 @@
 
   <link rel=stylesheet type=text/css
         href="{{ url_for('static', filename='style.css') }}"/>
+  <script type='text/javascript'
+          src="{{url_for('static', filename='jquery-3.7.1.min.js')}}"></script>
 
   <script type='text/javascript'
-          src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
-  <script type='text/javascript'
           src="{{url_for('static', filename='datepicker.js')}}"></script>
-  <link rel='stylesheet' type='text/css' href="{{url_for('static',
-                                               filename='datepicker.css')}}"/>
+  <link rel='stylesheet' type='text/css'
+        href="{{url_for('static', filename='datepicker.css')}}"/>
   <script type="text/javascript">
-    function enable_pv_updates() {setInterval(update_pvs, 1500);}
+    function enable_pv_updates() {setInterval(update_pvs, 2000);}
 
     function update_pvs(data) {
         var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
@@ -26,7 +26,7 @@
                   });
         } else {
             var elem = document.getElementById("0");
-            if (elem) { elem.innerHTML = "(stale) " ; }
+            if (elem) { elem.innerHTML = "(stale)" ; }
         }
     }
   </script>
