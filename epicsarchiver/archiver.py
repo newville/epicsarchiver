@@ -84,6 +84,8 @@ class Archiver:
         """return pvinfo data (a dict) for a pv, and also ensures that it
         is in the pvinfo dictionary
         """
+        if pvname in (None, '', 'None'):
+            return
         if pvname not in self.pvinfo:
             dat = self.db.get_rows('pv', where={'name': pvname},
                                  none_if_empty=True)
