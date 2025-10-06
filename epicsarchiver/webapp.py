@@ -256,7 +256,6 @@ def logout():
     return redirect(url_for('show', page='General'))
 
 
-
 @app.route('/data/<date1>/<date2>/<pv>/<fname>')
 def data(date1=None, date2=None, pv=None, fname=None):
     update_data(session)
@@ -267,10 +266,26 @@ def data(date1=None, date2=None, pv=None, fname=None):
     tmax = dt2.timestamp()
     pv = null2blank(pv)
     with_current = abs(time() - dt2.timestamp()) < 86400.0
-    t, y =  archiver.get_data(pv, with_current=with_current,
-                              tmin=tmin, tmax=tmax)
+    t = y = pvinfo = None
+    try:
+        t, y =  archiver.get_data(pv, with_current=with_current,
+                                  tmin=tmin, tmax=tmax)
+        pvinfo  = archiver.get_pvinfo(pv)
+    except Exception:
+        pass
+    if pvinfo is None:
+        time.sleep(0.25)
+        try:
+            pvinfo  = archiver.get_pvinfo(pv)
+        except Exception:
+            return Response("could not fetch data\n", mimetype='text/plain')
+    if t is None or y is None:
+        try:
+            t, y =  archiver.get_data(pv, with_current=with_current,
+                                      tmin=tmin, tmax=tmax)
+        except Exception:
+            return Response("could not fetch data\n", mimetype='text/plain')
 
-    pvinfo  = archiver.get_pvinfo(pv)
     if pvinfo is not None:
         pvinfo.update(dict(stmin=tformat(tmin), stmax=tformat(tmax),
                            now=tformat(time()), npts=len(y)))
@@ -370,7 +385,7 @@ def plot(date1, date2=None, pv1='', pv2='', pv3='', pv4='', time_ago=None):
             t, y =  archiver.get_data(pv, with_current=with_current,
                                       tmin=dt1.timestamp(),
                                       tmax=dt2.timestamp())
-            
+
         if dtype == 'string' and table is None: # only show table of 1st string PV
             table = []
             tablepv = pv
