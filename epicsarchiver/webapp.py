@@ -42,9 +42,10 @@ cache_data = {}
 enum_strings = {}
 
 ago_choices = ['15 minutes', '30 minutes', '1 hour',
-               '4 hours', '12 hours',
-               '1 day', '3 days', '1 week', '3 weeks',
-               '6 weeks', '12 weeks', '26 weeks', '1 year']
+               '2 hours', '4 hours', '6 hours', '12 hours',
+               '1 day', '2 days', '3 days',
+               '1 week', '2 weeks', '4 weeks', '6 weeks',
+               '12 weeks', '26 weeks', '1 year']
 
 cull_message = """Warning: data for %s culled for plotting (%d to %d values)"""
 
