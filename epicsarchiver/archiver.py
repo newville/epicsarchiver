@@ -136,7 +136,6 @@ class Archiver:
         pvname = normalize_pvname(pvname)
         if pvname not in self.pvinfo:
             self.log("pv %s not found" % (pvname), level='warn')
-
         if tmin is None:
             tmin = time.time() - 7*SEC_DAY
         if tmax is None:
@@ -148,7 +147,7 @@ class Archiver:
 
         timevals, datavals = [], []
         dbnames = self.dbs_for_time(tmin-SEC_DAY, tmax+5)
-        for dbname in dbnames:
+        for dbname in reversed(dbnames):
             has_data = False
             zpath = Path(self.config.zarrdir, f'{dbname}_zarr.zip').absolute()
             if use_zarr and zpath.exists():
@@ -183,7 +182,6 @@ class Archiver:
                 if pvrow is None:
                     self.log("no data table for  %s" % (pvname), level='warn')
                     continue
-
                 dtab = db.tables[pvrow.data_table]
                 query = dtab.select().where(dtab.c.pv_id==pvrow.id)
                 query = query.where(dtab.c.time>=Decimal(tmin-SEC_DAY))
@@ -192,14 +190,20 @@ class Archiver:
                 rows = db.execute(query).fetchall()
 
                 if len(datavals) == 0:  # include 1 datapoint before tmin
-                    for row in reversed(rows):
-                        rtime = float(row.time)
-                        if rtime <= tmin:
-                            timevals = [rtime]
-                            datavals = [clean_value(row.value)]
-                            break
-                    if len(timevals) == 0:
+                    early_times = []
+                    early_vals = []
+                    for row in rows:
+                        thistime = float(row.time)
+                        if thistime < tmin:
+                            early_times.append(thistime)
+                            early_vals.append(clean_value(row.value))
+                    if len(early_times) <= 0:
                         logging.warn("could not get 'early value' for %s" % pvname)
+                    else:
+                        early_times = np.array(early_times)
+                        imaxtime = early_times.argsort()[-1]
+                        timevals = [early_times[imaxtime]]
+                        datavals = [early_vals[imaxtime]]
                 for row in rows:
                     rtime = float(row.time)
                     if rtime >= tmin and rtime <= tmax:
@@ -251,7 +255,6 @@ class Archiver:
         if not pv.connected:
             self.log("cannot connect to PV '%s'" % pvname, level='warn')
             return
-        # print("Archiver Add PV #2,  ", pv)
         # determine type
         dtype = 'string'
         pvtype = pv.type.replace('ctrl_', '').replace('time_', '')
