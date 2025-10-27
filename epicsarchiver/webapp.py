@@ -403,7 +403,6 @@ def plot(date1, date2=None, pv1='', pv2='', pv3='', pv4='', time_ago=None):
             thisplot = PlotData(t=t, y=y, pvname=pv, label=label,
                                 force_ylog=force_ylog,
                                 enum_labels=enum_labels)
-
             plotdata.append(thisplot)
 
     if len(plotdata) > 0:
@@ -412,7 +411,6 @@ def plot(date1, date2=None, pv1='', pv2='', pv3='', pv4='', time_ago=None):
     if len(plotdata) > 1:
         tmp = [p.pvname for p in plotdata]
         nvars = len(tmp)
-        print("INCRE PAAIR SCORES for ", tmp)
         for i in range(nvars):
             pni = tmp[i]
             for j in range(i+1, nvars):
