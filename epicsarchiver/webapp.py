@@ -275,7 +275,7 @@ def data(date1=None, date2=None, pv=None, fname=None):
     except Exception:
         pass
     if pvinfo is None:
-        time.sleep(0.25)
+        sleep(0.25)
         try:
             pvinfo  = archiver.get_pvinfo(pv)
         except Exception:
@@ -382,7 +382,7 @@ def plot(date1, date2=None, pv1='', pv2='', pv3='', pv4='', time_ago=None):
                                       tmin=dt1.timestamp(),
                                       tmax=dt2.timestamp())
         except:
-            time.sleep(0.25)
+            sleep(0.25)
             t, y =  archiver.get_data(pv, with_current=with_current,
                                       tmin=dt1.timestamp(),
                                       tmax=dt2.timestamp())
